@@ -1,0 +1,9 @@
+{
+  "name": "velo-soul-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "VELO SOUL: three bicycle personalities, Korean voice companionship and journey cards",
+  "engines": { "node": ">=22" },
+  "scripts": { "start": "node server.mjs", "test": "node --test server.test.mjs" }
+}
