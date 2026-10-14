@@ -12,7 +12,7 @@ export function voiceFile(language,id,key,line){
  if(language!=='en')return null;
  const scene=SCENARIOS[id].find(s=>s.line===line);
  const resolved=BASE_KEYS.includes(key)?key:scene&&(scene.audio||scene.id);
- return resolved?`audio/en/${id}-${resolved}.wav`:null;
+ return resolved?`audio/en/${id}-${resolved}.wav?v=20261014-complete`:null;
 }
 
 // Packaged audio is independent of installed OS/browser speech voices.
