@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import qrcode from './vendor/qrcode.mjs';
 
 const root = fileURLToPath(new URL('./public/', import.meta.url));
-const types = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.svg':'image/svg+xml', '.png':'image/png', '.mp3':'audio/mpeg', '.json':'application/json; charset=utf-8' };
+const types = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.mjs':'text/javascript; charset=utf-8', '.svg':'image/svg+xml', '.png':'image/png', '.mp3':'audio/mpeg', '.json':'application/json; charset=utf-8' };
 const colors = { lumi:'#2441c7', mori:'#117455', bori:'#a84313' };
 
 export function makeQr(soul, origin) {
@@ -28,6 +28,7 @@ function originFor(req) {
 export const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=(self)');
   const send = (code, body, type='text/plain; charset=utf-8') => {
     res.writeHead(code, { 'Content-Type':type, 'Content-Length':Buffer.byteLength(body) });
     res.end(req.method === 'HEAD' ? undefined : body);
