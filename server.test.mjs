@@ -44,3 +44,14 @@ test('deployment files, traversal and unexpected methods are not exposed',async(
   for(const p of ['/server.mjs','/package.json','/.env','/vendor/qrcode.mjs','/%2e%2e%2fserver.mjs','/missing.mp3']) assert.equal((await fetch(base+p)).status,404,p);
   assert.equal((await fetch(base+'/',{method:'POST'})).status,405);
 });
+
+test('packaged English WAV supports correct MIME, HEAD and partial playback',async()=>{
+ for(const id of ['lumi','mori','bori']){
+  const path=base+`/audio/en/${id}-hello.wav`,head=await fetch(path,{method:'HEAD'});
+  assert.equal(head.status,200);assert.equal(head.headers.get('content-type'),'audio/wav');
+  const size=Number(head.headers.get('content-length'));assert.ok(size>48000);
+  const part=await fetch(path,{headers:{Range:'bytes=0-43'}});
+  assert.equal(part.status,206);assert.equal(part.headers.get('content-range'),`bytes 0-43/${size}`);
+  assert.equal(Buffer.from(await part.arrayBuffer()).toString('ascii',0,4),'RIFF');
+ }
+});

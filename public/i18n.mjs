@@ -1,6 +1,14 @@
 // Korean is the source language. Translation only touches presentation nodes,
 // so changing language never remounts a camera, ride, or editable note.
 const rows = `
+EN · 미국식 영어 · 가볍고 호기심 있게|EN · American · Light & curious|EN · 美式 · 轻快好奇
+EN · 영국식 영어 · 느긋하고 부드럽게|EN · British · Calm & gentle|EN · 英式 · 舒缓温柔
+EN · 미국식 영어 · 따뜻하고 신나게|EN · American · Warm & animated|EN · 美式 · 热情活泼
+듣기|Listen|试听
+인사 듣기|Hear my hello|听我打招呼
+버튼을 눌러 목소리를 들어보세요.|Tap to hear my voice.|点一下，听听我的声音。
+소리를 켜려면 듣기 버튼을 눌러주세요.|Tap a Listen button to enable audio.|请点击试听按钮开启声音。
+
 EN · 미국식 영어 우선 · 가볍고 호기심 있게|EN · American preferred · Light & curious|EN · 优先美式 · 轻快好奇
 EN · 영국식 영어 우선 · 느긋하고 부드럽게|EN · British preferred · Calm & gentle|EN · 优先英式 · 舒缓温柔
 EN · 미국식 영어 우선 · 따뜻하고 신나게|EN · American preferred · Warm & animated|EN · 优先美式 · 热情活泼

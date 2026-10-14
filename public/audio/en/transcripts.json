@@ -1,0 +1,211 @@
+[
+  {
+    "id": "lumi",
+    "key": "hello",
+    "text": "Hey, I'm Lumi! I live in this bike. Wanna see what's around the corner?",
+    "provider": "TTSMaker",
+    "voiceId": "1480",
+    "voice": "Alayna",
+    "locale": "en-US",
+    "speed": 1.0,
+    "pitch": "default"
+  },
+  {
+    "id": "lumi",
+    "key": "start",
+    "text": "Let's go. I'll be right here with you.",
+    "provider": "TTSMaker",
+    "voiceId": "1480",
+    "voice": "Alayna",
+    "locale": "en-US",
+    "speed": 1.0,
+    "pitch": "default"
+  },
+  {
+    "id": "lumi",
+    "key": "during",
+    "text": "The leaf shadows were moving with our wheels. I love little discoveries like that.",
+    "provider": "TTSMaker",
+    "voiceId": "1480",
+    "voice": "Alayna",
+    "locale": "en-US",
+    "speed": 1.0,
+    "pitch": "default"
+  },
+  {
+    "id": "lumi",
+    "key": "pause",
+    "text": "I'm here. We can ride quietly for a while.",
+    "provider": "TTSMaker",
+    "voiceId": "1480",
+    "voice": "Alayna",
+    "locale": "en-US",
+    "speed": 1.0,
+    "pitch": "default"
+  },
+  {
+    "id": "lumi",
+    "key": "end",
+    "text": "Riding beside you today felt like a little adventure.",
+    "provider": "TTSMaker",
+    "voiceId": "1480",
+    "voice": "Alayna",
+    "locale": "en-US",
+    "speed": 1.0,
+    "pitch": "default"
+  },
+  {
+    "id": "lumi",
+    "key": "car",
+    "text": "See that purple car? Like a grape on wheels! Shall we stop and take a look?",
+    "provider": "TTSMaker",
+    "voiceId": "1480",
+    "voice": "Alayna",
+    "locale": "en-US",
+    "speed": 1.0,
+    "pitch": "default"
+  },
+  {
+    "id": "mori",
+    "key": "hello",
+    "text": "Hello, I'm Mori. I live in this bicycle. No rush today. We'll find our own pace.",
+    "provider": "TTSMaker",
+    "voiceId": "2402",
+    "voice": "Robert",
+    "locale": "en-GB",
+    "speed": 0.9,
+    "pitch": "default"
+  },
+  {
+    "id": "mori",
+    "key": "start",
+    "text": "Let's go. I'll be right here with you.",
+    "provider": "TTSMaker",
+    "voiceId": "2402",
+    "voice": "Robert",
+    "locale": "en-GB",
+    "speed": 0.9,
+    "pitch": "default"
+  },
+  {
+    "id": "mori",
+    "key": "during",
+    "text": "A breeze just passed by. I like our quiet moments on the road, too.",
+    "provider": "TTSMaker",
+    "voiceId": "2402",
+    "voice": "Robert",
+    "locale": "en-GB",
+    "speed": 0.9,
+    "pitch": "default"
+  },
+  {
+    "id": "mori",
+    "key": "pause",
+    "text": "Sure, I'll stay quietly beside you. Call me when you need me.",
+    "provider": "TTSMaker",
+    "voiceId": "2402",
+    "voice": "Robert",
+    "locale": "en-GB",
+    "speed": 0.9,
+    "pitch": "default"
+  },
+  {
+    "id": "mori",
+    "key": "end",
+    "text": "Riding together made an ordinary afternoon feel warmer.",
+    "provider": "TTSMaker",
+    "voiceId": "2402",
+    "voice": "Robert",
+    "locale": "en-GB",
+    "speed": 0.9,
+    "pitch": "default"
+  },
+  {
+    "id": "mori",
+    "key": "speed",
+    "text": "We're going a little fast. How about slowing down and feeling the breeze?",
+    "provider": "TTSMaker",
+    "voiceId": "2402",
+    "voice": "Robert",
+    "locale": "en-GB",
+    "speed": 0.9,
+    "pitch": "default"
+  },
+  {
+    "id": "mori",
+    "key": "sun",
+    "text": "The sunshine feels so warm. Shall we rest in the shade by the river next time?",
+    "provider": "TTSMaker",
+    "voiceId": "2402",
+    "voice": "Robert",
+    "locale": "en-GB",
+    "speed": 0.9,
+    "pitch": "default"
+  },
+  {
+    "id": "bori",
+    "key": "hello",
+    "text": "Hey, I'm Bori! I've been saving you a spot. Ready for a ride, and maybe a little snack?",
+    "provider": "TTSMaker",
+    "voiceId": "2593",
+    "voice": "Matthew",
+    "locale": "en-US",
+    "speed": 1.05,
+    "pitch": "default"
+  },
+  {
+    "id": "bori",
+    "key": "start",
+    "text": "Let's go. I'll be right here with you.",
+    "provider": "TTSMaker",
+    "voiceId": "2593",
+    "voice": "Matthew",
+    "locale": "en-US",
+    "speed": 1.05,
+    "pitch": "default"
+  },
+  {
+    "id": "bori",
+    "key": "during",
+    "text": "Imagining warm bread made me happy. Or maybe it's because I'm riding with you?",
+    "provider": "TTSMaker",
+    "voiceId": "2593",
+    "voice": "Matthew",
+    "locale": "en-US",
+    "speed": 1.05,
+    "pitch": "default"
+  },
+  {
+    "id": "bori",
+    "key": "pause",
+    "text": "Okay, let's enjoy a quiet moment. We can talk about bread later!",
+    "provider": "TTSMaker",
+    "voiceId": "2593",
+    "voice": "Matthew",
+    "locale": "en-US",
+    "speed": 1.05,
+    "pitch": "default"
+  },
+  {
+    "id": "bori",
+    "key": "end",
+    "text": "Our time together today might be my most delicious memory.",
+    "provider": "TTSMaker",
+    "voiceId": "2593",
+    "voice": "Matthew",
+    "locale": "en-US",
+    "speed": 1.05,
+    "pitch": "default"
+  },
+  {
+    "id": "bori",
+    "key": "cafe",
+    "text": "Imagine a café down that alley! How about a break and a bite of warm bread?",
+    "provider": "TTSMaker",
+    "voiceId": "2593",
+    "voice": "Matthew",
+    "locale": "en-US",
+    "speed": 1.05,
+    "pitch": "default"
+  }
+]

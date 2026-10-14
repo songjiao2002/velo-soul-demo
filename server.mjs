@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import qrcode from './vendor/qrcode.mjs';
 
 const root = fileURLToPath(new URL('./public/', import.meta.url));
-const types = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.mjs':'text/javascript; charset=utf-8', '.svg':'image/svg+xml', '.png':'image/png', '.mp3':'audio/mpeg', '.json':'application/json; charset=utf-8' };
+const types = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.mjs':'text/javascript; charset=utf-8', '.svg':'image/svg+xml', '.png':'image/png', '.wav':'audio/wav', '.mp3':'audio/mpeg', '.json':'application/json; charset=utf-8' };
 const colors = { lumi:'#2441c7', mori:'#117455', bori:'#a84313' };
 
 export function makeQr(soul, origin) {
@@ -72,7 +72,7 @@ export const server = http.createServer(async (req, res) => {
       'Content-Type':types[path.extname(file)] || 'application/octet-stream',
       'Content-Length':Math.max(0,end-start+1),
       'Accept-Ranges':'bytes',
-      'Cache-Control':/\.(mp3|png)$/.test(file) ? 'public, max-age=86400' : 'no-cache'
+      'Cache-Control':/\.(mp3|wav|png)$/.test(file) ? 'public, max-age=86400' : 'no-cache'
     });
     if (req.method === 'HEAD' || info.size === 0) return res.end();
     const stream=createReadStream(file,{start,end});
