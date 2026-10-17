@@ -22,8 +22,8 @@ export function captureVisionFrame(video){
 }
 
 export class SoulVisionObserver {
- constructor({capture,canObserve=()=>true,onState=()=>{},onReply=()=>{},fetchImpl=fetch,intervalMs=20000,timeoutMs=30000,setTimer=setTimeout,clearTimer=clearTimeout,now=Date.now}={}){
-  Object.assign(this,{capture,canObserve,onState,onReply,fetchImpl,intervalMs,timeoutMs,setTimer,clearTimer,now});this.active=false;this.epoch=0;this.controller=null;this.timer=null;this.gate=new SceneGate();
+ constructor({capture,getContext=()=>({}),canObserve=()=>true,onState=()=>{},onReply=()=>{},fetchImpl=fetch,intervalMs=20000,timeoutMs=30000,setTimer=setTimeout,clearTimer=clearTimeout,now=Date.now}={}){
+  Object.assign(this,{capture,getContext,canObserve,onState,onReply,fetchImpl,intervalMs,timeoutMs,setTimer,clearTimer,now});this.active=false;this.epoch=0;this.controller=null;this.timer=null;this.gate=new SceneGate();
  }
  stop(){this.active=false;this.epoch++;this.clearTimer(this.timer);this.controller?.abort();this.controller=null;this.onState('off');}
  async request(url,options,serial){
@@ -41,7 +41,7 @@ export class SoulVisionObserver {
   try{
    if(!this.canObserve()){this.onState('paused');return;}
    const image=this.capture();this.onState('watching');
-   const result=await this.request('/api/vision',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({soul:this.soul,language:this.language,image})},serial);
+   const result=await this.request('/api/vision',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({soul:this.soul,language:this.language,image,context:this.getContext()})},serial);
    if(serial!==this.epoch||!this.active)return;
    if(result.soul!==this.soul)throw new Error('failed');
    // A conversation or navigation can start while the model is replying.

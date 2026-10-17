@@ -1,0 +1,65 @@
+body.camera-open{overflow:hidden}
+.camera-fullscreen{position:fixed;inset:0;width:100%;height:100dvh;min-height:400px;background:#101510;color:#fff;z-index:90;overflow:hidden;padding:0;border:0;border-radius:0;display:block}
+.camera-fullscreen .camera-view{position:absolute;inset:0;width:100%;height:100%;min-height:0;border-radius:0;background:#131a16}
+.camera-fullscreen .camera-view video{width:100%;height:100%;object-fit:cover}
+.camera-fullscreen .camera-placeholder{background:radial-gradient(ellipse at 50% 35%,#33483c,#111b18 75%)}
+.camera-fullscreen .camera-empty{padding:100px 35px 300px;color:#e4ece7}
+.camera-fullscreen .camera-empty p{color:#c0ccc5}
+.camera-fullscreen .camera-view:after{content:'';position:absolute;inset:0;background:linear-gradient(#0008,transparent 25%,transparent 40%,#000a 85%,#000c);pointer-events:none;z-index:3}
+.camera-fullscreen .camera-label{top:calc(79px + env(safe-area-inset-top,0px));left:20px;background:#10231cbf;color:#e7ffe9;z-index:5}
+.camera-fullscreen .ar-hint{display:none}
+.camera-top{position:absolute;z-index:10;top:0;left:0;right:0;padding:calc(18px + env(safe-area-inset-top,0px)) 22px 10px;display:flex;align-items:center;justify-content:space-between;gap:18px}
+.camera-fullscreen button{color:#fff;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.camera-fullscreen button:focus-visible{outline:3px solid #d3f28d;outline-offset:4px}
+.camera-round{display:grid;place-items:center;width:46px;height:46px;min-width:46px;border-radius:50%;border:1px solid #ffffff4a;background:#16221c80;backdrop-filter:blur(15px);font-size:25px;line-height:1;padding:0}
+.camera-name{display:flex;align-items:center;gap:12px;font-size:17px;letter-spacing:.03em}
+.camera-name span{font-size:10px;color:#d7f0d7;border:1px solid #ffffff40;border-radius:20px;padding:6px 9px;max-width:140px}
+.camera-focus{position:absolute;left:50%;top:43%;transform:translate(-50%,-50%);width:46px;height:46px;border:1px solid #ffffff70;border-radius:50%;z-index:4;pointer-events:none;display:grid;place-items:center}
+.camera-focus i{width:4px;height:4px;background:#ffffffc7;border-radius:50%}
+.camera-fullscreen .soul-overlay{top:calc(42% - 100px)!important;left:calc(50% - 100px);width:200px;height:200px;z-index:5;pointer-events:none}
+.camera-fullscreen .soul-overlay img{width:100%;height:100%;object-fit:contain}
+.camera-fullscreen .soul-portal{top:calc(42% - 130px)!important}
+.camera-live-caption{position:absolute;z-index:7;left:24px;right:24px;bottom:calc(307px + env(safe-area-inset-bottom,0px));text-align:center;text-shadow:0 2px 10px #000;font-size:15px;line-height:1.5;pointer-events:none;max-height:24vh;overflow:auto}
+.camera-live-caption p:empty{display:none}
+.camera-live-caption p{display:inline-block;padding:10px 16px;border-radius:16px;background:#111c159c;backdrop-filter:blur(15px);margin:0}
+.camera-live-caption .voice-status{display:block;color:#e1e9e1;font-size:11px;margin-top:5px;min-height:16px}
+.camera-fullscreen .vision-panel{position:absolute;z-index:8;left:22px;right:22px;bottom:calc(209px + env(safe-area-inset-bottom,0px));padding:10px 12px;border:1px solid #ffffff25;background:#1020188c;border-radius:15px;backdrop-filter:blur(18px);display:grid;grid-template-columns:1fr auto;gap:3px 10px;max-height:110px;overflow:auto;color:#eee}
+.camera-fullscreen .vision-panel .vision-notice{font-size:10px;line-height:1.4;color:#d5e1d8;margin:0;grid-column:1/-1}
+.camera-fullscreen #visionToggle{min-height:34px;font-size:11px;padding:5px 10px;background:#e6ffdf1f;border:1px solid #e6ffdf70;border-radius:20px;grid-row:2;grid-column:2}
+.camera-fullscreen #visionStatus{font-size:10px;line-height:1.4;color:#cfe2d3;margin:4px 0;align-self:center;grid-row:2;grid-column:1}
+.camera-fullscreen #visionReply,.camera-fullscreen #visionReplay{display:none}
+.camera-bottom{position:absolute;z-index:9;left:0;right:0;bottom:0;padding:0 22px calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(transparent,#070e0bbf);text-align:center}
+.camera-mode-row{display:flex;align-items:center;justify-content:center;gap:17px;margin-bottom:13px}
+.camera-mode-row button{font-family:inherit;font-size:11px;font-weight:500;line-height:1.3;padding:5px 2px;border:0;background:none;min-height:30px;max-width:40%}
+.camera-mode-row button:disabled{opacity:.45}
+.camera-shutter-row{display:grid;grid-template-columns:65px 1fr 65px;align-items:center;justify-items:center;max-width:440px;margin:auto}
+.camera-shutter{width:78px;height:78px;padding:5px;border:3px solid #fff;border-radius:50%;background:transparent;display:grid;place-items:center;transition:transform .12s,opacity .12s}
+.camera-shutter span{width:100%;height:100%;display:block;border-radius:50%;background:#fff;box-shadow:0 2px 14px #0003}
+.camera-shutter:active{transform:scale(.91)}
+.camera-shutter:disabled{opacity:.4;cursor:default}
+.camera-photo-preview{position:relative;width:48px;height:48px;background:#ffffff12;border:1px solid #ffffff40;border-radius:11px;display:grid;place-items:center;overflow:hidden}
+.camera-photo-preview img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.camera-photo-preview span{font-size:10px;z-index:1;background:#0005;padding:2px 4px;border-radius:4px}
+.camera-fullscreen .camera-status{padding:8px 0 0;color:#c8d4cb;font-size:10px;line-height:1.3;min-height:22px}
+.camera-continue{background:none;border:0;font-size:11px;color:#d3f28d!important;padding:7px 0 0}
+.camera-fullscreen .capture-flash:before{content:'';position:absolute;inset:0;background:white;z-index:8;animation:shutter-flash .24s ease-out both;pointer-events:none}
+@keyframes shutter-flash{from{opacity:.85}to{opacity:0}}
+.chat-options{padding:0 22px 12px;display:grid;gap:9px;font-size:12px}
+.chat-options label{display:flex;align-items:center;gap:8px}
+.chat-options input{accent-color:var(--accent)}
+.soul-chat{z-index:200}
+#toast{z-index:220}
+@media(min-width:850px){.camera-fullscreen .vision-panel{left:calc(50% - 240px);right:calc(50% - 240px)}.camera-live-caption{left:calc(50% - 280px);right:calc(50% - 280px)}.camera-top{padding-left:36px;padding-right:36px}}
+@media(max-height:650px){.camera-live-caption{bottom:285px;font-size:12px}.camera-fullscreen .vision-panel{bottom:195px;max-height:75px}.camera-fullscreen .vision-notice{display:none}.camera-shutter{width:68px;height:68px}.camera-fullscreen .soul-overlay{width:150px;height:150px;left:calc(50% - 75px);top:calc(34% - 75px)!important}}
+@media(prefers-reduced-motion:reduce){.camera-fullscreen .capture-flash:before{display:none}}
+
+.camera-conversation{position:absolute;z-index:11;top:calc(80px + env(safe-area-inset-top,0px));left:22px;right:22px;max-width:480px;margin:auto;border-radius:16px;background:#10201899;backdrop-filter:blur(14px);border:1px solid #ffffff28;padding:9px 12px}
+.camera-conversation>div{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.camera-conversation button{border:0;border-radius:20px;background:#e0f5d9;color:#1c3526;font-size:12px;padding:9px 13px;min-height:34px}
+.camera-conversation button[aria-pressed=true]{background:#d5efbd;color:#14200e}
+.camera-conversation select{color:#fff;background:#193b2f;border:1px solid #ffffff40;border-radius:10px;padding:7px;font-size:11px;max-width:130px}
+.camera-conversation p{font-size:11px;line-height:1.4;margin:6px 0 0;color:#e0ebdf}
+.camera-fullscreen .camera-label{top:calc(174px + env(safe-area-inset-top,0px))}
+.ride-toolbar>[data-live-status]{flex-basis:100%;order:10;line-height:1.5}
+
+.hands-free-help{font-size:10px;color:#dae6da;margin-top:3px}.hands-free-help summary{cursor:pointer;list-style:none;text-align:right}.hands-free-help p{line-height:1.5;margin:6px 0;max-height:100px;overflow:auto}

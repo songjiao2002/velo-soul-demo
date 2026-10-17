@@ -1,9 +1,20 @@
 // Korean is the source language. Translation only touches presentation nodes,
 // so changing language never remounts a camera, ride, or editable note.
 const rows = `
+위치·카메라·마이크 권한을 요청해요. 말하면 자동으로 Qwen에 보내고 음성으로 답해요. 화면·장소 정보도 함께 사용해요.|Allow location, camera and microphone. Speak to send automatically to Qwen and hear its reply, using current scene and place context.|允许定位、相机和麦克风。说完自动发送给千问并用语音回答，同时结合当前画面与地点信息。
+음성 대화 켜기|Start voice conversation|开启连续语音
+
+GPS · 카메라 · 음성 함께 시작|Start live companionship|开启实时陪伴
+위치·카메라 권한을 요청하고, 현재 화면과 장소 정보를 Qwen에 보내 목소리로 함께해요.|Allow location and camera. Current frames and place context go to Qwen for spoken companionship.|允许定位和相机，将当前画面与地点信息发送给千问，获得语音陪伴。
+함께 시작|Start together|一起出发
+카메라 권한을 기다리고 있어요.|Waiting for camera permission.|正在等待相机权限。
+최근 촬영 사진|Latest captured photo|刚拍摄的照片
+목소리 듣기|Hear my voice|试听声音
+순간 담기|Take photo|拍摄
+
 AI 관찰을 켜면 카메라 장면을 분석해요. 그 외 주변 검색, 날씨, 자전거의 초대는 시뮬레이션이에요.|AI observation analyzes camera scenes when enabled. Other nearby searches, weather and bicycle invitations are simulations.|开启 AI 观察后可分析相机画面。其他周边搜索、天气与自行车邀约仍为模拟。
 대화 글과 장소 정보는 Alibaba Cloud Qwen으로 전달됩니다. AI 관찰을 켜면 분석용 카메라 이미지도 Qwen으로 보내며, 이 사이트에는 저장하지 않습니다.|Chat text and place information go to Alibaba Cloud Qwen. Enabling AI observation also sends camera images to Qwen; this site does not save those analysis images.|对话文字与地点信息会发送给阿里云千问。开启 AI 观察后也会向千问发送相机图片；本站不保存分析用图。
-마이크는 대화의 음성 입력 버튼을 누른 뒤에만 사용하며 브라우저의 음성 인식 서비스가 처리할 수 있습니다.|The microphone is used only after tapping voice input. Recognition may be processed by your browser provider.|只在点击语音输入后使用麦克风，识别可能由浏览器服务商处理。
+실시간 동행 또는 음성 대화를 켜면 마이크를 사용해요. 답변 중에는 일반 전사를 멈추고 “잠깐” 명령을 듣습니다. 음성 인식은 브라우저 서비스가 처리할 수 있습니다.|Starting live companionship or voice conversation uses the microphone. During replies, normal transcription pauses while “stop” detection stays active. Recognition may be processed by your browser provider.|开启实时陪伴或语音对话后使用麦克风。回答时暂停普通转写，保留“等一下”的打断监听。识别可能由浏览器服务商处理。
 AI 관찰을 켜기 전에는 화면을 서버로 보내지 않아요.|Camera frames stay on your device until you enable AI observation.|开启 AI 观察前，相机画面不会发送到服务器。
 카메라의 AI 관찰을 켜면 실제 장면에 반응해요. 아래 버튼은 별도 시뮬레이션이에요.|Enable AI observation in the camera to respond to real scenes. The buttons below are separate simulations.|在相机中开启 AI 观察即可根据真实画面回应；下方按钮是独立的情景模拟。
 등장 애니메이션 다시 보기|Replay entrance|重播出场动画
