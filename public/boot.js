@@ -28,11 +28,17 @@
   window.addEventListener('error', function (event) { failed(event.error || event.message); });
   window.addEventListener('unhandledrejection', function (event) { failed(event.reason); });
   timeout = setTimeout(function () { failed(new Error('Startup timed out. Check your connection and reload.')); }, 12000);
-  var revision = new URL(window.location.href).searchParams.get('reload') || '20261017-startup4';
-  import('./final.js?v=' + encodeURIComponent(revision)).then(function () {
+  window.addEventListener('velo:ready', function () {
     ready = true;
     clearTimeout(timeout);
     notice.hidden = true;
     document.documentElement.dataset.veloReady = 'true';
-  }, failed);
+  });
+  // One classic bundle avoids a chain of module requests and partial versions.
+  var script = document.createElement('script');
+  script.src = '/app.bundle.js?v=20261017-fast5';
+  script.async = true;
+  script.onerror = function () { failed(new Error('Could not download the app. Please reload.')); };
+  script.onload = function () { if (!ready) failed(new Error('App startup did not complete. Please reload.')); };
+  document.head.appendChild(script);
 })();

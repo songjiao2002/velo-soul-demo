@@ -30,7 +30,11 @@ Railway 从本仓库 main 分支自动部署，自动识别根目录 Dockerfile�
 
 界面与研究设计说明见 PROTOTYPE.ko.md。无需用户账户。AI 功能由服务端管理密钥。
 
-`npm test` 检查服务和新模块、二维码解码、音频分段请求、相机授权/释放/竞态、GPS 过滤。Windows 限制子进程环境下使用 `node --test --test-isolation=none server.test.mjs final.test.mjs language.test.mjs audio.test.mjs chat.test.mjs places.test.mjs vision.test.mjs connected.test.mjs hands-free.test.mjs`。
+`npm test` 检查服务和新模块、二维码解码、音频分段请求、相机授权/释放/竞态、GPS 过滤以及浏览器原生 API 的调用对象。Windows 限制子进程环境下使用 `node --test --test-isolation=none server.test.mjs final.test.mjs language.test.mjs audio.test.mjs chat.test.mjs places.test.mjs vision.test.mjs connected.test.mjs hands-free.test.mjs browser-api.test.mjs`。
+
+页面先直接显示三个角色和二维码，再加载单个 `public/app.bundle.js`。二维码识别库只在打开扫描页后下载；图片异步解码，首页下方角色图片延后加载。启动失败会显示重试入口和错误详情。语音和观察模块的默认计时器、网络函数通过 `globalThis` 调用，避免浏览器出现 `Illegal invocation`。
+
+修改前端源文件后运行 `npm ci`、`npm run build`，将更新的 `public/app.bundle.js` 一并提交。Railway 镜像直接运行已构建的文件，不需要在启动时安装构建工具。
 
 ## 来源
 

@@ -4,6 +4,15 @@
   "private": true,
   "type": "module",
   "description": "VELO SOUL: three bicycle personalities, Korean voice companionship and journey cards",
-  "engines": { "node": ">=22" },
-  "scripts": { "start": "node server.mjs", "test": "node --test server.test.mjs final.test.mjs language.test.mjs audio.test.mjs chat.test.mjs places.test.mjs vision.test.mjs connected.test.mjs hands-free.test.mjs" }
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test server.test.mjs final.test.mjs language.test.mjs audio.test.mjs chat.test.mjs places.test.mjs vision.test.mjs connected.test.mjs hands-free.test.mjs browser-api.test.mjs",
+    "build": "esbuild public/final.js --bundle --minify --charset=utf8 --format=iife --target=es2020 --outfile=public/app.bundle.js"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
 }

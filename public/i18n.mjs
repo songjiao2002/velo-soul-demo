@@ -107,7 +107,7 @@ QR이 연결해 준 오늘의 동반자. 카메라를 열면, 소울이 당신�
 카메라로 소울 만나기|Meet through the camera|通过相机遇见灵魂
 카메라 없이 미리 만나기|Preview without a camera|无需相机，先见一面
 다음 화면에서 카메라를 켜면 권한을 요청해요.|On the next screen, enabling the camera asks for permission.|在下一页开启相机时，会请求使用权限。
-마이크 권한은 필요하지 않아요.|No microphone permission is needed.|不需要麦克风权限。
+음성 대화를 켤 때 마이크 권한을 요청해요.|Voice conversation requests microphone access.|开启语音对话时会请求麦克风权限。
 실시간 후면 카메라|Live rear camera|实时后置相机
 자전거의 QR을 비춰주세요|Point at your bike's QR|请对准自行车二维码
 당신의 세상으로 초대해요|Invite a Soul into your world|邀请灵魂来到你的世界

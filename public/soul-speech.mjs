@@ -1,7 +1,7 @@
 // Shared playback for chat, GPS and camera replies. Late callbacks cannot
 // revive a stopped voice or overlap the next reply.
 export class SoulSpeechPlayer {
- constructor({synth=globalThis.speechSynthesis,Utterance=globalThis.SpeechSynthesisUtterance,onState=()=>{},setTimer=setTimeout,clearTimer=clearTimeout}={}){Object.assign(this,{synth,Utterance,onState,setTimer,clearTimer});this.serial=0;this.utterance=null;this.timer=null;this.listener=null;}
+ constructor({synth=globalThis.speechSynthesis,Utterance=globalThis.SpeechSynthesisUtterance,onState=()=>{},setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{synth,Utterance,onState,setTimer,clearTimer});this.serial=0;this.utterance=null;this.timer=null;this.listener=null;}
  prepare(){this.synth?.getVoices();this.synth?.resume();}
  stop(){this.serial++;this.clearTimer(this.timer);this.timer=null;if(this.listener)this.synth?.removeEventListener?.('voiceschanged',this.listener);this.listener=null;this.utterance=null;this.synth?.cancel();}
  speak(text,{language='en',soul='lumi',onState=()=>{}}={}){
