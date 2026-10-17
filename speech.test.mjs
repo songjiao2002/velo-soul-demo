@@ -44,7 +44,7 @@ test('unlock once, play multiple cloud replies and finish without speechSynthesi
  for(const text of ['Hello there.','What do you see?','I am still listening.']){
   const promise=a.player.speak(text,{onState:s=>states.push(s)});await flush();assert.equal(states.at(-1),'playing');const source=a.sources.at(-1);assert.equal(source.started,true);source.onended();await promise;assert.equal(states.at(-1),'ended');
  }
- assert.equal(a.contexts.length,1);assert.equal(a.requests.length,3);assert.ok(a.requests.every(r=>r.url==='/api/speech'));assert.equal(a.timers.size,0);a.player.dispose();assert.equal(a.contexts[0].state,'closed');
+ assert.equal(a.contexts.length,1);assert.equal(a.requests.length,3);assert.ok(a.requests.every(r=>r.url==='/api/speech/stream'));assert.equal(a.timers.size,0);a.player.dispose();assert.equal(a.contexts[0].state,'closed');
 });
 test('stop cancels pending generation and ignores its late response; old cleanup cannot clear new timeout',async()=>{
  let resolve;const a=playerSetup(()=>new Promise(r=>resolve=r));await a.player.prepare();const first=a.player.speak('First');await flush();const firstResolve=resolve;

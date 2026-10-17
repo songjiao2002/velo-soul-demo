@@ -71,7 +71,7 @@ test('cloud recognition completes the hands-free loop without browser SpeechReco
  },onState:s=>states.push(s),speak:(text,lang,soul,callback)=>{assert.equal(a.input.receiver,null);spoken.push({text,callback});},setTimer:(fn,ms)=>{timers.set(++id,{fn,ms});return id;},clearTimer:i=>timers.delete(i)});
  session.start('lumi','en');assert.equal(session.state,'starting');await flush();a.feed(.08,700);a.feed(0,1100);await flush();await flush();
  assert.deepEqual(states.slice(-4),['hearing','transcribing','thinking','synthesizing']);assert.equal(spoken[0].text,'I can hear you.');
- spoken[0].callback('ended');const resume=[...timers.values()].find(t=>t.ms===450);resume.fn();await flush();a.feed(0,100);assert.equal(session.state,'listening');
+ spoken[0].callback('ended');const resume=[...timers.values()].find(t=>t.ms===250);resume.fn();await flush();a.feed(0,100);assert.equal(session.state,'listening');
  session.stop();assert.equal(a.input.receiver,null);
 });
 

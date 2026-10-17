@@ -98,3 +98,11 @@ API Key 仅在服务端使用。`/api/chat` 与 `/api/vision` 共用调用限额
 服务端请求限制包含 TTS，完整一轮一般为 ASR、聊天和 TTS 三次请求。固定欢迎音频和本机声音检测不调用 API。
 
 接口依据：[Qwen-TTS API](https://www.alibabacloud.com/help/en/model-studio/qwen-tts-api)。已实际验证三种音色，其中 Mori 的韩语语音返回非静音 WAV。
+
+## 韩语偏好与流式播报（voice8）
+
+无需新增密钥或模型。/api/transcribe 接受 language:ko/en/zh/auto；Auto 省略上游语种限定，其他选项传给 asr_options.language。选择韩语会同步相机和聊天偏好，回答和 TTS 的 language_type 使用 Korean。中文回答仍为英语。
+
+新增 /api/speech/stream，使用原生 TTS 请求头 X-DashScope-SSE:enable。后端仅返回 application/x-ndjson 的 {audio:base64,rate:24000} 与 {done:true}，不透传提供商 URL、错误细节或密钥。PCM、WAV 头、总长度、超时、来源和共享预算均有校验；客户中断会取消上游。播放收到第一段即开始，结束标记和最后一段播放完毕后才恢复收音。
+
+语言选择依据：[Qwen-ASR API](https://www.alibabacloud.com/help/en/model-studio/qwen-asr-api-reference)。流式合成依据：[Qwen-TTS API](https://www.alibabacloud.com/help/en/model-studio/qwen-tts-api)。当前仍是短语 ASR 加轮流对话；只把音频输出改为流式，不声称已实现全双工电话。

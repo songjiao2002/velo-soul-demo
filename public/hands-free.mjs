@@ -1,4 +1,4 @@
-import {detectInputLanguage} from './input-language.mjs';
+import {replyLanguage,needsCamera} from './input-language.mjs';
 import {outputLanguage} from './seoul-places.mjs';
 
 export const HANDS_FREE_COPY={
@@ -18,7 +18,7 @@ export class HandsFreeConversation {
  resumeAfter(serial,delay=500){this.clearTimer(this.timer);this.timer=this.setTimer(()=>{if(this.active&&serial===this.epoch)this.listen();},delay);}
  listen(){
   if(!this.active)return;this.disconnect();const serial=this.epoch;let r;try{r=new this.Recognition();}catch{this.stop('unsupported');return;}this.recognizer=r;
-  r.lang={en:'en-US',ko:'ko-KR',zh:'zh-CN'}[this.language]||'en-US';r.continuous=false;r.interimResults=true;r.maxAlternatives=1;
+  r.inputLanguage=this.language;r.lang={en:'en-US',ko:'ko-KR',zh:'zh-CN'}[this.language]||'en-US';r.continuous=false;r.interimResults=true;r.maxAlternatives=1;
   const valid=()=>this.active&&this.epoch===serial&&this.recognizer===r;
   let finalText='',submitted=false,started=false;
   const send=()=>{if(!valid()||submitted)return;submitted=true;this.disconnect();this.clearTimer(this.timer);if(finalText)this.submit(finalText,serial);else this.resumeAfter(serial,1000);};
@@ -35,11 +35,11 @@ export class HandsFreeConversation {
  async submit(text,serial){
   if(!this.active||serial!==this.epoch)return;
   if(/^(stop listening|stop (the )?(voice )?conversation|停止(语音)?对话|停止聆听|대화\s*멈춰|음성\s*대화\s*(종료|그만))[.!?。！\s]*$/i.test(text)){this.stop();return;}
-  const language=outputLanguage(detectInputLanguage(text,this.language));
+  const language=replyLanguage(text,this.language);
   if(/^(repeat that|say that again|再说一次|重复一遍|다시\s*말해)[.!?。！\s]*$/i.test(text)&&this.histories[this.soul].length){this.output(this.histories[this.soul].at(-1).content,language,serial);return;}
   this.setState('thinking');const controller=new AbortController();this.controller=controller;const timeout=this.setTimer(()=>controller.abort(),35000);
   try{
-   const extra=this.getContext(true),messages=[...this.histories[this.soul].slice(-10),{role:'user',content:text}];
+   const extra=this.getContext(needsCamera(text)),messages=[...this.histories[this.soul].slice(-10),{role:'user',content:text}];
    const response=await this.fetchImpl(extra.image?'/api/chat/scene':'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({voice:true,soul:this.soul,language,messages,context:extra.context,image:extra.image})});
    const data=await response.json();if(!this.active||serial!==this.epoch)return;
    if(!response.ok)throw new Error(data.error||'failed');if(data.soul!==this.soul||typeof data.reply!=='string'||!data.reply.trim())throw new Error('failed');
@@ -50,7 +50,7 @@ export class HandsFreeConversation {
  }
  output(text,language,serial,onState=()=>{}){
   if(!this.active||serial!==this.epoch)return false;this.disconnect();this.clearTimer(this.timer);this.setState('synthesizing');
-  this.speak(text,language,this.soul,state=>{if(!this.active||serial!==this.epoch)return;onState(state);if(state==='playing'){this.audioIssue=false;this.setState('speaking');this.monitorInterrupt(serial,text);}else if(state==='ended'){this.stopInterrupt();this.setState('listening');this.resumeAfter(serial,450);}else if(['blocked','unavailable'].includes(state)){this.audioIssue=true;this.stopInterrupt();this.setState('audio_retry');this.resumeAfter(serial,1500);}});return true;
+  this.speak(text,language,this.soul,state=>{if(!this.active||serial!==this.epoch)return;onState(state);if(state==='playing'){this.audioIssue=false;this.setState('speaking');this.monitorInterrupt(serial,text);}else if(state==='ended'){this.stopInterrupt();this.setState('listening');this.resumeAfter(serial,250);}else if(['blocked','unavailable'].includes(state)){this.audioIssue=true;this.stopInterrupt();this.setState('audio_retry');this.resumeAfter(serial,1500);}});return true;
  }
  monitorInterrupt(serial,spokenText){
   this.stopInterrupt();
@@ -58,7 +58,7 @@ export class HandsFreeConversation {
   const listen=()=>{
    if(!stillSpeaking())return;
    const r=new this.Recognition();this.interruptRecognizer=r;
-   r.lang={en:'en-US',ko:'ko-KR',zh:'zh-CN'}[this.language]||'en-US';r.continuous=false;r.interimResults=false;
+   r.inputLanguage=this.language;r.lang={en:'en-US',ko:'ko-KR',zh:'zh-CN'}[this.language]||'en-US';r.continuous=false;r.interimResults=false;
    const valid=()=>stillSpeaking()&&this.interruptRecognizer===r;
    const repeat=()=>{if(!valid())return;this.stopInterrupt();this.interruptTimer=this.setTimer(listen,300);};
    r.onresult=e=>{
@@ -98,9 +98,9 @@ Object.assign(HANDS_FREE_COPY.ko,{starting:'마이크와 음성 인식을 연결
 Object.assign(HANDS_FREE_COPY.en,{starting:'Connecting microphone and speech recognition…',start_timeout:'Speech recognition did not start. Check microphone access and reopen in your phone browser.',languageHint:'Choose the language you speak. For Chinese, select 中文 → English.'});
 Object.assign(HANDS_FREE_COPY.zh,{starting:'正在连接麦克风和语音识别…',start_timeout:'语音识别未能启动。请检查麦克风权限，并用手机浏览器重新打开。',languageHint:'请选择你正在说的语言。说中文请选择“中文 → English”。'});
 
-Object.assign(HANDS_FREE_COPY.ko,{mic:'마이크 음량',transcribing:'들었어요 · 음성을 글로 바꾸고 있어요…',quiet:'음성이 감지되지 않아요. 음량 막대와 마이크 입력을 확인해주세요.',languageHint:'영어·한국어·중국어를 자동 인식해요. 중국어에는 영어로 답해요.',notice:'말하고 약 1초 쉬면 자동 전송 → 답변 → 다시 듣기. 음성은 서버를 거쳐 Qwen에서 인식하며 녹음 파일을 저장하지 않아요. 답변 중에는 끼어들기 감지가 계속돼요. 화면을 켜두세요.', 'audio-capture':'마이크 입력을 받지 못했어요. 마이크 장치를 확인하고 다시 켜주세요.',asr_timeout:'음성 인식 시간이 초과됐어요. 다시 켜서 시도해주세요.',not_configured:'서버에 음성 인식이 설정되지 않았어요.',provider_auth:'음성 서비스 인증에 실패했어요.',provider_not_activated:'음성 인식 모델을 활성화해야 해요.'});
-Object.assign(HANDS_FREE_COPY.en,{mic:'Mic level',transcribing:'Heard you · Transcribing…',quiet:'No speech detected. Check the level meter and microphone input.',languageHint:'English, Korean and Chinese are detected automatically. Chinese gets an English reply.',notice:'Speak and pause for about a second → reply → listen again. Audio goes through our server to Qwen; recordings are not saved. Interruption detection continues during replies. Keep the page in the foreground.', 'audio-capture':'No microphone input. Check the input device and start again.',asr_timeout:'Speech recognition timed out. Start again to retry.',not_configured:'Speech recognition is not configured on the server.',provider_auth:'Speech service authentication failed.',provider_not_activated:'The speech recognition model needs activation.'});
-Object.assign(HANDS_FREE_COPY.zh,{mic:'麦克风音量',transcribing:'收到声音 · 正在识别文字…',quiet:'还没有检测到说话，请检查音量条和麦克风输入设备。',languageHint:'自动识别中、英、韩语；中文会用英语回答。',notice:'说完停顿约1秒 → 自动发送 → 回答 → 继续聆听。音频经服务器发送给千问识别，不保存录音文件。回答时保留打断检测。请保持网页在前台。', 'audio-capture':'未能读取麦克风，请检查输入设备后重新开启。',asr_timeout:'语音识别超时，请重新开启后再试。',not_configured:'服务器尚未配置语音识别。',provider_auth:'语音服务认证失败。',provider_not_activated:'千问语音识别模型尚未开通。'});
+Object.assign(HANDS_FREE_COPY.ko,{mic:'마이크 음량',transcribing:'들었어요 · 음성을 글로 바꾸고 있어요…',quiet:'음성이 감지되지 않아요. 음량 막대와 마이크 입력을 확인해주세요.',languageHint:'말하는 언어를 고르세요. 한국어는 한국어로 인식하고 답해요. 여러 언어를 섞으면 Auto를 선택하세요.',notice:'말하고 약 0.7초 쉬면 자동 전송 → 답변 → 다시 듣기. 음성은 서버를 거쳐 Qwen에서 인식하며 녹음 파일을 저장하지 않아요. 답변 중에는 끼어들기 감지가 계속돼요. 화면을 켜두세요.', 'audio-capture':'마이크 입력을 받지 못했어요. 마이크 장치를 확인하고 다시 켜주세요.',asr_timeout:'음성 인식 시간이 초과됐어요. 다시 켜서 시도해주세요.',not_configured:'서버에 음성 인식이 설정되지 않았어요.',provider_auth:'음성 서비스 인증에 실패했어요.',provider_not_activated:'음성 인식 모델을 활성화해야 해요.'});
+Object.assign(HANDS_FREE_COPY.en,{mic:'Mic level',transcribing:'Heard you · Transcribing…',quiet:'No speech detected. Check the level meter and microphone input.',languageHint:'Choose your spoken language. Korean uses Korean recognition and replies. Choose Auto for mixed languages.',notice:'Speak and pause for about 0.7 seconds → reply → listen again. Audio goes through our server to Qwen; recordings are not saved. Interruption detection continues during replies. Keep the page in the foreground.', 'audio-capture':'No microphone input. Check the input device and start again.',asr_timeout:'Speech recognition timed out. Start again to retry.',not_configured:'Speech recognition is not configured on the server.',provider_auth:'Speech service authentication failed.',provider_not_activated:'The speech recognition model needs activation.'});
+Object.assign(HANDS_FREE_COPY.zh,{mic:'麦克风音量',transcribing:'收到声音 · 正在识别文字…',quiet:'还没有检测到说话，请检查音量条和麦克风输入设备。',languageHint:'选择你说的语言；选韩语会使用韩语识别和回答。混合语言选 Auto，中文仍用英语回答。',notice:'说完停顿约0.7秒 → 自动发送 → 回答 → 继续聆听。音频经服务器发送给千问识别，不保存录音文件。回答时保留打断检测。请保持网页在前台。', 'audio-capture':'未能读取麦克风，请检查输入设备后重新开启。',asr_timeout:'语音识别超时，请重新开启后再试。',not_configured:'服务器尚未配置语音识别。',provider_auth:'语音服务认证失败。',provider_not_activated:'千问语音识别模型尚未开通。'});
 
 Object.assign(HANDS_FREE_COPY.ko,{synthesizing:'목소리를 준비하고 있어요…',audio_retry:'소리가 재생되지 않았어요 · 대화는 계속돼요',reconnecting:'연결을 복구하고 있어요 · 자동으로 다시 들어요'});
 Object.assign(HANDS_FREE_COPY.en,{synthesizing:'Getting my voice ready…',audio_retry:'Audio needs attention · Still connected',reconnecting:'Reconnecting · Listening will resume automatically'});

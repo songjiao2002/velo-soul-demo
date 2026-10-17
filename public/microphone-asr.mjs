@@ -42,7 +42,7 @@ export class MicrophoneInput {
       const source = context.createMediaStreamSource(stream); this.source = source;
       let node;
       if (context.audioWorklet && this.WorkletNode) {
-        await context.audioWorklet.addModule('/mic-worklet.js?v=20261017-voice7');
+        await context.audioWorklet.addModule('/mic-worklet.js?v=20261017-voice8');
         if (serial !== this.serial) return;
         node = new this.WorkletNode(context, 'soul-mic');
         node.port.onmessage = event => this.samples(event.data, context.sampleRate);
@@ -109,18 +109,18 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), fetc
       }
       this.chunks.push(data); this.total += ms;
       this.quiet = loud ? 0 : this.quiet + ms; if (loud) this.voiced += ms;
-      if (this.quiet >= 1000 || this.total >= 15000) this.stop();
+      if (this.quiet >= 650 || this.total >= 15000) this.stop();
     }
     async stop() {
       if (!this.active || this.finalizing) return;
-      if (!this.speech || this.voiced < 220) { this.abort(); this.onerror?.({error:'no-speech'}); return; }
+      if (!this.speech || this.voiced < 160) { this.abort(); this.onerror?.({error:'no-speech'}); return; }
       this.finalizing = true; input.detach(this); this.onspeechend?.(); this.ontranscribing?.();
       const wav = encodeWav(this.chunks, this.rate); this.chunks = []; this.preroll = [];
       let binary = ''; for (let i = 0; i < wav.length; i += 8192) binary += String.fromCharCode(...wav.subarray(i, i + 8192));
       this.controller = new AbortController(); this.timer = setTimer(() => this.controller?.abort(), 25000);
       try {
         const response = await fetchImpl('/api/transcribe', {method:'POST',headers:{'Content-Type':'application/json'},signal:this.controller.signal,
-          body:JSON.stringify({audio:'data:audio/wav;base64,' + toBase64(binary)})});
+          body:JSON.stringify({audio:'data:audio/wav;base64,' + toBase64(binary),language:this.inputLanguage||({'ko-KR':'ko','en-US':'en','zh-CN':'zh'}[this.lang])||'auto'})});
         const data = await response.json(); if (!this.active) return;
         if (!response.ok) throw new Error(data.error || 'network');
         if (typeof data.text !== 'string') throw new Error('invalid_response');

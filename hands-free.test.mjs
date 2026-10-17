@@ -12,7 +12,7 @@ function setup(fetchImpl){
 test('spoken input sends automatically with context, replies aloud, then resumes and preserves history',async()=>{
  const a=setup();a.session.start('bori','zh');assert.equal(a.recognizers[0].lang,'zh-CN');
  a.recognizers[0].hear('你看到什么？');await flush();assert.equal(a.calls.length,1);assert.equal(a.calls[0].url,'/api/chat/scene');assert.equal(a.calls[0].body.language,'en');assert.equal(a.voices.length,1);
- assert.equal(a.recognizers[0].active,false);a.voices[0].callback('ended');a.run(450);assert.equal(a.recognizers.at(-1).active,true);
+ assert.equal(a.recognizers[0].active,false);a.voices[0].callback('ended');a.run(250);assert.equal(a.recognizers.at(-1).active,true);
  a.recognizers.at(-1).hear('Tell me more');await flush();assert.equal(a.calls[1].body.messages.length,3);a.session.stop();assert.equal(a.timers.size,0);
 });
 test('reply-time monitoring accepts Chinese, English and Korean interruption without forwarding the command',async()=>{
