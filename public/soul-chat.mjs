@@ -1,9 +1,11 @@
 import {MicrophoneInput,createMicrophoneRecognition} from './microphone-asr.mjs';
-import {SoulSpeechPlayer} from './soul-speech.mjs';
+import {CloudSpeechPlayer} from './cloud-speech.mjs';
+import {HandsFreeConversation,HANDS_FREE_COPY} from './hands-free.mjs';
+import {detectInputLanguage} from './input-language.mjs';
+export {detectInputLanguage} from './input-language.mjs';
 import {SOULS} from './soul-core.mjs';
 import {getLanguage} from './i18n.mjs';
 import {outputLanguage} from './seoul-places.mjs';
-export function detectInputLanguage(text,fallback='en'){return /[\uac00-\ud7af]/.test(text)?'ko':/[\u3400-\u9fff]/.test(text)?'zh':/[a-z]/i.test(text)?'en':fallback;}
 const VOICE_UI={ko:{mic:'마이크로 말하기',listening:'듣고 있어요…',noMic:'이 브라우저에서는 음성 인식을 지원하지 않아요. 글로 입력해주세요.',micError:'음성 인식을 시작하지 못했어요. 마이크 권한과 연결을 확인해주세요.',heard:'인식한 문장을 확인하고 보내기를 눌러주세요.',note:'입력: 영어·한국어·중국어. 중국어는 영어로 답하고 읽어줘요. 음성은 서버를 거쳐 Qwen으로 전송되며 녹음 파일은 저장하지 않아요.'},en:{mic:'Speak with microphone',listening:'Listening…',noMic:'Speech recognition is unavailable in this browser. You can type instead.',micError:'Could not recognize speech. Check microphone permission and connection.',heard:'Review your words, then press Send.',note:'English, Korean and Chinese input. Chinese receives English replies and speech. Audio goes through our server to Qwen; recordings are not saved.'},zh:{mic:'用麦克风说话',listening:'正在听你说…',noMic:'此浏览器不支持语音识别，可以改用打字。',micError:'语音识别未成功，请检查麦克风权限和网络。',heard:'请确认识别出的文字，再点击发送。',note:'支持英语、韩语、中文输入；中文暂用英语回复和播报。语音经本站发送给千问识别，不保存录音文件。'}};
 
 const COPY={
@@ -19,7 +21,7 @@ const labels={ko:{lumi:'루미',mori:'모리',bori:'보리'},en:{lumi:'Lumi',mor
 const LIVE_COPY={ko:{auto:'답변 자동으로 듣기',share:'연결된 GPS·카메라 함께 사용',privacy:'대화는 Qwen으로 전송돼요. 함께 사용을 켜면 최근 위치의 등록 장소·거리·속도와 AI 관찰 중인 현재 화면 1장도 전달돼요. 정확한 GPS 좌표는 기기에 남아요. 대화는 탭을 닫으면 사라져요.'},en:{auto:'Read replies automatically',share:'Use connected GPS and camera',privacy:'Messages go to Qwen. With context enabled, a recent catalog place, distance and speed plus one current frame from AI observation may be included. Exact GPS coordinates stay on this device. Chat disappears when you close the tab.'},zh:{auto:'自动朗读回复',share:'结合已开启的 GPS 和相机',privacy:'对话会发送给千问。勾选结合传感器后，会附带最近定位匹配的目录地点、距离、速度，以及 AI 观察开启时的一张当前画面。精确 GPS 坐标留在本机。关闭标签页后对话消失。'}};
 for(const lang of ['ko','en','zh'])COPY[lang].privacy=LIVE_COPY[lang].privacy;
 export function createSoulChat({onOpen=()=>{},getContext=()=>({}),speakReply,stopSpeaking,canSpeak=()=>true,prepareSpeech=()=>{}}={}){
-  const speech=new SoulSpeechPlayer();let autoRead=true,shareContext=true;
+  const speech=new CloudSpeechPlayer();let autoRead=true,shareContext=true;
   const histories={lumi:[],mori:[],bori:[]};
   const dialog=document.createElement('dialog');dialog.className='soul-chat';dialog.dataset.noTranslate='';
   dialog.setAttribute('aria-labelledby','chatTitle');document.body.append(dialog);
@@ -27,9 +29,9 @@ export function createSoulChat({onOpen=()=>{},getContext=()=>({}),speakReply,sto
   let soul='lumi',language='ko',copy=COPY.ko,configured=false,controller=null,epoch=0,utterance=null,latestReply='';
   const find=selector=>dialog.querySelector(selector);
   const microphone=new MicrophoneInput({onLevel:level=>{const m=find('#chatMicLevel');if(m)m.value=level;}});
-  const Recognition=createMicrophoneRecognition({input:microphone});let micTimer;
+  const Recognition=createMicrophoneRecognition({input:microphone});let micTimer,chatWakeLock=null;
   function stopSpeech(){stopSpeaking?.();speech.stop();}
-  function stopRecognition(){clearTimeout(micTimer);if(recognizer){const r=recognizer;recognizer=null;r.abort();}microphone.release();}
+  function stopRecognition(){voiceSession.stop();clearTimeout(micTimer);if(recognizer){const r=recognizer;recognizer=null;r.abort();}microphone.release();}
   function cancel(){stopRecognition();epoch++;controller?.abort();controller=null;stopSpeech();}
   function message(role,text){const row=document.createElement('div');row.className='chat-message '+role;const label=document.createElement('span');label.className='chat-speaker';label.textContent=role==='user'?({ko:'나',en:'You',zh:'我'}[language]):labels[language][soul];const body=document.createElement('p');body.textContent=text;row.append(label,body);return row;}
   function paintHistory(){const log=find('#chatLog');log.replaceChildren();const history=histories[soul];if(!history.length)log.append(message('assistant',copy.welcome));else for(const m of history)log.append(message(m.role,m.content));log.scrollTop=log.scrollHeight;}
@@ -37,14 +39,14 @@ export function createSoulChat({onOpen=()=>{},getContext=()=>({}),speakReply,sto
   function controls(busy){find('#chatMic').disabled=busy;find('#chatSend').disabled=busy||!configured;find('#chatStop').hidden=!busy;find('#chatInput').disabled=busy;find('#chatClear').disabled=busy;find('#chatListen').disabled=busy||!latestReply;dialog.querySelectorAll('[data-starter]').forEach(b=>b.disabled=busy);}
   function setUp(){const s=SOULS[soul];dialog.style.setProperty('--accent',s.color);dialog.style.setProperty('--tint',s.tint);
     // Only static trusted UI labels are inserted as markup. User and model text always use textContent.
-    dialog.innerHTML=`<header class="chat-head"><img class="avatar" src="${s.image}" alt=""><div><span class="eyebrow">QWEN · ${s.en.toUpperCase()}</span><h2 id="chatTitle">${copy.title}</h2></div><button class="icon-btn" id="chatClose" aria-label="${copy.close}">×</button></header><div class="chat-intro"><p>${copy.subtitle}</p><span class="small">${copy.pause}</span></div><div class="chat-options"><label><input type="checkbox" id="chatAutoRead" ${autoRead?'checked':''}>${LIVE_COPY[language].auto}</label><label><input type="checkbox" id="chatShareContext" ${shareContext?'checked':''}>${LIVE_COPY[language].share}</label><span id="chatSensors" class="small"></span></div><div id="chatLog" class="chat-log" role="log" aria-live="polite" aria-relevant="additions"></div><div class="chat-starters">${copy.starter.map((text,i)=>`<button type="button" data-starter="${i}">${text}</button>`).join('')}</div><form id="chatForm"><div class="chat-voice"><select id="chatInputLanguage" aria-label="Speech input language"><option value="en">English</option><option value="ko">한국어</option><option value="zh">中文 → English</option></select><button class="secondary" type="button" id="chatMic">${VOICE_UI[language].mic}</button></div><meter id="chatMicLevel" min="0" max="1" value="0" aria-label="Microphone level"></meter><label for="chatInput" class="sr-only">${copy.placeholder}</label><textarea id="chatInput" maxlength="1000" rows="2" placeholder="${copy.placeholder}"></textarea><div class="chat-submit"><button type="button" class="text-button" id="chatClear">${copy.clear}</button><button type="button" class="secondary" id="chatStop" hidden>${copy.stop}</button><button type="submit" class="primary accent" id="chatSend" disabled>${copy.send}</button></div></form><p class="chat-status" id="chatStatus" role="status"></p><div class="chat-bottom"><button type="button" class="text-button" id="chatListen" disabled>${copy.listen}</button><p>${copy.privacy}</p><p>${VOICE_UI[language].note}</p></div>`;
+    dialog.innerHTML=`<header class="chat-head"><img class="avatar" src="${s.image}" alt=""><div><span class="eyebrow">${s.en.toUpperCase()} · VOICE COMPANION</span><h2 id="chatTitle">${copy.title}</h2></div><button class="icon-btn" id="chatClose" aria-label="${copy.close}">×</button></header><div class="chat-intro"><p>${copy.subtitle}</p><span class="small">${copy.pause}</span></div><details class="chat-settings"><summary>${{ko:"대화 설정",en:"Conversation settings",zh:"对话设置"}[language]}</summary><div class="chat-options"><label><input type="checkbox" id="chatAutoRead" ${autoRead?'checked':''}>${LIVE_COPY[language].auto}</label><label><input type="checkbox" id="chatShareContext" ${shareContext?'checked':''}>${LIVE_COPY[language].share}</label><span id="chatSensors" class="small"></span></div></details><div id="chatLog" class="chat-log" role="log" aria-live="polite" aria-relevant="additions"></div><div class="chat-starters">${copy.starter.map((text,i)=>`<button type="button" data-starter="${i}">${text}</button>`).join('')}</div><form id="chatForm"><div class="chat-voice"><select id="chatInputLanguage" aria-label="Speech input language"><option value="en">English</option><option value="ko">한국어</option><option value="zh">中文 → English</option></select><button class="secondary" type="button" id="chatMic">${HANDS_FREE_COPY[language].start}</button></div><p class="continuous-hint">${{ko:"한 번 켜면 계속 대화해요. 말하고 잠시 쉬어주세요.",en:"Start once. Speak, pause, and keep the conversation going.",zh:"开启一次，持续交流。说完稍作停顿，我会回答并继续听。"}[language]}</p><meter id="chatMicLevel" min="0" max="1" value="0" aria-label="Microphone level"></meter><details class="chat-typing"><summary>${{ko:"글로 입력",en:"Type a message",zh:"用文字输入"}[language]}</summary><label for="chatInput" class="sr-only">${copy.placeholder}</label><textarea id="chatInput" maxlength="1000" rows="2" placeholder="${copy.placeholder}"></textarea><div class="chat-submit"><button type="button" class="text-button" id="chatClear">${copy.clear}</button><button type="button" class="secondary" id="chatStop" hidden>${copy.stop}</button><button type="submit" class="primary accent" id="chatSend" disabled>${copy.send}</button></div></details></form><p class="chat-status" id="chatStatus" role="status"></p><button id="chatAudioRetry" class="audio-retry" type="button" hidden>${{ko:"소리 켜고 다시 듣기",en:"Enable sound & replay",zh:"开启声音并重播"}[language]}</button><div class="chat-bottom"><button type="button" class="text-button" id="chatListen" disabled>${copy.listen}</button><details><summary>${{ko:"개인정보 안내",en:"Privacy",zh:"数据使用说明"}[language]}</summary><p>${copy.privacy}</p><p>${VOICE_UI[language].note}</p></details></div>`;
     find('#chatClose').onclick=()=>dialog.close();find('#chatForm').onsubmit=e=>{e.preventDefault();send();};
     find('#chatStop').onclick=()=>{cancel();paintHistory();controls(false);setStatus(copy.cancelled);};
     find('#chatClear').onclick=()=>{cancel();histories[soul]=[];latestReply='';paintHistory();controls(false);setStatus(configured?copy.ready:copy.not_configured,!configured);};
-    find('#chatListen').onclick=readReply;find('#chatMic').onclick=recognize;find('#chatInputLanguage').value=inputLanguage;find('#chatInputLanguage').onchange=e=>{stopRecognition();inputLanguage=e.target.value;};
+    find('#chatListen').onclick=readReply;find('#chatAudioRetry').onclick=readReply;find('#chatMic').onclick=recognize;find('#chatInputLanguage').value=inputLanguage;find('#chatInputLanguage').onchange=e=>{stopRecognition();inputLanguage=e.target.value;};
     dialog.querySelectorAll('[data-starter]').forEach(b=>b.onclick=()=>{find('#chatInput').value=copy.starter[Number(b.dataset.starter)];find('#chatInput').focus();});
     find('#chatInput').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();if(!find('#chatSend').disabled)send();}};
-    find('#chatAutoRead').onchange=e=>{autoRead=e.target.checked;if(autoRead)readReply();else stopSpeech();};
+    find('#chatAutoRead').onchange=e=>{autoRead=e.target.checked;if(autoRead)readReply();else{voiceSession.stop();stopSpeech();}};
     find('#chatShareContext').onchange=e=>{shareContext=e.target.checked;};
     const sensors=getContext(false);find('#chatSensors').textContent=`GPS ${sensors.context?.location?'●':'○'} · CAMERA ${sensors.cameraConnected?'●':'○'}`;
     paintHistory();setStatus(copy.checking);
@@ -54,26 +56,27 @@ export function createSoulChat({onOpen=()=>{},getContext=()=>({}),speakReply,sto
     catch{if(serial===epoch&&dialog.open){controls(false);setStatus(copy.failed,true);}}
     finally{clearTimeout(timeout);if(serial===epoch)controller=null;}
   }
-  async function send(){const input=find('#chatInput'),text=input.value.trim();if(!text||!configured||controller)return;if(text.length>1000){setStatus(copy.long,true);return;}stopSpeech();stopRecognition();prepareSpeech();speech.prepare();replyLanguage=outputLanguage(detectInputLanguage(text,inputLanguage));const serial=++epoch,requestSoul=soul,requestCopy=copy;controller=new AbortController();const requestController=controller;const timer=setTimeout(()=>requestController.abort(),35000);controls(true);setStatus(copy.pending);find('#chatLog').append(message('user',text));find('#chatLog').scrollTop=find('#chatLog').scrollHeight;
+  async function send(){const input=find('#chatInput'),text=input.value.trim();if(!text||!configured||controller)return;if(text.length>1000){setStatus(copy.long,true);return;}stopSpeech();stopRecognition();prepareSpeech();if(!speakReply)speech.prepare();replyLanguage=outputLanguage(detectInputLanguage(text,inputLanguage));const serial=++epoch,requestSoul=soul,requestCopy=copy;controller=new AbortController();const requestController=controller;const timer=setTimeout(()=>requestController.abort(),35000);controls(true);setStatus(copy.pending);find('#chatLog').append(message('user',text));find('#chatLog').scrollTop=find('#chatLog').scrollHeight;
     try{const extra=shareContext?getContext(true):{};const r=await fetch(extra.image?'/api/chat/scene':'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({soul,language:replyLanguage,context:extra.context,image:extra.image,messages:[...histories[soul].slice(-10),{role:'user',content:text}]})});const data=await r.json();if(serial!==epoch||!dialog.open)return;if(!r.ok)throw new Error(data.error||'failed');if(typeof data.reply!=='string'||data.soul!==requestSoul)throw new Error('failed');histories[soul].push({role:'user',content:text},{role:'assistant',content:data.reply});histories[soul]=histories[soul].slice(-40);latestReply=data.reply;input.value='';paintHistory();setStatus(data.truncated?copy.truncated:copy.ready);if(autoRead&&canSpeak())readReply();}
     catch(error){if(serial!==epoch||!dialog.open)return;paintHistory();const code=requestController.signal.aborted?'timeout':error.message;setStatus(Object.hasOwn(requestCopy,code)?requestCopy[code]:copy.failed,true);}
     finally{clearTimeout(timer);if(serial===epoch&&dialog.open){controller=null;controls(false);input.focus();}}
   }
+  const voiceSession=new HandsFreeConversation({Recognition,releaseInput:()=>microphone.release(),getContext:withImage=>shareContext?getContext(withImage):{},stopSpeech,
+    speak:(text,lang,id,onState)=>{if(speakReply)speakReply(text,lang,id,onState);else speech.speak(text,{language:lang,soul:id,onState});},
+    onState:state=>{if(!voiceSession.active){chatWakeLock?.release().catch(()=>{});chatWakeLock=null;}if(!dialog.open)return;const c=HANDS_FREE_COPY[language];const button=find('#chatMic');if(button){button.textContent=voiceSession.active?c.stop:c.start;button.setAttribute('aria-pressed',String(voiceSession.active));}dialog.dataset.voiceState=state;setStatus(c[state]||c.failed);const retry=find('#chatAudioRetry');if(retry)retry.hidden=!voiceSession.audioIssue;},
+    onTranscript:text=>{paintHistory();find('#chatLog').append(message('user',text));find('#chatLog').scrollTop=find('#chatLog').scrollHeight;},
+    onReply:text=>{latestReply=text;paintHistory();find('#chatListen').disabled=false;}
+  });
+  voiceSession.histories=histories;
   function recognize(){
-    if(recognizer){recognizer.stop();return;}
-    stopSpeech();onOpen();const r=new Recognition();recognizer=r;
-    setStatus({ko:'마이크 연결 중…',en:'Connecting microphone…',zh:'正在连接麦克风…'}[language]);
-    const fail=()=>{if(recognizer===r){stopRecognition();setStatus(VOICE_UI[language].micError,true);}};
-    micTimer=setTimeout(fail,12000);
-    r.onstart=()=>{if(recognizer===r){clearTimeout(micTimer);micTimer=setTimeout(fail,45000);setStatus(VOICE_UI[language].listening);}};
-    r.ontranscribing=()=>{if(recognizer===r){clearTimeout(micTimer);setStatus({ko:'음성을 글로 바꾸고 있어요…',en:'Transcribing…',zh:'收到声音，正在识别文字…'}[language]);}};
-    r.onquiet=()=>{if(recognizer===r)setStatus({ko:'음량 막대와 마이크 입력을 확인해주세요.',en:'Check the microphone level and input device.',zh:'请检查音量条和麦克风输入设备。'}[language]);};
-    r.onresult=e=>{if(recognizer!==r)return;const text=Array.from(e.results).map(result=>result[0].transcript).join(' ');find('#chatInput').value=(find('#chatInput').value+' '+text).trim().slice(0,1000);stopRecognition();setStatus(VOICE_UI[language].heard);};
-    r.onerror=fail;r.onend=()=>{if(recognizer===r)stopRecognition();};
-    try{r.start();}catch{fail();}
+    if(voiceSession.active){voiceSession.stop();return;}
+    if(!configured)return;
+    cancel();onOpen();prepareSpeech();if(!speakReply)speech.prepare();autoRead=true;find('#chatAutoRead').checked=true;
+    voiceSession.start(soul,inputLanguage);
+    navigator.wakeLock?.request('screen').then(lock=>{if(voiceSession.active&&!document.hidden){chatWakeLock=lock;lock.addEventListener('release',()=>{if(chatWakeLock===lock)chatWakeLock=null;});}else lock.release().catch(()=>{});}).catch(()=>{});
   }
 
-  function readReply(){stopSpeech();if(!latestReply)return;onOpen();const locale=outputLanguage(detectInputLanguage(latestReply,replyLanguage));const onState=state=>{if(!dialog.open)return;setStatus(state==='playing'?copy.speaking:['blocked','unavailable'].includes(state)?copy.unavailable:copy.ready);};if(speakReply)speakReply(latestReply,locale,soul,onState);else speech.speak(latestReply,{language:locale,soul,onState});}
+  function readReply(){prepareSpeech();if(!speakReply)speech.prepare();if(voiceSession.active){voiceSession.announce(latestReply,outputLanguage(detectInputLanguage(latestReply,replyLanguage)));return;}stopSpeech();if(!latestReply)return;onOpen();const locale=outputLanguage(detectInputLanguage(latestReply,replyLanguage));const onState=state=>{if(!dialog.open)return;setStatus(state==='playing'?copy.speaking:['blocked','unavailable'].includes(state)?copy.unavailable:copy.ready);};if(speakReply)speakReply(latestReply,locale,soul,onState);else speech.speak(latestReply,{language:locale,soul,onState});}
   dialog.addEventListener('close',cancel);dialog.addEventListener('cancel',cancel);
   document.addEventListener('visibilitychange',()=>{if(document.hidden&&dialog.open){cancel();paintHistory();controls(false);setStatus(copy.cancelled);}});
   return {open,isOpen(){return dialog.open;},close(){cancel();if(dialog.open)dialog.close();}};

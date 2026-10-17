@@ -20,7 +20,7 @@ export function chatConfig(env=process.env){
     const workspace=/^[a-z0-9-]+\.(ap-southeast-1|cn-beijing|cn-hongkong|us-east-1|ap-northeast-1)\.maas\.aliyuncs\.com$/.test(u.hostname);
     valid=u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&!u.search&&!u.hash&&u.pathname==='/compatible-mode/v1'&&(legacy.includes(u.hostname)||workspace);
   }catch{}
-  return {apiKey,baseURL,model,asrModel:env.QWEN_ASR_MODEL||'qwen3-asr-flash',visionModel:env.QWEN_VISION_MODEL||'qwen3-vl-plus',configured:Boolean(apiKey)&&valid,valid};
+  return {apiKey,baseURL,model,ttsModel:env.QWEN_TTS_MODEL||'qwen3-tts-flash',asrModel:env.QWEN_ASR_MODEL||'qwen3-asr-flash',visionModel:env.QWEN_VISION_MODEL||'qwen3-vl-plus',configured:Boolean(apiKey)&&valid,valid};
 }
 
 export function validateChat(body,now=Date.now()){
@@ -37,7 +37,7 @@ export function validateChat(body,now=Date.now()){
   let event=null;if(body.event!==undefined){const place=SEOUL_PLACES.find(p=>p.id===body.event?.placeId);if(!place||!['gps','simulation'].includes(body.event.source))throw new ChatError('invalid_request');event={place,source:body.event.source};}
   const location=validateLocationContext(body.context?.location,now);
   const image=body.image===undefined?null:validateImage(body.image);
-  return {soul:body.soul,language:body.language==='zh'?'en':body.language,messages,event,location,image};
+  return {voice:body.voice===true,soul:body.soul,language:body.language==='zh'?'en':body.language,messages,event,location,image};
 }
 
 export async function loadSoulSkills(){
@@ -77,6 +77,16 @@ export function validateAudio(body){
  return audio;
 }
 
+export function validateSpeech(body){
+ if(!body||!SOUL_IDS.includes(body.soul)||!['en','ko','zh'].includes(body.language)||typeof body.text!=='string'||!body.text.trim()||body.text.length>600)throw new ChatError('invalid_speech');
+ return {text:body.text.trim(),soul:body.soul,language:body.language==='ko'?'Korean':'English'};
+}
+export function speechAudioURL(value){
+ let u;try{u=new URL(value);}catch{throw new ChatError('invalid_response',502);}
+ if(!['https:','http:'].includes(u.protocol)||u.username||u.password||u.port||!/^dashscope-result-[a-z0-9-]+\.oss-[a-z0-9-]+\.aliyuncs\.com$/.test(u.hostname))throw new ChatError('invalid_response',502);
+ u.protocol='https:';return u.href;
+}
+
 export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,timeoutMs=30000}={}){
   const skills=loadSoulSkills();
   // A shared demo budget deliberately covers all visitors and cannot be bypassed with new cookies.
@@ -88,14 +98,14 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
     if(active>=3||minuteCount>=20||dayCount>=maxDaily)throw new ChatError('rate_limited',429);
     minuteCount++;dayCount++;active++;
   }
-  async function complete(requestBody,config,signal){
+  async function complete(requestBody,config,signal,{speech=false,readResult=async data=>data}={}){
       reserve();
       const controller=new AbortController();
       const abort=()=>controller.abort();
       if(signal?.aborted)abort();else signal?.addEventListener('abort',abort,{once:true});
       const timer=setTimeout(abort,timeoutMs);
       try {
-        const response=await fetchImpl(config.baseURL+'/chat/completions',{
+        const response=await fetchImpl(speech?config.baseURL.replace('/compatible-mode/v1','/api/v1/services/aigc/multimodal-generation/generation'):config.baseURL+'/chat/completions',{
           method:'POST',headers:{'Authorization':'Bearer '+config.apiKey,'Content-Type':'application/json'},signal:controller.signal,redirect:'error',
           body:JSON.stringify(requestBody)
         });
@@ -108,7 +118,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
           if(response.status===429)throw new ChatError('provider_quota',429);
           throw new ChatError('provider_unavailable',502);
         }
-        return await response.json();
+        return await readResult(await response.json(),controller.signal);
       }catch(error){
         if(error instanceof ChatError)throw error;
         if(controller.signal.aborted)throw new ChatError(signal?.aborted?'cancelled':'timeout',signal?.aborted?499:504);
@@ -116,7 +126,21 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
       }finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);active--;}
   }
   return {
-    status(){const c=chatConfig(env);return {configured:c.configured,provider:'Qwen',model:c.model,visionModel:c.visionModel,asrModel:c.asrModel,skills:SOUL_IDS};},
+    status(){const c=chatConfig(env);return {configured:c.configured,provider:'Qwen',model:c.model,visionModel:c.visionModel,asrModel:c.asrModel,ttsModel:c.ttsModel,skills:SOUL_IDS};},
+    async speech(input,{signal}={}){
+      const payload=validateSpeech(input),config=chatConfig(env);if(!config.configured)throw new ChatError('not_configured',503);
+      const voice={lumi:'Cherry',mori:'Serena',bori:'Chelsie'}[payload.soul];
+      return complete({model:config.ttsModel,input:{text:payload.text,voice,language_type:payload.language}},config,signal,{speech:true,readResult:async(data,requestSignal)=>{
+        const url=speechAudioURL(data?.output?.audio?.url);
+        // Fetch only the provider's audio object; authorization is never forwarded to OSS.
+        const response=await fetchImpl(url,{signal:requestSignal,redirect:'error'});
+        if(!response.ok||Number(response.headers.get('content-length'))>4000000)throw new ChatError('invalid_response',502);
+        const chunks=[];let length=0;for await(const chunk of response.body){length+=chunk.length;if(length>4000000)throw new ChatError('invalid_response',502);chunks.push(chunk);}
+        const audio=Buffer.concat(chunks);
+        if(audio.length<44||audio.toString('ascii',0,4)!=='RIFF'||audio.toString('ascii',8,12)!=='WAVE')throw new ChatError('invalid_response',502);
+        return audio;
+      }});
+    },
     async transcribe(input,{signal}={}){
       const audio=validateAudio(input),config=chatConfig(env);
       if(!config.configured)throw new ChatError('not_configured',503);
@@ -139,6 +163,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
           requestBody.model=model;requestBody.messages[0].content=contextSystem;
           if(payload.image){const last=requestBody.messages.at(-1);last.content=[{type:'text',text:last.content},{type:'image_url',image_url:{url:payload.image}}];}
         }
+        if(payload.voice&&!vision){requestBody.max_tokens=150;requestBody.messages[0].content+='\nVOICE MODE: Reply in one or two short sentences, at most 40 English words or 100 Korean characters. No emoji, Markdown or long lists. Leave room for the rider to respond.';}
         const data=await complete(requestBody,config,signal),choice=data?.choices?.[0],reply=choice?.message?.content;
         if(typeof reply!=='string'||!reply.trim()||reply.length>10000)throw new ChatError('invalid_response',502);
         if(vision)return parseObservation(reply,payload.soul,model);
@@ -160,16 +185,18 @@ export function createChatHandler(options={}){
   const service=createChatService(options);
   return async (req,res)=>{
     const pathname=new URL(req.url,'http://localhost').pathname;
-    if(!['/api/chat','/api/chat/scene','/api/chat/status','/api/vision','/api/transcribe'].includes(pathname))return false;
+    if(!['/api/chat','/api/chat/scene','/api/chat/status','/api/vision','/api/transcribe','/api/speech'].includes(pathname))return false;
     const send=(status,body)=>{if(res.destroyed)return;res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(req.method==='HEAD'?undefined:JSON.stringify(body));};
     if(pathname==='/api/chat/status'&&['GET','HEAD'].includes(req.method)){send(200,service.status());return true;}
-    if(!['/api/chat','/api/chat/scene','/api/vision','/api/transcribe'].includes(pathname)||req.method!=='POST'){res.setHeader('Allow',pathname.endsWith('/status')?'GET, HEAD':'POST');send(405,{error:'method_not_allowed'});return true;}
+    if(!['/api/chat','/api/chat/scene','/api/vision','/api/transcribe','/api/speech'].includes(pathname)||req.method!=='POST'){res.setHeader('Allow',pathname.endsWith('/status')?'GET, HEAD':'POST');send(405,{error:'method_not_allowed'});return true;}
     // JSON POST and same-origin requests keep another website from silently spending this demo's quota.
     const origin=req.headers.origin;
     if(req.headers['sec-fetch-site']==='cross-site'||(origin&&(()=>{try{return new URL(origin).host!==req.headers.host;}catch{return true;}})())){send(403,{error:'origin_not_allowed'});return true;}
     const controller=new AbortController(),onClose=()=>{if(!res.writableEnded)controller.abort();};
     res.on('close',onClose);
-    try{const vision=pathname==='/api/vision',asr=pathname==='/api/transcribe';const payload=await readChatBody(req,asr||vision||pathname==='/api/chat/scene'?700000:32768);send(200,await (asr?service.transcribe(payload,{signal:controller.signal}):service.reply(payload,{signal:controller.signal,vision})));}
+    try{const vision=pathname==='/api/vision',asr=pathname==='/api/transcribe',speech=pathname==='/api/speech';const payload=await readChatBody(req,asr||vision||pathname==='/api/chat/scene'?700000:32768);
+      if(speech){const audio=await service.speech(payload,{signal:controller.signal});if(!res.destroyed){res.writeHead(200,{'Content-Type':'audio/wav','Content-Length':audio.length,'Cache-Control':'no-store'});res.end(audio);}}
+      else send(200,await (asr?service.transcribe(payload,{signal:controller.signal}):service.reply(payload,{signal:controller.signal,vision})));}
     catch(e){send(e instanceof ChatError?e.status:500,{error:e instanceof ChatError?e.code:'server_error'});}
     finally{res.off('close',onClose);}
     return true;

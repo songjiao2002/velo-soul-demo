@@ -19,7 +19,7 @@ test('browser timer and fetch defaults retain the Window receiver during startup
  assert.doesNotThrow(()=>conversation.stop());
  conversation.active=true;conversation.soul='lumi';conversation.language='en';
  await conversation.submit('Hello',conversation.epoch);
- assert.equal(states.at(-1),'speaking');
+ assert.equal(states.at(-1),'synthesizing');
  conversation.stop();
  const observer=new SoulVisionObserver();
  assert.doesNotThrow(()=>observer.stop());
