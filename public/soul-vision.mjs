@@ -7,6 +7,10 @@ export const VISION_COPY={
  zh:{start:'开启 AI 观察',stop:'停止 AI 观察',notice:'开启后约每 20 秒截取一张缩小的相机画面发送给千问。不传连续视频，本站不保存分析用图片。',off:'AI 观察已关闭，不会发送画面。',checking:'正在检查 AI 连接…',watching:'正在观察眼前的场景…',quiet:'暂时没有发现足够清晰、适合说起的内容。',waiting:'正在等待值得分享的新场景。',paused:'等聊天或语音播放结束后再观察。',not_configured:'AI 观察需要先在服务器配置千问 API Key。',provider_auth:'请检查千问密钥及视觉模型的使用权限。',provider_quota:'千问额度暂不可用，已停止观察。',rate_limited:'已达到演示使用限额，观察已停止。',failed:'这次未能分析画面，已停止观察，可以再次开启。',camera:'请先开启摄像头。',reply:'AI 对画面的观察，识别可能出错。',listen:'再听一次 ♪'}
 };
 
+VISION_COPY.ko.provider_not_activated='Model Studio 서비스가 아직 활성화되지 않았어요. 관리자 계정에서 해당 지역 서비스를 활성화해주세요.';
+VISION_COPY.en.provider_not_activated='Model Studio is not activated for this account and region. Ask the site owner to activate it.';
+VISION_COPY.zh.provider_not_activated='该账号对应地域的 Model Studio 服务尚未开通，请管理员到阿里云控制台完成开通。';
+
 export function captureVisionFrame(video){
  if(!video||video.readyState<2||!video.videoWidth||!video.videoHeight)throw new Error('camera');
  const canvas=document.createElement('canvas'),scale=Math.min(1,640/Math.max(video.videoWidth,video.videoHeight));

@@ -56,6 +56,12 @@ test('timeouts and client cancellation abort upstream work',async()=>{
  await assert.rejects(createChatService({env,timeoutMs:10,fetchImpl:pending}).reply(input()),{code:'timeout',status:504});
  const controller=new AbortController();controller.abort();await assert.rejects(createChatService({env,fetchImpl:pending}).reply(input(),{signal:controller.signal}),{code:'cancelled',status:499});
 });
+test('service activation and free-quota errors are not reported as invalid keys',async()=>{
+ for(const [upstreamCode,appCode] of [['AccessDenied.Unpurchased','provider_not_activated'],['AllocationQuota.FreeTierOnly','provider_quota']]){
+  const service=createChatService({env,fetchImpl:async()=>new Response(JSON.stringify({error:{code:upstreamCode,message:'private provider detail test-secret-only'}}),{status:403})});
+  await assert.rejects(service.reply(input()),e=>e.code===appCode&&!e.message.includes('test-secret-only'));
+ }
+});
 test('shared budget caps upstream requests and resets on the next UTC day',async()=>{
  let clock=1800000000000,calls=0;const service=createChatService({env:{...env,QWEN_MAX_DAILY_REQUESTS:'2'},now:()=>clock,fetchImpl:async()=>{calls++;return success();}});
  await service.reply(input());await service.reply(input());await assert.rejects(service.reply(input()),{code:'rate_limited'});assert.equal(calls,2);

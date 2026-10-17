@@ -18,6 +18,8 @@ Railway → `velo-soul-demo` 服务 → **Variables**，设置以下变量并重
 
 ## 体验与验收
 
+如果实际调用返回 `403 AccessDenied.Unpurchased`，需要先在新加坡地域完成账号资料及 Model Studio 服务开通。创建 API Key 本身不代表模型服务已开通。网站会显示对应提示，不将此错误当成密钥格式错误。[官方错误说明](https://www.alibabacloud.com/help/en/model-studio/error-code)。
+
 1. `/api/chat/status` 的 `configured: true` 表示服务器发现密钥且地址格式有效；不证明密钥拥有额度或模型权限。
 2. 分别打开三个角色 →「和灵魂对话」。英语、韩语、中文均可输入，中文暂用英语回复和朗读，保留中文输入原文。文字自动判断；语音识别先选择输入语言，再点麦克风，检查识别结果并发送。不支持浏览器语音识别时可以打字。
 3. 进入相机并允许权限，会自动播放角色出场动画。点击「开启 AI 观察」才会发送分析用画面。

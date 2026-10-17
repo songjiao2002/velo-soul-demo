@@ -95,6 +95,9 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
         });
         if(!response.ok){
           // Never forward provider response bodies, request headers, or credentials to the browser.
+          let code;try{const failure=await response.json();code=failure?.error?.code||failure?.code;}catch{}
+          if(code==='AccessDenied.Unpurchased')throw new ChatError('provider_not_activated',503);
+          if(code==='AllocationQuota.FreeTierOnly')throw new ChatError('provider_quota',429);
           if(response.status===401||response.status===403)throw new ChatError('provider_auth',503);
           if(response.status===429)throw new ChatError('provider_quota',429);
           throw new ChatError('provider_unavailable',502);
