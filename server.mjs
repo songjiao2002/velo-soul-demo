@@ -1,9 +1,15 @@
 import http from 'node:http';
-import { createReadStream } from 'node:fs';
+import { createReadStream, existsSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import qrcode from './vendor/qrcode.mjs';
+import { createChatHandler } from './chat-service.mjs';
+
+// .env is local-only and excluded from Git/Docker; Railway injects environment variables.
+const envPath=fileURLToPath(new URL('./.env',import.meta.url));
+if(existsSync(envPath))process.loadEnvFile(envPath);
+const handleChat=createChatHandler();
 
 const root = fileURLToPath(new URL('./public/', import.meta.url));
 const types = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.mjs':'text/javascript; charset=utf-8', '.svg':'image/svg+xml', '.png':'image/png', '.wav':'audio/wav', '.mp3':'audio/mpeg', '.json':'application/json; charset=utf-8' };
@@ -28,7 +34,8 @@ function originFor(req) {
 export const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=(self)');
+  res.setHeader('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=(self)');
+  if(await handleChat(req,res))return;
   const send = (code, body, type='text/plain; charset=utf-8') => {
     res.writeHead(code, { 'Content-Type':type, 'Content-Length':Buffer.byteLength(body) });
     res.end(req.method === 'HEAD' ? undefined : body);

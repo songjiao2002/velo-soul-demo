@@ -9,7 +9,7 @@ after(()=>new Promise(r=>server.close(r)));
 
 test('final UI, camera modules and decoder use executable MIME and camera policy',async()=>{
   for(const p of ['/final.js','/soul-core.mjs','/vendor/jsQR.js']){const r=await fetch(base+p);assert.equal(r.status,200);assert.match(r.headers.get('content-type'),/javascript/);}
-  const home=await fetch(base+'/');assert.match(await home.text(),/20261014-final-camera/);assert.equal(home.headers.get('permissions-policy'),'camera=(self), microphone=(), geolocation=(self)');
+  const home=await fetch(base+'/');assert.match(await home.text(),/20261014-final-camera/);assert.equal(home.headers.get('permissions-policy'),'camera=(self), microphone=(self), geolocation=(self)');
 });
 test('all three colored QR codes decode to their correct public character URL',async()=>{
  const sandbox={module:{exports:{}},exports:{}};vm.runInNewContext(await readFile(new URL('./public/vendor/jsQR.js',import.meta.url),'utf8'),sandbox);const decode=sandbox.module.exports;
@@ -41,7 +41,7 @@ test('audio supports Safari byte-range requests and HEAD',async()=>{
   assert.equal(bad.status,416);
 });
 test('deployment files, traversal and unexpected methods are not exposed',async()=>{
-  for(const p of ['/server.mjs','/package.json','/.env','/vendor/qrcode.mjs','/%2e%2e%2fserver.mjs','/missing.mp3']) assert.equal((await fetch(base+p)).status,404,p);
+  for(const p of ['/server.mjs','/chat-service.mjs','/skills/velo-lumi/SKILL.md','/package.json','/.env','/.env.example','/vendor/qrcode.mjs','/%2e%2e%2fserver.mjs','/missing.mp3']) assert.equal((await fetch(base+p)).status,404,p);
   assert.equal((await fetch(base+'/',{method:'POST'})).status,405);
 });
 

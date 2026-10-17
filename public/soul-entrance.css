@@ -1,0 +1,25 @@
+/* The video stays live beneath a screen-space character entrance. */
+.camera-view .soul-portal{display:none;position:absolute;left:calc(50% - 130px);top:90px;width:260px;height:260px;pointer-events:none;color:var(--accent);z-index:1}
+.camera-view.awakened .soul-portal{display:block}
+.soul-portal i{position:absolute;inset:28px;border:2px solid currentColor;border-radius:50%;opacity:0;box-shadow:0 0 24px currentColor,inset 0 0 22px color-mix(in srgb,var(--accent),transparent 65%);animation:portal-open 2.6s ease-out both}
+.soul-portal i:nth-child(2){inset:8px;animation-delay:.15s;border-width:1px}
+.soul-portal i:nth-child(3){inset:48px;animation-delay:.3s;background:radial-gradient(circle,color-mix(in srgb,var(--accent),transparent 38%),transparent 70%);border:0}
+.soul-portal span{position:absolute;left:50%;top:50%;font-size:29px;color:var(--tint);text-shadow:0 0 14px var(--accent);opacity:0;animation:soul-spark 2.8s .25s ease-out both;--spark-x:-108px;--spark-y:-85px}
+.soul-portal span:nth-of-type(2){--spark-x:111px;--spark-y:-45px;animation-delay:.45s;font-size:23px}
+.soul-portal span:nth-of-type(3){--spark-x:68px;--spark-y:112px;animation-delay:.65s;font-size:47px}
+.camera-view.awakened .soul-overlay.lumi{animation:lumi-arrive 2.8s cubic-bezier(.22,.72,.25,1) both}
+.camera-view.awakened .soul-overlay.mori{animation:mori-arrive 3.6s ease-in-out both}
+.camera-view.awakened .soul-overlay.bori{animation:bori-arrive 1.9s cubic-bezier(.2,.7,.3,1) both}
+.camera-view.awakened .soul-overlay img{animation:soul-breathe 4.5s ease-in-out infinite;animation-delay:2.8s}
+.camera-view.awakened .soul-overlay.mori img{animation-duration:7s;animation-delay:3.6s}
+.camera-view.awakened .soul-overlay.bori img{animation-duration:3s;animation-delay:1.9s}
+.camera-view.awakened .soul-overlay.bori:after{animation:hungry-droplet 2.4s 1.3s ease-in-out infinite both}
+@keyframes portal-open{0%{opacity:0;transform:scale(.2) rotate(-25deg)}28%{opacity:.85}66%{opacity:.35;transform:scale(1.12) rotate(12deg)}100%{opacity:0;transform:scale(1.55) rotate(25deg)}}
+@keyframes soul-spark{0%{opacity:0;transform:translate(-50%,-50%) scale(.2)}25%{opacity:1}75%{opacity:.75}100%{opacity:0;transform:translate(calc(-50% + var(--spark-x)),calc(-50% + var(--spark-y))) rotate(100deg) scale(.7)}}
+@keyframes lumi-arrive{0%{opacity:0;transform:translate(240px,25px) rotate(-28deg) scale(.7)}18%{opacity:1;transform:translate(140px,8px) rotate(-22deg) scale(.8)}36%{transform:translate(180px,18px) rotate(-12deg) scale(.8)}52%{transform:translate(125px,-10px) rotate(-26deg) scale(.86)}76%{transform:translate(-18px,-24px) rotate(9deg) scale(1.06)}90%{transform:translate(5px,5px) rotate(-3deg)}100%{opacity:1;transform:translate(0,0) rotate(0) scale(1)}}
+@keyframes mori-arrive{0%{opacity:0;transform:translate(-30px,-205px) rotate(-10deg) scale(.75)}25%{opacity:.7;transform:translate(20px,-110px) rotate(8deg) scale(.88)}60%{opacity:1;transform:translate(-12px,15px) rotate(-4deg) scale(1)}82%{transform:translate(6px,-8px) rotate(2deg)}100%{opacity:1;transform:translate(0,0) rotate(0) scale(1)}}
+@keyframes bori-arrive{0%{opacity:0;transform:scale(.05) rotate(-16deg)}35%{opacity:1;transform:scale(1.18,.88) rotate(8deg)}53%{transform:scale(.92,1.12) rotate(-8deg)}70%{transform:scale(1.06,.97) rotate(4deg)}85%{transform:scale(.99,1.02) rotate(-2deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes soul-breathe{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-9px) rotate(2deg)}}
+@keyframes hungry-droplet{0%,100%{opacity:0;transform:translateY(-5px) scale(.5)}25%{opacity:1;transform:translateY(0) scale(1)}70%{opacity:1;transform:translateY(9px) scale(.9)}90%{opacity:0;transform:translateY(17px) scale(.5)}}
+@media(max-width:720px){.camera-view .soul-portal{top:calc(50% - 130px)}}
+@media(prefers-reduced-motion:reduce){.camera-view .soul-portal{display:none!important}.camera-view.awakened .soul-overlay,.camera-view.awakened .soul-overlay img,.camera-view.awakened .soul-overlay:after{animation:none!important;opacity:1;transform:none}}

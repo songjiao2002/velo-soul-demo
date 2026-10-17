@@ -1,6 +1,23 @@
 // Korean is the source language. Translation only touches presentation nodes,
 // so changing language never remounts a camera, ride, or editable note.
 const rows = `
+AI 관찰을 켜면 카메라 장면을 분석해요. 그 외 주변 검색, 날씨, 자전거의 초대는 시뮬레이션이에요.|AI observation analyzes camera scenes when enabled. Other nearby searches, weather and bicycle invitations are simulations.|开启 AI 观察后可分析相机画面。其他周边搜索、天气与自行车邀约仍为模拟。
+대화 글과 장소 정보는 Alibaba Cloud Qwen으로 전달됩니다. AI 관찰을 켜면 분석용 카메라 이미지도 Qwen으로 보내며, 이 사이트에는 저장하지 않습니다.|Chat text and place information go to Alibaba Cloud Qwen. Enabling AI observation also sends camera images to Qwen; this site does not save those analysis images.|对话文字与地点信息会发送给阿里云千问。开启 AI 观察后也会向千问发送相机图片；本站不保存分析用图。
+마이크는 대화의 음성 입력 버튼을 누른 뒤에만 사용하며 브라우저의 음성 인식 서비스가 처리할 수 있습니다.|The microphone is used only after tapping voice input. Recognition may be processed by your browser provider.|只在点击语音输入后使用麦克风，识别可能由浏览器服务商处理。
+AI 관찰을 켜기 전에는 화면을 서버로 보내지 않아요.|Camera frames stay on your device until you enable AI observation.|开启 AI 观察前，相机画面不会发送到服务器。
+카메라의 AI 관찰을 켜면 실제 장면에 반응해요. 아래 버튼은 별도 시뮬레이션이에요.|Enable AI observation in the camera to respond to real scenes. The buttons below are separate simulations.|在相机中开启 AI 观察即可根据真实画面回应；下方按钮是独立的情景模拟。
+등장 애니메이션 다시 보기|Replay entrance|重播出场动画
+기본 안내 / AI 사용 불가|Preset / AI unavailable|预设台词／AI 暂不可用
+Reading with your device voice|Reading with your device voice|正在使用设备声音朗读
+등록한 서울 장소 3곳은 GPS로 감지해요. 그 외 주변 검색, 사물 인식, 날씨, 자전거의 초대는 시뮬레이션이에요. 소울은 화면 위의 2D AR이며 공간에 고정되지 않아요.|GPS detects 3 curated Seoul places. Other nearby searches, object recognition, weather and bicycle invitations are simulations. Souls are 2D screen overlays without spatial tracking.|GPS 可检测已收录的首尔 3 处地点；其他周边搜索、相机识物、天气与自行车邀约为模拟。灵魂是 2D 画面叠加，没有空间追踪。
+소울과 대화하기 ↗|Chat with your Soul ↗|和灵魂对话 ↗
+근처 장소에서 소울이 말해요|Your Soul notices nearby places|靠近地点时灵魂会主动说话
+등록한 서울 장소 3곳 · GPS 허용 후 자동 감지. 장소 이름만 Qwen에 보내며 정확한 좌표는 기기에 남아요.|3 curated Seoul places · Automatic after GPS permission. Only the place name goes to Qwen; coordinates stay on your device.|已收录首尔 3 处地点，允许 GPS 后自动触发。只向千问发送地点名称，精确坐标保留在本机。
+GPS를 켜면 근처 장소를 기다려요.|Enable GPS to notice nearby places.|开启 GPS 后会等待进入地点范围。
+위치 없이 상황 테스트|Try without changing your location|不改变真实定位的情景测试
+선택한 장소 도착 시뮬레이션|Simulate arrival at this place|模拟到达所选地点
+기본 안내 / AI 연결 전|Preset / AI not connected|预设台词／AI 尚未连接
+
 EN · 미국식 영어 · 가볍고 호기심 있게|EN · American · Light & curious|EN · 美式 · 轻快好奇
 EN · 영국식 영어 · 느긋하고 부드럽게|EN · British · Calm & gentle|EN · 英式 · 舒缓温柔
 EN · 미국식 영어 · 따뜻하고 신나게|EN · American · Warm & animated|EN · 美式 · 热情活泼
