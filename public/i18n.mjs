@@ -14,7 +14,7 @@ GPS · 카메라 · 음성 함께 시작|Start live companionship|开启实时�
 
 AI 관찰을 켜면 카메라 장면을 분석해요. 그 외 주변 검색, 날씨, 자전거의 초대는 시뮬레이션이에요.|AI observation analyzes camera scenes when enabled. Other nearby searches, weather and bicycle invitations are simulations.|开启 AI 观察后可分析相机画面。其他周边搜索、天气与自行车邀约仍为模拟。
 대화 글과 장소 정보는 Alibaba Cloud Qwen으로 전달됩니다. AI 관찰을 켜면 분석용 카메라 이미지도 Qwen으로 보내며, 이 사이트에는 저장하지 않습니다.|Chat text and place information go to Alibaba Cloud Qwen. Enabling AI observation also sends camera images to Qwen; this site does not save those analysis images.|对话文字与地点信息会发送给阿里云千问。开启 AI 观察后也会向千问发送相机图片；本站不保存分析用图。
-실시간 동행 또는 음성 대화를 켜면 마이크를 사용해요. 답변 중에는 일반 전사를 멈추고 “잠깐” 명령을 듣습니다. 음성 인식은 브라우저 서비스가 처리할 수 있습니다.|Starting live companionship or voice conversation uses the microphone. During replies, normal transcription pauses while “stop” detection stays active. Recognition may be processed by your browser provider.|开启实时陪伴或语音对话后使用麦克风。回答时暂停普通转写，保留“等一下”的打断监听。识别可能由浏览器服务商处理。
+카메라와 음성 대화를 켜면 마이크를 사용해요. 음성은 서버를 거쳐 Qwen에서 인식하며 녹음 파일은 저장하지 않아요. 답변 중에도 “잠깐” 명령을 듣습니다.|Camera with voice uses your microphone. Audio goes through our server to Qwen for recognition; recordings are not saved. “Stop” detection continues during replies.|开启相机语音陪伴后使用麦克风。音频经本站发送给千问识别，不保存录音文件。回答时保留“等一下”的打断监听。
 AI 관찰을 켜기 전에는 화면을 서버로 보내지 않아요.|Camera frames stay on your device until you enable AI observation.|开启 AI 观察前，相机画面不会发送到服务器。
 카메라의 AI 관찰을 켜면 실제 장면에 반응해요. 아래 버튼은 별도 시뮬레이션이에요.|Enable AI observation in the camera to respond to real scenes. The buttons below are separate simulations.|在相机中开启 AI 观察即可根据真实画面回应；下方按钮是独立的情景模拟。
 등장 애니메이션 다시 보기|Replay entrance|重播出场动画
@@ -104,10 +104,10 @@ QR로 깨우고|Wake them with a QR|用二维码唤醒
 자전거 안에,|Inside your bicycle,|自行车里，
 작은 친구가 있어요.|a little friend awaits.|住着一个小伙伴。
 QR이 연결해 준 오늘의 동반자. 카메라를 열면, 소울이 당신의 세상 위로 살짝 고개를 내밀어요.|Your QR has found today's companion. Open the camera and let your Soul peek into your world.|二维码为你找到了今天的伙伴。打开相机，灵魂会悄悄探头，来到你的世界。
-카메라로 소울 만나기|Meet through the camera|通过相机遇见灵魂
+카메라와 음성으로 소울 만나기|Meet with camera + voice|相机＋语音陪伴
 카메라 없이 미리 만나기|Preview without a camera|无需相机，先见一面
 다음 화면에서 카메라를 켜면 권한을 요청해요.|On the next screen, enabling the camera asks for permission.|在下一页开启相机时，会请求使用权限。
-음성 대화를 켤 때 마이크 권한을 요청해요.|Voice conversation requests microphone access.|开启语音对话时会请求麦克风权限。
+카메라 입장 시 마이크를 켜고, 음성과 AI 관찰 화면을 Qwen에 보내 대화해요. 녹음 파일은 저장하지 않아요.|Entering the camera sends microphone audio and AI observation frames to Qwen. Recordings are not saved.|进入相机后将麦克风声音和 AI 观察画面发送给千问，不保存录音文件。
 실시간 후면 카메라|Live rear camera|实时后置相机
 자전거의 QR을 비춰주세요|Point at your bike's QR|请对准自行车二维码
 당신의 세상으로 초대해요|Invite a Soul into your world|邀请灵魂来到你的世界

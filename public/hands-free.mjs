@@ -8,27 +8,29 @@ export const HANDS_FREE_COPY={
 };
 
 export class HandsFreeConversation {
- constructor({Recognition=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition,fetchImpl=(...args)=>globalThis.fetch(...args),getContext=()=>({}),speak=()=>{},stopSpeech=()=>{},onState=()=>{},onTranscript=()=>{},onReply=()=>{},setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{Recognition,fetchImpl,getContext,speak,stopSpeech,onState,onTranscript,onReply,setTimer,clearTimer});this.active=false;this.epoch=0;this.recognizer=null;this.controller=null;this.timer=null;this.state='off';this.histories={lumi:[],mori:[],bori:[]};}
+ constructor({Recognition=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition,fetchImpl=(...args)=>globalThis.fetch(...args),getContext=()=>({}),speak=()=>{},stopSpeech=()=>{},releaseInput=()=>{},onState=()=>{},onTranscript=()=>{},onReply=()=>{},setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{Recognition,fetchImpl,getContext,speak,stopSpeech,releaseInput,onState,onTranscript,onReply,setTimer,clearTimer});this.active=false;this.epoch=0;this.recognizer=null;this.controller=null;this.timer=null;this.state='off';this.histories={lumi:[],mori:[],bori:[]};}
  setState(state){this.state=state;this.onState(state,this.active);}
- disconnect(){const r=this.recognizer;this.recognizer=null;if(r){r.onresult=r.onend=r.onerror=r.onspeechstart=r.onspeechend=r.onstart=null;try{r.abort();}catch{}}}
+ disconnect(){const r=this.recognizer;this.recognizer=null;if(r){r.onresult=r.onend=r.onerror=r.onspeechstart=r.onspeechend=r.onstart=r.onquiet=r.ontranscribing=null;try{r.abort();}catch{}}}
  stopInterrupt(){this.clearTimer(this.interruptTimer);this.interruptTimer=null;const r=this.interruptRecognizer;this.interruptRecognizer=null;if(r){r.onresult=r.onend=r.onerror=null;try{r.abort();}catch{}}}
- stop(reason='off'){this.active=false;this.epoch++;this.clearTimer(this.timer);this.controller?.abort();this.controller=null;this.disconnect();this.stopInterrupt();this.stopSpeech();this.setState(reason);}
+ stop(reason='off'){this.active=false;this.epoch++;this.clearTimer(this.timer);this.controller?.abort();this.controller=null;this.disconnect();this.stopInterrupt();this.releaseInput();this.stopSpeech();this.setState(reason);}
  start(soul,language){this.stop();if(!this.Recognition){this.setState('unsupported');return;}this.soul=soul;this.language=language;this.active=true;this.listen();}
- isBusy(){return this.active&&['hearing','thinking','speaking'].includes(this.state);}
+ isBusy(){return this.active&&['starting','hearing','transcribing','thinking','speaking'].includes(this.state);}
  resumeAfter(serial,delay=500){this.clearTimer(this.timer);this.timer=this.setTimer(()=>{if(this.active&&serial===this.epoch)this.listen();},delay);}
  listen(){
-  if(!this.active)return;this.disconnect();const serial=this.epoch;const r=new this.Recognition();this.recognizer=r;
+  if(!this.active)return;this.disconnect();const serial=this.epoch;let r;try{r=new this.Recognition();}catch{this.stop('unsupported');return;}this.recognizer=r;
   r.lang={en:'en-US',ko:'ko-KR',zh:'zh-CN'}[this.language]||'en-US';r.continuous=false;r.interimResults=true;r.maxAlternatives=1;
   const valid=()=>this.active&&this.epoch===serial&&this.recognizer===r;
-  let finalText='',submitted=false;
+  let finalText='',submitted=false,started=false;
   const send=()=>{if(!valid()||submitted)return;submitted=true;this.disconnect();this.clearTimer(this.timer);if(finalText)this.submit(finalText,serial);else this.resumeAfter(serial,1000);};
-  r.onstart=()=>{if(valid())this.setState('listening');};
-  r.onspeechstart=()=>{if(valid())this.setState('hearing');};
+  r.onstart=()=>{if(valid()){started=true;this.clearTimer(this.timer);this.setState('listening');this.timer=this.setTimer(()=>{if(valid()){this.disconnect();this.resumeAfter(serial);}},45000);}};
+  r.onspeechstart=()=>{if(valid()){this.clearTimer(this.timer);this.setState('hearing');}};
+  r.ontranscribing=()=>{if(valid()){this.clearTimer(this.timer);this.setState('transcribing');}};
+  r.onquiet=()=>{if(valid())this.setState('quiet');};
   r.onresult=e=>{if(!valid())return;let interim='';const finals=[];for(const result of Array.from(e.results)){const text=result[0]?.transcript||'';if(result.isFinal)finals.push(text);else interim+=text;}finalText=finals.join(' ').trim().slice(0,1000);this.onTranscript(finalText||interim);if(finalText)send();};
   r.onspeechend=()=>{if(valid())try{r.stop();}catch{send();}};
   r.onend=send;
-  r.onerror=e=>{if(!valid())return;if(e.error==='no-speech'){this.disconnect();this.setState('listening');this.resumeAfter(serial,1000);}else if(e.error==='aborted'){this.disconnect();this.resumeAfter(serial);}else this.stop(['not-allowed','service-not-allowed','audio-capture'].includes(e.error)?'denied':'network');};
-  this.setState('listening');try{r.start();this.timer=this.setTimer(()=>{if(valid()){this.disconnect();this.resumeAfter(serial);}},45000);}catch{this.stop('denied');}
+  r.onerror=e=>{if(!valid())return;if(e.error==='no-speech'){this.disconnect();this.setState('listening');this.resumeAfter(serial,1000);}else if(e.error==='aborted'){this.disconnect();this.resumeAfter(serial);}else this.stop(['not-allowed','service-not-allowed'].includes(e.error)?'denied':['rate_limited','provider_quota'].includes(e.error)?'rate_limited':['audio-capture','unsupported','asr_timeout','not_configured','provider_auth','provider_not_activated'].includes(e.error)?e.error:'network');};
+  this.setState('starting');try{this.timer=this.setTimer(()=>{if(valid()&&!started)this.stop('start_timeout');},12000);r.start();}catch{this.stop('denied');}
  }
  async submit(text,serial){
   if(!this.active||serial!==this.epoch)return;
@@ -90,3 +92,11 @@ HANDS_FREE_COPY.zh.notice+=' 回答时暂停普通转写，但保留“等一下
 HANDS_FREE_COPY.ko.speaking_no_interrupt='말하는 중 · 이 브라우저에서 음성 끼어들기를 시작하지 못했어요';
 HANDS_FREE_COPY.en.speaking_no_interrupt='Speaking · Voice interruption is unavailable in this browser';
 HANDS_FREE_COPY.zh.speaking_no_interrupt='正在回答 · 此浏览器未能启动打断监听';
+
+Object.assign(HANDS_FREE_COPY.ko,{starting:'마이크와 음성 인식을 연결하고 있어요…',start_timeout:'음성 인식이 시작되지 않았어요. 마이크 권한을 확인하고 휴대폰 브라우저에서 다시 열어주세요.',languageHint:'말하는 언어를 선택하세요. 중국어는 中文 → English를 선택해요.'});
+Object.assign(HANDS_FREE_COPY.en,{starting:'Connecting microphone and speech recognition…',start_timeout:'Speech recognition did not start. Check microphone access and reopen in your phone browser.',languageHint:'Choose the language you speak. For Chinese, select 中文 → English.'});
+Object.assign(HANDS_FREE_COPY.zh,{starting:'正在连接麦克风和语音识别…',start_timeout:'语音识别未能启动。请检查麦克风权限，并用手机浏览器重新打开。',languageHint:'请选择你正在说的语言。说中文请选择“中文 → English”。'});
+
+Object.assign(HANDS_FREE_COPY.ko,{mic:'마이크 음량',transcribing:'들었어요 · 음성을 글로 바꾸고 있어요…',quiet:'음성이 감지되지 않아요. 음량 막대와 마이크 입력을 확인해주세요.',languageHint:'영어·한국어·중국어를 자동 인식해요. 중국어에는 영어로 답해요.',notice:'말하고 약 1초 쉬면 자동 전송 → 답변 → 다시 듣기. 음성은 서버를 거쳐 Qwen에서 인식하며 녹음 파일을 저장하지 않아요. 답변 중에는 끼어들기 감지가 계속돼요. 화면을 켜두세요.', 'audio-capture':'마이크 입력을 받지 못했어요. 마이크 장치를 확인하고 다시 켜주세요.',asr_timeout:'음성 인식 시간이 초과됐어요. 다시 켜서 시도해주세요.',not_configured:'서버에 음성 인식이 설정되지 않았어요.',provider_auth:'음성 서비스 인증에 실패했어요.',provider_not_activated:'음성 인식 모델을 활성화해야 해요.'});
+Object.assign(HANDS_FREE_COPY.en,{mic:'Mic level',transcribing:'Heard you · Transcribing…',quiet:'No speech detected. Check the level meter and microphone input.',languageHint:'English, Korean and Chinese are detected automatically. Chinese gets an English reply.',notice:'Speak and pause for about a second → reply → listen again. Audio goes through our server to Qwen; recordings are not saved. Interruption detection continues during replies. Keep the page in the foreground.', 'audio-capture':'No microphone input. Check the input device and start again.',asr_timeout:'Speech recognition timed out. Start again to retry.',not_configured:'Speech recognition is not configured on the server.',provider_auth:'Speech service authentication failed.',provider_not_activated:'The speech recognition model needs activation.'});
+Object.assign(HANDS_FREE_COPY.zh,{mic:'麦克风音量',transcribing:'收到声音 · 正在识别文字…',quiet:'还没有检测到说话，请检查音量条和麦克风输入设备。',languageHint:'自动识别中、英、韩语；中文会用英语回答。',notice:'说完停顿约1秒 → 自动发送 → 回答 → 继续聆听。音频经服务器发送给千问识别，不保存录音文件。回答时保留打断检测。请保持网页在前台。', 'audio-capture':'未能读取麦克风，请检查输入设备后重新开启。',asr_timeout:'语音识别超时，请重新开启后再试。',not_configured:'服务器尚未配置语音识别。',provider_auth:'语音服务认证失败。',provider_not_activated:'千问语音识别模型尚未开通。'});
