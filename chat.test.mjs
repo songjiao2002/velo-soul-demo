@@ -79,3 +79,8 @@ test('HTTP chat routes enforce method, body, origin and safe status behavior',as
  assert.equal((await fetch(origin+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:'{bad json'})).status,400);
  assert.equal((await fetch(origin+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:' '.repeat(33000)})).status,413);
 });
+
+test('voice conversation uses a fast configurable model while text and vision retain their models',async()=>{
+ const calls=[],service=createChatService({env:{DASHSCOPE_API_KEY:'test-secret-only'},fetchImpl:async(url,o)=>{calls.push(JSON.parse(o.body));return Response.json({choices:[{message:{content:'곁에 있을게.'}}]});}});
+ await service.reply({soul:'mori',language:'ko',voice:true,messages:[{role:'user',content:'피곤해'}]});await service.reply({soul:'mori',language:'ko',messages:[{role:'user',content:'피곤해'}]});assert.equal(calls[0].model,'qwen-flash');assert.equal(calls[0].enable_thinking,false);assert.equal(calls[1].model,'qwen-plus');assert.match(calls[0].messages[0].content,/Do not introduce yourself again/);
+});

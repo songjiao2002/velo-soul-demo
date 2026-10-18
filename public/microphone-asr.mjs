@@ -42,7 +42,7 @@ export class MicrophoneInput {
       const source = context.createMediaStreamSource(stream); this.source = source;
       let node;
       if (context.audioWorklet && this.WorkletNode) {
-        await context.audioWorklet.addModule('/mic-worklet.js?v=20261018-weather3');
+        await context.audioWorklet.addModule('/mic-worklet.js?v=20261018-voice9');
         if (serial !== this.serial) return;
         node = new this.WorkletNode(context, 'soul-mic');
         node.port.onmessage = event => this.samples(event.data, context.sampleRate);
@@ -89,7 +89,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), fetc
     }
     samples(data, rate) {
       if (!this.active || this.finalizing) return;
-      if (!this.started) { this.started = true; this.onstart?.(); }
+      if (!this.started) { this.started = true; this.onstart?.(); if(!this.active)return; }
       this.rate = rate;
       const ms = data.length / rate * 1000;
       const rms = Math.sqrt(data.reduce((sum, v) => sum + v * v, 0) / data.length);
@@ -109,7 +109,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), fetc
       }
       this.chunks.push(data); this.total += ms;
       this.quiet = loud ? 0 : this.quiet + ms; if (loud) this.voiced += ms;
-      if (this.quiet >= 650 || this.total >= 15000) this.stop();
+      if (this.quiet >= 450 || this.total >= 15000) this.stop();
     }
     async stop() {
       if (!this.active || this.finalizing) return;

@@ -66,7 +66,7 @@ test('routine weather is one opening greeting, while later rain still triggers a
  const later=time+3600000;assert.equal(gate.candidate({...dry,fetchedAt:later,observedAt:later},later),null,'No periodic dry-weather chatter');const rain={...snapshot(),fetchedAt:later,observedAt:later};assert.equal(gate.candidate(rain,later).kind,'rain');
 });
 test('opening greeting precedes other automatic observations but does not block on missing GPS',async()=>{
- const a=companion();a.c.start();assert.equal(a.c.openingPending(),true);a.setNow(time+16000);assert.equal(a.c.openingPending(),false);a.c.position({...point,time:time+16000});await flush();assert.equal(a.c.openingPending(),true);a.allow();a.c.tick();assert.match(a.spoken[0].line,/안녕, 나는 모리야/);assert.equal(a.c.openingPending(),false);a.c.stop();
+ const a=companion();a.c.start();assert.equal(a.c.openingPending(),true);a.setNow(time+16000);assert.equal(a.c.openingPending(),false);a.c.position({...point,time:time+16000});await flush();assert.equal(a.c.openingPending(),true);a.allow();a.c.tick();assert.match(a.spoken[0].line,/주변 날씨/);assert.equal(a.c.openingPending(),false);a.c.stop();
 });
 test('new one-hour rain forecasts trigger after the greeting and keep Korean / English uncertainty',()=>{
  const gate=new WeatherNoticeGate(),dry=snapshot({code:0,precipitationMm:0,nextHours:[]});gate.mark(gate.candidate(dry,time),time);

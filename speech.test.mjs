@@ -57,3 +57,13 @@ test('blocked output reports an actionable state and long replies are split with
 test('playback cancellation silences its node and does not emit a late ended event',async()=>{
  const a=playerSetup(),states=[];await a.player.prepare();const promise=a.player.speak('Hello',{onState:s=>states.push(s)});await flush();const source=a.sources.at(-1),late=source.onended;a.player.stop();await promise;late();assert.equal(source.stopped,true);assert.deepEqual(states,['loading','playing']);a.player.dispose();
 });
+
+test('preloaded introduction plays without a TTS API request and preserves cancellation',async()=>{
+ const a=playerSetup(),states=[];await a.player.preload('Hello',{soul:'lumi',language:'ko',source:'/audio/intro/lumi-ko.wav'});assert.equal(a.sources.length,0);await a.player.prepare();
+ const playing=a.player.speak('Hello',{soul:'lumi',language:'ko',onState:s=>states.push(s)});await flush();assert.equal(a.requests.length,1);assert.equal(a.requests[0].url,'/audio/intro/lumi-ko.wav');assert.equal(states.at(-1),'playing');a.player.stop();await playing;assert.equal(states.includes('ended'),false);a.player.dispose();
+});
+test('failed packaged audio falls back to streamed TTS and weather prefetch is cancelled on exit',async()=>{
+ let calls=0;const a=playerSetup(async()=>++calls===1?new Response('',{status:404}):new Response(wav));await a.player.prepare();
+ await a.player.preload('Hello',{source:'/missing.wav'});const play=a.player.speak('Hello');await flush();assert.equal(a.requests.at(-1).url,'/api/speech/stream');a.sources.at(-1).onended();await play;
+ await a.player.preload('Rain is possible.');a.player.cancelPrefetches();assert.ok(a.requests.at(-1).options.signal.aborted);a.player.dispose();
+});

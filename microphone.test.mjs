@@ -108,3 +108,7 @@ test('cloud interruption uses recognized stop commands and aborts late monitor r
  callback('playing');[...timers.values()].find(t=>t.ms===150).fn();await flush();const before=stopped;a.feed(.08,500);a.feed(0,1100);await flush();
  assert.ok(stopped>before);assert.equal(session.state,'listening');assert.equal(a.calls.length,1);session.stop();
 });
+
+test('end of speech submits within half a second while shorter pauses remain in the same turn',async()=>{
+ const a=recorder(),r=new a.Recognition();r.start();await flush();a.feed(.08,700);a.feed(0,300);assert.equal(a.calls.length,0);a.feed(.08,300);a.feed(0,400);assert.equal(a.calls.length,0);a.feed(0,100);assert.equal(a.calls.length,1);r.abort();
+});

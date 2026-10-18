@@ -2,10 +2,10 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {HandsFreeConversation} from './public/hands-free.mjs';
 const flush=()=>new Promise(r=>setImmediate(r));
-function setup(fetchImpl){
+function setup(fetchImpl,options={}){
  const recognizers=[],calls=[],voices=[],states=[],timers=new Map();let timerId=0,stops=0;
  class Recognition{constructor(){recognizers.push(this);}start(){this.active=true;this.onstart?.();}abort(){this.active=false;}stop(){this.active=false;this.onend?.();}hear(text){this.onspeechstart?.();this.onresult?.({results:[{0:{transcript:text},isFinal:true}]});}}
- const session=new HandsFreeConversation({Recognition,fetchImpl:async(url,options)=>{calls.push({url,body:JSON.parse(options.body),signal:options.signal});return fetchImpl?fetchImpl(url,options):new Response(JSON.stringify({soul:'bori',reply:'A little cafe break sounds lovely.'}));},getContext:()=>({context:{location:{placeId:'daelim-changgo'}},image:'synthetic-image-for-client-unit-test'}),speak:(text,lang,soul,callback)=>{assert.equal(recognizers.some(r=>r.active),false);voices.push({text,lang,callback});},stopSpeech:()=>stops++,onState:s=>states.push(s),setTimer:(fn,ms)=>{timers.set(++timerId,{fn,ms});return timerId;},clearTimer:id=>timers.delete(id)});
+ const session=new HandsFreeConversation({Recognition,fetchImpl:async(url,options)=>{calls.push({url,body:JSON.parse(options.body),signal:options.signal});return fetchImpl?fetchImpl(url,options):new Response(JSON.stringify({soul:'bori',reply:'A little cafe break sounds lovely.'}));},getContext:()=>({context:{location:{placeId:'daelim-changgo'}},image:'synthetic-image-for-client-unit-test'}),speak:(text,lang,soul,callback)=>{assert.equal(recognizers.some(r=>r.active),false);voices.push({text,lang,callback});},stopSpeech:()=>stops++,onState:s=>states.push(s),setTimer:(fn,ms)=>{timers.set(++timerId,{fn,ms});return timerId;},clearTimer:id=>timers.delete(id),...options});
  const run=ms=>{const entry=[...timers.entries()].find(([,t])=>t.ms===ms);assert.ok(entry,'timer '+ms);timers.delete(entry[0]);entry[1].fn();};
  return {session,recognizers,calls,voices,states,timers,run,get stops(){return stops;}};
 }
@@ -45,4 +45,16 @@ test('temporary recognition failures reconnect automatically with a bounded retr
  const a=setup();a.session.start('bori','en');
  for(const delay of [1500,3000,4500]){a.recognizers.at(-1).onerror({error:'network'});assert.equal(a.session.active,true);assert.equal(a.session.state,'reconnecting');a.run(delay);assert.equal(a.recognizers.at(-1).active,true);}
  a.recognizers.at(-1).onerror({error:'network'});assert.equal(a.session.active,false);assert.equal(a.session.state,'network');assert.equal(a.timers.size,0);
+});
+
+test('introduction plays before any chat/GPS request, resumes listening and does not repeat on pause',async()=>{
+ const shared=new Set(),a=setup(null,{introduced:shared,getOpening:()=>({text:'안녕, 나는 보리야.',language:'ko'})});
+ a.session.start('bori','ko');assert.equal(a.calls.length,0);assert.equal(a.voices[0].text,'안녕, 나는 보리야.');assert.equal(a.session.state,'synthesizing');
+ assert.equal(a.session.announce('Weather','ko'),false);a.voices[0].callback('playing');assert.ok(shared.has('bori'));a.voices[0].callback('ended');a.run(250);assert.equal(a.session.state,'listening');
+ a.recognizers.at(-1).hear('안녕');await flush();assert.equal(a.calls.length,1);a.voices.at(-1).callback('ended');a.session.stop();a.session.start('bori','ko');assert.equal(a.session.state,'listening');assert.equal(a.voices.length,2);a.session.stop();
+ const b=setup(null,{introduced:shared,getOpening:()=>({text:'No repeated introduction',language:'ko'})});b.session.start('bori','ko');assert.equal(b.voices.length,0);b.session.stop();
+});
+test('failed or cancelled introduction cannot restart after exit and is retryable',()=>{
+ const a=setup(null,{getOpening:()=>({text:'Hello!',language:'en'})});a.session.start('bori','en');const callback=a.voices[0].callback;a.session.stop();callback('playing');callback('ended');assert.equal(a.session.active,false);assert.equal(a.timers.size,0);assert.equal(a.session.introduced.size,0);
+ a.session.start('bori','en');assert.equal(a.voices.length,2);a.voices[1].callback('blocked');assert.equal(a.session.audioIssue,true);a.session.stop();
 });

@@ -58,8 +58,7 @@ export function weatherLine(w,soul,language='en',risk=weatherRisk(w)){
  return `Local weather data show ${c}, about ${temp} degrees Celsius. `+({lumi:'What little detail might catch your eye today?',mori:temp<8?'A chilly day. Let’s keep a comfortable pace together.':'How does the air feel to you? I’ll follow your pace.',bori:temp<12?'When we stop somewhere safe, shall we dream up a warm snack?':'What snack would you fancy when we take a break?'}[soul]);
 }
 export function weatherGreeting(w,soul,language='en',risk=weatherRisk(w)){
- const name={lumi:['Lumi','루미'],mori:['Mori','모리'],bori:['Bori','보리']}[soul];
- return (language==='ko'?`안녕, 나는 ${name[1]}야. `:`Hi, I’m ${name[0]}. `)+weatherLine(w,soul,language,risk);
+ return weatherLine(w,soul,language,risk);
 }
 export class WeatherNoticeGate{
  constructor(){this.seen=new Map();this.lastAt=-Infinity;this.lastLevel=0;this.lastKind=null;this.greeted=false;}

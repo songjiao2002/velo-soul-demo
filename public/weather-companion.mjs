@@ -11,6 +11,7 @@ export class WeatherCompanion{
  openingPending(){return this.active&&this.autoSpeak&&!this.gate.greeted&&this.state!=='unavailable'&&(!!this.reference()||this.now()-this.startedAt<15000);}
  schedule(){this.clearTimer(this.timer);if(this.active)this.timer=this.setTimer(()=>{this.tick();this.schedule();},5000);}
  tick(){if(!this.active)return;if(this.snapshot&&!weatherFresh(this.snapshot,this.now())){this.snapshot=null;this.setState('stale');}void this.refresh();this.flush();}
+ preview(){if(!this.reference()||!this.autoSpeak)return null;const notice=this.gate.candidate(this.snapshot,this.now());return notice?{notice,line:(notice.greeting?weatherGreeting:weatherLine)(this.snapshot,this.getSoul(),this.getLanguage(),notice.risk)}:null;}
  flush(){if(!this.reference()||!this.autoSpeak||!this.canSpeak())return;const notice=this.gate.candidate(this.snapshot,this.now());if(!notice)return;const line=(notice.greeting?weatherGreeting:weatherLine)(this.snapshot,this.getSoul(),this.getLanguage(),notice.risk);const accepted=this.speak(line,this.getLanguage(),notice);if(accepted)this.gate.mark(notice,this.now());}
  async refresh(){
   if(!this.active||this.busy||(this.now()<this.nextFetch&&weatherArea(this.point,this.now()))||this.now()-this.lastAttempt<60000||!this.point)return;

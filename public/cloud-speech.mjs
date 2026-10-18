@@ -5,7 +5,24 @@ export function speechChunks(text,limit=540){
  return parts;
 }
 export class CloudSpeechPlayer {
- constructor({Context=globalThis.AudioContext||globalThis.webkitAudioContext,fetchImpl=(...args)=>globalThis.fetch(...args),setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{Context,fetchImpl,setTimer,clearTimer});this.serial=0;this.cache=new Map();}
+ constructor({Context=globalThis.AudioContext||globalThis.webkitAudioContext,fetchImpl=(...args)=>globalThis.fetch(...args),setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{Context,fetchImpl,setTimer,clearTimer});this.serial=0;this.cache=new Map();this.preloads=new Map();}
+ preload(text,{language='en',soul='lumi',source}={}){
+  const key=JSON.stringify([text,language,soul]);if(this.preloads.has(key))return this.preloads.get(key).promise;
+  const controller=new AbortController(),entry={controller,dynamic:!source};
+  const timer=this.setTimer(()=>controller.abort(),source?3000:8000);
+  entry.promise=(async()=>{
+   try{
+    const response=await this.fetchImpl(source||'/api/speech',{signal:controller.signal,...(source?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,language,soul})})});
+    if(!response.ok||Number(response.headers.get('content-length'))>4000000)throw Error('audio');
+    const bytes=await response.arrayBuffer();if(bytes.byteLength<44||bytes.byteLength>4000000)throw Error('audio');
+    return bytes;
+   }catch{return null;}finally{this.clearTimer(timer);}
+  })();
+  this.preloads.set(key,entry);
+  while(this.preloads.size>8){const oldest=this.preloads.keys().next().value;this.preloads.get(oldest).controller.abort();this.preloads.delete(oldest);}
+  return entry.promise;
+ }
+ cancelPrefetches(){for(const [key,entry] of this.preloads)if(entry.dynamic){entry.controller.abort();this.preloads.delete(key);}}
  prepare(){
   try{
    if(!this.Context)return Promise.resolve(false);
@@ -51,7 +68,7 @@ export class CloudSpeechPlayer {
    await tail;if(timedOut)throw new Error('playback_timeout');
   }finally{cleanup();reader.releaseLock();}
  }
- async speak(text,{language='en',soul='lumi',onState=()=>{}}={}){
+ async speak(text,{language='en',soul='lumi',source,onState=()=>{}}={}){
   this.stop();const serial=this.serial,valid=()=>serial===this.serial,report=state=>{if(valid())onState(state);};
   const parts=speechChunks(text);if(!parts.length){report('ended');return;}
   report('loading');
@@ -67,6 +84,11 @@ export class CloudSpeechPlayer {
    for(const part of parts){
     if(!valid())return;
     const key=JSON.stringify([part,language,soul]);let buffer=this.cache.get(key);
+    if(!buffer&&(source||this.preloads.has(key))){
+     const bytes=await (this.preloads.get(key)?.promise||this.preload(part,{language,soul,source}));if(!valid())return;
+     if(bytes){try{buffer=await context.decodeAudioData(bytes.slice(0));}catch{}if(!valid())return;}
+     if(buffer){this.cache.set(key,buffer);while(this.cache.size>8)this.cache.delete(this.cache.keys().next().value);}
+    }
     if(!buffer){
      fetchTimer=this.timer=this.setTimer(()=>controller.abort(),35000);
      const response=await this.fetchImpl('/api/speech/stream',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({text:part,language,soul})});
@@ -96,5 +118,5 @@ export class CloudSpeechPlayer {
   }catch(error){if(valid())report(this.context?.state!=='running'?'blocked':'unavailable');}
   finally{this.clearTimer(fetchTimer);if(this.timer===fetchTimer)this.timer=null;if(this.controller===controller)this.controller=null;}
  }
- dispose(){this.stop();this.cache.clear();const context=this.context;this.context=null;if(context)context.close().catch(()=>{});}
+ dispose(){this.stop();this.cache.clear();for(const entry of this.preloads.values())entry.controller.abort();this.preloads.clear();const context=this.context;this.context=null;if(context)context.close().catch(()=>{});}
 }

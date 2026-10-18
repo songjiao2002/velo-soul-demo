@@ -101,3 +101,13 @@ Lumi 留意天气中的小发现；Mori 关心舒适节奏；Bori 联系安全�
 [Open-Meteo 文档](https://open-meteo.com/en/docs) · [使用条款](https://open-meteo.com/en/terms) · [CC BY 4.0 数据许可](https://open-meteo.com/en/licence)。当前使用适合教育/研究原型的免费非商业接口，无新增密钥；若改作商业服务需按提供方条款更换方案。天气卡片注明来源、模型估计和 VELO SOUL 摘要。
 
 预报提醒：检查未来两小时的逐小时数据，对约一小时内和两小时内的可能降雨、降雪、雷雨或冻雨分别说明。新预报在开场之后仍会自动提醒；风险临近可更新提醒，但不反复读相同预报。小时预报只表示一个时间窗口，不声称确定的降雨开始时刻。
+
+## Voice9: quicker conversation and expressive Souls
+
+Starting voice conversation plays a packaged introduction in the selected Korean/English voice immediately after microphone readiness. It does not wait for GPS or a chat model. Weather is prepared while the introduction plays, then spoken when listening is idle. Missing GPS does not block conversation. Pause/resume and switching camera/chat do not repeat an introduction already heard in this page session. Chinese input continues to receive English output.
+
+Voice replies use QWEN_VOICE_MODEL (default qwen-flash, thinking disabled), separate from text QWEN_MODEL and camera QWEN_VISION_MODEL. Speech endpointing is 450 ms of silence, followed by ASR → short reply → streaming PCM playback. This is turn-taking conversation with keyword interruption, not full-duplex streaming input. Dynamic replies still depend on network and service latency.
+
+Camera and chat characters use separate arms, feet, body and programmable eyes/mouth. Greeting gestures, blinks, listening gaze, thinking face and speaking mouth follow actual session/playback state. Reduced-motion settings disable the animation. Assets are generated with built-in imagegen; prompts and saved paths are in ASSET_GENERATION.json. Runtime SVG/CSS articulates the unchanged PNG atlases.
+
+Validation: opening/cancellation/continuous conversation/half-second endpointing regressions; production bundle DOM simulation in English and Korean; all six packaged introductions synthesized and transcribed through Qwen. A static SVG layout render was inspected. Physical-device microphone, wind noise, autoplay and browser animation rendering still need on-device verification.
