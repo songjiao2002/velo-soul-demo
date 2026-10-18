@@ -1,7 +1,7 @@
 import {BUILD} from './build-version.mjs';
 let nextId=0;
 // Landmarks use the unchanged 1254px cover coordinate space. The cover's actual
-// eyes, brows and mouth remain the face; only the separated body and hands are new.
+// eyes and brows remain the face; the original mouth returns between utterances.
 const rigs={
  lumi:{name:'Lumi',color:'blue',body:[108,126,.88,700,1],
   eyes:[{at:[525,495],shape:'<ellipse rx="74" ry="81" transform="rotate(20)"/>'},{at:[779,562],shape:'<ellipse rx="64" ry="78" transform="rotate(20)"/>'}],
@@ -18,6 +18,22 @@ const rigs={
   mouth:{at:[585,616],shape:'<path d="M-39-35 Q-35-43-22-32 Q-3-19 30-26 Q47-32 45-17 Q39 20 12 35 Q-15 46-34 16 Q-47-4-43-26Z"/>'},
   left:{anchor:[436,755],crop:[1140,165,265,210],root:[1345,220],scale:.5},right:{anchor:[766,790],crop:[1150,440,265,205],root:[1218,504],scale:.7,flip:true}}
 };
+
+const mouthPalettes={
+ lumi:{edge:'#283c9b',inside:'#171638',bottom:'#473270',tongue:'#b092dd',shine:'#a8baff',tilt:14},
+ mori:{edge:'#356849',inside:'#163c2d',bottom:'#366c4d',tongue:'#a6cfad',shine:'#d5efcc',tilt:5},
+ bori:{edge:'#ae510b',inside:'#65210e',bottom:'#aa4015',tongue:'#ff9852',shine:'#ffd27a',tilt:8}
+};
+export function mouthPose(soul,opening=0,roundness=.4){
+ const open=Math.max(0,Math.min(1,Number(opening)||0)),round=Math.max(0,Math.min(1,Number(roundness)||0));
+ const width=(soul==='bori'?41:soul==='mori'?30:35)*(1-.42*round)*(.95+.1*open),height=4+open*(soul==='mori'?27:soul==='bori'?49:42);
+ const n=value=>Number(value.toFixed(2)),w=n(width),h=n(height),top=n(-8-round*7),corner=n(top+5),bow=n(top+7-round*14);
+ return {open,closed:open<.045,width:w,height:h,
+  aperture:`M${-w} ${corner} C${n(-w*.58)} ${bow} ${n(w*.58)} ${bow} ${w} ${corner} C${n(w*1.05)} ${n(h*.65)} ${n(w*.5)} ${h} 0 ${h} C${n(-w*.5)} ${h} ${n(-w*1.05)} ${n(h*.65)} ${-w} ${corner} Z`,
+  tongue:`M${n(-w*.9)} ${n(h*.83)} Q0 ${n(h*.2)} ${n(w*.9)} ${n(h*.83)} L${w} ${n(h+10)} H${-w}Z`,
+  lip:`M${n(-w*.72)} ${n(h*.8)} Q0 ${n(h+6)} ${n(w*.72)} ${n(h*.8)}`};
+}
+
 export function soulPuppet(soul){
  const rig=rigs[soul];if(!rig)return '';
  const id=`soul-surface-${++nextId}`,file=`/assets/${soul}-cover-rig.webp?v=${BUILD}`,portrait=`/soul-${rig.color}.webp?v=${BUILD}`;
@@ -28,7 +44,10 @@ export function soulPuppet(soul){
   const classes=part==='eye'?'soul-eye-blink':part==='mouth'?'mouth-texture':`soul-brow brow-${index?'right':'left'}`;
   return `<g class="soul-${part}" transform="translate(${x} ${y})"><g class="${classes}"><g clip-path="url(#${clip})"><image href="${portrait}" x="${-x}" y="${-y}" width="1254" height="1254"/></g></g></g>`;
  };
- const face=`<g class="soul-face">${rig.eyes.map((v,i)=>feature('eye',v,i)).join('')}${rig.brows.map((v,i)=>feature('brow',v,i)).join('')}${feature('mouth',rig.mouth)}</g>`;
+ const palette=mouthPalettes[soul],pose=mouthPose(soul),mouthId=`${id}-speech`;
+ clips+=`<linearGradient id="${mouthId}-cavity" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${palette.inside}"/><stop offset="1" stop-color="${palette.bottom}"/></linearGradient><linearGradient id="${mouthId}-tongue" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${palette.tongue}"/><stop offset="1" stop-color="${palette.bottom}"/></linearGradient><clipPath id="${mouthId}-clip"><path class="mouth-aperture-clip" d="${pose.aperture}"/></clipPath>`;
+ const speechMouth=`<g class="soul-speech-mouth" transform="translate(${rig.mouth.at.join(' ')}) rotate(${palette.tilt})"><path class="mouth-closed" d="M-27 -5 Q0 17 27 -5" fill="none" stroke="${palette.edge}" stroke-width="5" stroke-linecap="round"/><g class="mouth-voiced"><path class="mouth-aperture" d="${pose.aperture}" fill="url(#${mouthId}-cavity)" stroke="${palette.edge}" stroke-width="2.4" stroke-linejoin="round"/><g clip-path="url(#${mouthId}-clip)"><path class="mouth-tongue" d="${pose.tongue}" fill="url(#${mouthId}-tongue)"/></g><path class="mouth-lip-glint" d="${pose.lip}" fill="none" stroke="${palette.shine}" stroke-width="2" stroke-linecap="round" opacity=".5"/></g></g>`;
+ const face=`<g class="soul-face">${rig.eyes.map((v,i)=>feature('eye',v,i)).join('')}${rig.brows.map((v,i)=>feature('brow',v,i)).join('')}${feature('mouth',rig.mouth)}${speechMouth}</g>`;
  const arm=side=>{
   const {anchor,crop,root,scale,flip}=rig[side],x=(crop[0]-root[0])*scale,y=(crop[1]-root[1])*scale;
   const snack=soul==='bori'&&side==='right'?`<g class="soul-wrist"><svg class="soul-snack" x="-383" y="-149" width="312" height="234" viewBox="1080 680 400 300">${image}</svg></g>`:'';
@@ -43,4 +62,18 @@ export function soulPuppet(soul){
 export function paintSoulExpression(root,state){
  const expression=['rest','greeting','listening','thinking','talking'].includes(state)?state:'rest';
  root.querySelectorAll('.soul-puppet').forEach(el=>{el.dataset.expression=expression;});
+}
+
+// Weakly held part references avoid searching the SVG on each audio frame.
+const mouthNodes=new WeakMap();
+export function paintSoulMouth(root,frame={active:false}){
+ const reduced=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+ root.querySelectorAll('.soul-puppet').forEach(el=>{
+  const active=frame.active&&!reduced&&el.dataset.soul===frame.soul;
+  if(!active){el.removeAttribute('data-mouth-active');el.removeAttribute('data-mouth-open');return;}
+  const pose=mouthPose(el.dataset.soul,frame.open,frame.round);el.dataset.mouthActive='true';el.dataset.mouthOpen=String(!pose.closed);
+  if(pose.closed)return;
+  let nodes=mouthNodes.get(el);if(!nodes){nodes={aperture:el.querySelector('.mouth-aperture'),clip:el.querySelector('.mouth-aperture-clip'),tongue:el.querySelector('.mouth-tongue'),lip:el.querySelector('.mouth-lip-glint')};mouthNodes.set(el,nodes);}
+  nodes.aperture?.setAttribute('d',pose.aperture);nodes.clip?.setAttribute('d',pose.aperture);nodes.tongue?.setAttribute('d',pose.tongue);nodes.lip?.setAttribute('d',pose.lip);
+ });
 }

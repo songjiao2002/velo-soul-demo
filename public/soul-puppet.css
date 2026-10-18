@@ -11,8 +11,6 @@
 .mori .soul-eye-blink{animation:none}
 .soul-puppet[data-expression="listening"] .brow-right{transform:translateY(-9px)}
 .soul-puppet[data-expression="thinking"] .mouth-texture{transform:scale(.72,.8)}.soul-puppet[data-expression="thinking"] .soul-emote{opacity:.35}
-.soul-puppet[data-expression="talking"] .mouth-texture{animation:mouth-speech .32s ease-in-out infinite alternate}
-.soul-puppet.mori[data-expression="talking"] .mouth-texture{animation:mori-speech .38s ease-in-out infinite alternate}
 .soul-puppet[data-expression="talking"] .arm-left{animation:arm-wave 1.7s ease-in-out infinite}.soul-puppet[data-expression="greeting"] .arm-left{animation:arm-wave .85s ease-in-out 4,arm-left-idle var(--limb-tempo) 3.4s ease-in-out infinite}
 .soul-puppet.bori .arm-right{animation:snack-cradle var(--limb-tempo) ease-in-out infinite}
 .soul-chat-avatar{width:76px!important;height:82px!important;overflow:visible!important;background:none!important;flex:none}.soul-chat-avatar .soul-puppet{width:76px}
@@ -24,9 +22,11 @@
 @keyframes arm-wave{0%,100%{transform:rotate(0)}30%{transform:rotate(28deg)}60%{transform:rotate(13deg)}80%{transform:rotate(24deg)}}
 @keyframes snack-cradle{0%,100%{transform:rotate(0)}50%{transform:rotate(3deg)}}
 @keyframes eye-blink{0%,43%,47%,80%,84%,100%{transform:scaleY(1)}45%,82%{transform:scaleY(.06)}}
-@keyframes mouth-speech{0%{transform:scale(.95,.35)}45%{transform:scale(1,.8)}100%{transform:scale(1,1.06)}}
-@keyframes mori-speech{0%{transform:scale(.95,.7)}100%{transform:scale(1.02,1.4)}}
 @keyframes face-look{0%,35%,65%,100%{transform:translateX(0)}42%,55%{transform:translateX(-3px)}}
 @keyframes emote-float{0%,100%{transform:translateY(0) rotate(-8deg)}50%{transform:translateY(-8px) rotate(8deg)}}
 @media(prefers-reduced-motion:reduce){.soul-puppet,.soul-puppet *{animation:none!important;transition:none!important}}
 .welcome-puppet{position:relative;width:190px;max-width:70%;margin:0 auto;z-index:2}.welcome-art .welcome-puppet .soul-puppet{animation:none}.soul-chat-avatar .soul-emote{font-size:14px}
+
+/* Audio-clock poses replace the fixed-rate talking loop. Rest uses the cover texture. */
+.soul-speech-mouth{display:none}.soul-puppet[data-mouth-active="true"] .soul-mouth{display:none}.soul-puppet[data-mouth-active="true"] .soul-speech-mouth{display:inline}.soul-puppet[data-mouth-open="true"] .mouth-closed,.soul-puppet:not([data-mouth-open="true"]) .mouth-voiced{display:none}
+@media(prefers-reduced-motion:reduce){.soul-puppet[data-mouth-active="true"] .soul-mouth{display:inline}.soul-puppet[data-mouth-active="true"] .soul-speech-mouth{display:none}}

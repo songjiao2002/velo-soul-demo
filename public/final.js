@@ -1,5 +1,5 @@
 import {BUILD} from './build-version.mjs';
-import {soulPuppet,paintSoulExpression} from './soul-puppet.mjs';
+import {soulPuppet,paintSoulExpression,paintSoulMouth} from './soul-puppet.mjs';
 import {soulIntroduction,introductionClip} from './soul-intro.mjs';
 import {WeatherCompanion} from './weather-companion.mjs';
 import {weatherMarkup,paintWeather} from './weather-ui.mjs';
@@ -26,20 +26,20 @@ const wave='<span class="wave" aria-hidden="true"><span></span><span></span><spa
 function toast(t){$('toast').textContent=t;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),4200);}
 function theme(id){selected=id;const s=SOULS[id];document.documentElement.style.setProperty('--accent',s.color);document.documentElement.style.setProperty('--tint',s.tint);document.title=`${s.name} · VELO SOUL`;preloadIntro(id);}
 function voiceStatus(t){const targets=screen==='home'?[$('invite-'+activeVoiceSoul)]:document.querySelectorAll('.voice-status');targets.forEach(e=>{if(e)e.textContent=t;});}
-const recordedVoice=new RecordedVoicePlayer({audio,onState:state=>{paintSoulExpression(document,state==='playing'?'talking':state==='loading'?'thinking':'rest');
+const recordedVoice=new RecordedVoicePlayer({audio,onState:state=>{if(state==='playing')liveSpeech.followMedia(audio,audio.currentSrc||audio.src,activeVoiceSoul);else if(['ended','blocked','timeout','error'].includes(state))liveSpeech.stop();paintSoulExpression(document,state==='playing'?'talking':state==='loading'?'thinking':'rest');
  document.body.classList.toggle('voice-playing',state==='playing');
  const messages={loading:'목소리를 준비하고 있어요…',playing:voiceLanguage==='en'?'영어 목소리 재생 중':'한국어 목소리 재생 중',ended:'다시 듣기로 목소리를 들을 수 있어요.',blocked:'소리를 켜려면 듣기 버튼을 눌러주세요.',timeout:'불러오기가 지연돼요. 다시 듣기를 눌러주세요.',error:'소리를 재생하지 못했어요. 다시 듣기를 눌러주세요.'};
  voiceStatus(messages[state]);
 }});
-const liveSpeech=new CloudSpeechPlayer();
+const liveSpeech=new CloudSpeechPlayer({onMouth:frame=>paintSoulMouth(document,frame)});
 function preloadIntro(id=selected){const intro=soulIntroduction(id,inputLanguage(),voiceLanguage);if(intro)liveSpeech.preload(intro.text,{soul:id,language:intro.language,source:introductionClip(intro.text,id,intro.language)});}
 function stopVoice(){paintSoulExpression(document,"rest");liveSpeech.stop();recordedVoice.stop();voiceSerial++;clearTimeout(voiceTimer);window.speechSynthesis?.cancel();document.body.classList.remove('voice-playing');}
 function speak(line,key,id=selected){
  handsFree?.stop();stopVoice();activeVoiceSoul=id;currentLine={line,key,id};
  if(!voiceOn){voiceStatus('목소리를 쉬고 있어요.');return;}
  const src=voiceFile(voiceLanguage,id,key,line);
- if(src){recordedVoice.play(src);return;}
- liveSpeech.prepare();liveSpeech.speak(line,{language:voiceLanguage,soul:id,onState:state=>{document.body.classList.toggle('voice-playing',state==='playing');voiceStatus(state==='playing'?'한국어 목소리 재생 중':state==='ended'?'다시 듣기로 목소리를 들을 수 있어요.':'목소리를 준비하고 있어요…');}});
+ if(src){liveSpeech.prepare();recordedVoice.play(src);return;}
+ liveSpeech.prepare();liveSpeech.speak(line,{language:voiceLanguage,soul:id,onState:state=>{paintSoulExpression(document,state==='playing'?'talking':state==='loading'?'thinking':'rest');document.body.classList.toggle('voice-playing',state==='playing');voiceStatus(state==='playing'?'한국어 목소리 재생 중':state==='ended'?'다시 듣기로 목소리를 들을 수 있어요.':'목소리를 준비하고 있어요…');}});
 }
 
 const introducedSouls=new Set();

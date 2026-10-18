@@ -30,5 +30,6 @@
       "runtime": "public/assets/bori-cover-rig.webp"
     }
   ],
-  "composition": "soul-puppet.mjs uses original cover eyes, brows and mouths in the unchanged 1254px cover coordinates. New separated body and hand textures animate with fixed shoulder pivots. Cover files and QR images are unchanged."
+  "composition": "soul-puppet.mjs uses original cover eyes, brows and mouths in the unchanged 1254px cover coordinates. New separated body and hand textures animate with fixed shoulder pivots. Cover files and QR images are unchanged.",
+  "mouthAnimation": "Rest retains the original cover mouth. Speech adds SVG cavity, tongue, lip glint and closed-mouth poses at the same facial landmark. PCM energy and roughness drive smooth changes using the actual audio playback clock; this is expressive approximation rather than phoneme recognition. No generated or original artwork files changed for mouth1."
 }

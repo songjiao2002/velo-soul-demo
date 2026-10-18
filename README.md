@@ -119,9 +119,9 @@ Lumi 留意天气中的小发现；Mori 关心舒适节奏；Bori 联系安全�
 
 Starting voice conversation plays a packaged introduction in the selected Korean/English voice immediately after microphone readiness. It does not wait for GPS or a chat model. Weather is prepared while the introduction plays, then spoken when listening is idle. Missing GPS does not block conversation. Pause/resume and switching camera/chat do not repeat an introduction already heard in this page session. Chinese input continues to receive English output.
 
-Voice replies use QWEN_VOICE_MODEL (default qwen-flash, thinking disabled), separate from text QWEN_MODEL and camera QWEN_VISION_MODEL. Speech endpointing is 450 ms of silence, followed by ASR → short reply → streaming PCM playback. This is turn-taking conversation with keyword interruption, not full-duplex streaming input. Dynamic replies still depend on network and service latency.
+Voice replies use QWEN_VOICE_MODEL (default qwen-flash, thinking disabled), separate from text QWEN_MODEL and camera QWEN_VISION_MODEL. Microphone PCM streams to the server during speech and interim transcription appears incrementally. Speech endpointing is 450 ms of silence; the confirmed transcript triggers a short reply and streaming PCM playback. Conversation uses turn-taking with keyword interruption. Dynamic replies still depend on network and service latency.
 
-Camera and chat characters use separate arms, feet, body and programmable eyes/mouth. Greeting gestures, blinks, listening gaze, thinking face and speaking mouth follow actual session/playback state. Reduced-motion settings disable the animation. Assets are generated with built-in imagegen; prompts and saved paths are in ASSET_GENERATION.json. Runtime SVG/CSS articulates the unchanged PNG atlases.
+Camera and chat characters use a floating body, attached arms and programmable eyes/mouth. Greeting gestures, blinks, listening gaze, thinking face and speaking mouth follow actual session/playback state. Reduced-motion settings disable the animation. Assets are generated with built-in imagegen; prompts and saved paths are in ASSET_GENERATION.json. Runtime SVG/CSS articulates the unchanged PNG atlases.
 
 Validation: opening/cancellation/continuous conversation/half-second endpointing regressions; production bundle DOM simulation in English and Korean; all six packaged introductions synthesized and transcribed through Qwen. A static SVG layout render was inspected. Physical-device microphone, wind noise, autoplay and browser animation rendering still need on-device verification.
 
@@ -146,3 +146,11 @@ The original three character images, colors, accessories, facial features and at
 A slow vertical float, gentle sideways drift and small body deformation replace the walking-like movement. Lumi, Mori and Bori keep different motion tempos. Arm timing trails the body slightly while the shoulder anchors stay fixed. The existing speaking, listening, thinking and blinking expressions remain, and reduced-motion preferences disable animations.
 
 Validation uses three rendered poses per character from the actual SVG markup, the existing 113-test suite and English/Korean simulated voice sessions. QR outputs, original artwork and the public character links remain unchanged. These checks do not replace a physical-phone animation test.
+
+## Mouth1: audio-driven expressions
+
+The mouth follows the playback clock of streaming PCM, decoded introductions and packaged HTML audio. Each new audio chunk is analysed once in 20 ms windows; energy controls opening and zero-crossing roughness varies narrow/rounded shapes. The renderer updates at up to 30 fps with smoothed movement, closes during silence or playback gaps, and restores the cover expression at completion or interruption. Late callbacks cannot change a newer utterance. This is expressive audio-driven animation, not phoneme-aligned lip reading.
+
+Each Soul has its own mouth size, tilt and palette, with cavity shading, a clipped tongue, a subtle lower lip and a closed smile. Original face landmarks, portraits, body/hand assets and QR destinations are preserved. Mori can open its mouth while retaining its relaxed eyes. Reduced-motion settings retain the original static mouth. No additional model, external script or API request is required for dynamic speech; packaged recordings are decoded locally without delaying their existing playback.
+
+Validation: eight additional playback-clock, stream-tail, packaged-audio and cancellation tests; the full 128-test suite; simulated Korean/English continuous conversation; and an inspected 15-pose render from the actual SVG/CSS. These checks do not replace a physical phone animation and audio test.

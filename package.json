@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test server.test.mjs final.test.mjs language.test.mjs audio.test.mjs chat.test.mjs places.test.mjs vision.test.mjs connected.test.mjs hands-free.test.mjs browser-api.test.mjs microphone.test.mjs speech.test.mjs streaming.test.mjs weather.test.mjs asr-realtime.test.mjs",
+    "test": "node --test server.test.mjs final.test.mjs language.test.mjs audio.test.mjs chat.test.mjs places.test.mjs vision.test.mjs connected.test.mjs hands-free.test.mjs browser-api.test.mjs microphone.test.mjs speech.test.mjs streaming.test.mjs weather.test.mjs asr-realtime.test.mjs mouth.test.mjs",
     "build": "esbuild public/final.js --bundle --minify --charset=utf8 --format=iife --target=es2020 --outfile=public/app.bundle.js && esbuild public/styles.entry.css --bundle --minify --target=es2020 --outfile=public/app.css && node build-assets.mjs"
   },
   "devDependencies": {
