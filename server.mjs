@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {attachRealtimeAsr} from './asr-realtime.mjs';
 import { createReadStream, existsSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -141,6 +142,8 @@ export const server = http.createServer(async (req, res) => {
     send(err.code === 'ENOENT' || err.code === 'ENOTDIR' ? 404 : 400, 'Not found or invalid request');
   }
 });
+
+attachRealtimeAsr(server,{reserve:handleChat.reserveRealtime});
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const port=Number(process.env.PORT || 3000);

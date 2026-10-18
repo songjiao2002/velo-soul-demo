@@ -1,6 +1,7 @@
 import {BUILD} from './build-version.mjs';
+import {StreamingTranscriber} from './asr-stream.mjs';
 // One microphone session per conversation. Utterances are bounded, transient PCM;
-// no recording is saved to local storage or sent until speech ends.
+// speech streams to the server; bounded PCM is retained only for outage fallback.
 export function encodeWav(chunks, sampleRate) {
   const size = chunks.reduce((n, c) => n + c.length, 0);
   const samples = new Float32Array(size); let offset = 0;
@@ -80,13 +81,23 @@ export class MicrophoneInput {
   }
 }
 
-export function createMicrophoneRecognition({input = new MicrophoneInput(), fetchImpl = (...args) => globalThis.fetch(...args),
+export function createMicrophoneRecognition({input = new MicrophoneInput(), Socket, location = globalThis.location, fetchImpl = (...args) => globalThis.fetch(...args),
   toBase64 = s => globalThis.btoa(s), setTimer = (...args) => globalThis.setTimeout(...args), clearTimer = (...args) => globalThis.clearTimeout(...args)} = {}) {
+  let streamDisabledUntil=0;
   return class MicrophoneRecognition {
     constructor() { this.active = false; this.chunks = []; this.preroll = []; this.noise = .002; this.total = this.quiet = this.candidate = this.voiced = 0; }
     start() {
       this.active = true;
       input.attach(this).catch(error => { if (this.active) this.fail(error.name === 'NotAllowedError' ? 'not-allowed' : error.message === 'unsupported' ? 'unsupported' : 'audio-capture'); });
+    }
+    openStream(){
+      if(Socket&&location&&Date.now()>=streamDisabledUntil){
+        const url=new URL('/api/transcribe/live',location.href);url.protocol=location.protocol==='https:'?'wss:':'ws:';url.searchParams.set('language',this.language());
+        this.stream=new StreamingTranscriber({Socket,url:url.href,setTimer,clearTimer,
+          onPartial:text=>{if(this.active)this.onresult?.({results:[{0:{transcript:text},isFinal:false}]});},
+          onFinal:text=>{if(this.active)this.deliver(text);},
+          onUnavailable:error=>{this.stream=null;streamDisabledUntil=Date.now()+60000;if(!this.active)return;if(['rate_limited','provider_quota'].includes(error))return this.fail(error);if(this.finalizing)this.transcribe();}});
+      }
     }
     samples(data, rate) {
       if (!this.active || this.finalizing) return;
@@ -105,10 +116,12 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), fetc
         if (this.candidate >= 120) {
           this.speech = true; this.chunks = this.preroll; this.preroll = []; this.quiet = 0; this.voiced = this.candidate;
           this.total = this.chunks.reduce((n, c) => n + c.length, 0) / rate * 1000; this.onspeechstart?.();
+          if(this.active)this.openStream();
+          if(this.active)for(const chunk of this.chunks)this.stream?.write(chunk,rate);
         } else if (this.quiet > 8000 && !this.quietReported) { this.quietReported = true; this.onquiet?.(); }
         return;
       }
-      this.chunks.push(data); this.total += ms;
+      this.chunks.push(data); this.total += ms; this.stream?.write(data,rate);
       this.quiet = loud ? 0 : this.quiet + ms; if (loud) this.voiced += ms;
       if (this.quiet >= 450 || this.total >= 15000) this.stop();
     }
@@ -116,22 +129,31 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), fetc
       if (!this.active || this.finalizing) return;
       if (!this.speech || this.voiced < 160) { this.abort(); this.onerror?.({error:'no-speech'}); return; }
       this.finalizing = true; input.detach(this); this.onspeechend?.(); this.ontranscribing?.();
+      if(this.stream&&!this.stream.closed){this.stream.finish();return;}
+      return this.transcribe();
+    }
+    language(){return this.inputLanguage||({'ko-KR':'ko','en-US':'en','zh-CN':'zh'}[this.lang])||'auto';}
+    deliver(text){
+      if(!text.trim()){this.fail('no-speech');return;}
+      this.onresult?.({results:[{0:{transcript:text},isFinal:true}]});
+      if(this.active){this.abort();this.onend?.();}
+    }
+    async transcribe(){
+      if(!this.active||this.uploading)return;this.uploading=true;
       const wav = encodeWav(this.chunks, this.rate); this.chunks = []; this.preroll = [];
       let binary = ''; for (let i = 0; i < wav.length; i += 8192) binary += String.fromCharCode(...wav.subarray(i, i + 8192));
       this.controller = new AbortController(); this.timer = setTimer(() => this.controller?.abort(), 25000);
       try {
         const response = await fetchImpl('/api/transcribe', {method:'POST',headers:{'Content-Type':'application/json'},signal:this.controller.signal,
-          body:JSON.stringify({audio:'data:audio/wav;base64,' + toBase64(binary),language:this.inputLanguage||({'ko-KR':'ko','en-US':'en','zh-CN':'zh'}[this.lang])||'auto'})});
+          body:JSON.stringify({audio:'data:audio/wav;base64,' + toBase64(binary),language:this.language()})});
         const data = await response.json(); if (!this.active) return;
         if (!response.ok) throw new Error(data.error || 'network');
         if (typeof data.text !== 'string') throw new Error('invalid_response');
-        if (!data.text.trim()) { this.fail('no-speech'); return; }
-        this.onresult?.({results:[{0:{transcript:data.text},isFinal:true}]});
-        if (this.active) { this.abort(); this.onend?.(); }
+        this.deliver(data.text);
       } catch(error) { if (this.active) this.fail(error.name === 'AbortError' ? 'asr_timeout' : error.message); }
       finally { clearTimer(this.timer); }
     }
     fail(error) { this.abort(); this.onerror?.({error}); }
-    abort() { this.active = false; input.detach(this); this.controller?.abort(); clearTimer(this.timer); this.chunks = []; this.preroll = []; }
+    abort() { this.active = false; this.stream?.close();this.stream=null; input.detach(this); this.controller?.abort(); clearTimer(this.timer); this.chunks = []; this.preroll = []; }
   };
 }

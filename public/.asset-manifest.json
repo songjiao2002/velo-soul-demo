@@ -1,59 +1,59 @@
 {
-  "version": "20261018-rig1",
+  "version": "20261018-stream1",
   "files": {
     "/index.html": {
-      "size": 7653,
-      "sha256": "ea967cee311023a757b7208498dcfea1b258ae5c2702635e9e07835e0d889147",
+      "size": 7674,
+      "sha256": "589db383ea377f8cb67f742d97b57dc197c33b0f0ca9e65d62d315d2787bb193",
       "br": {
-        "size": 3051,
-        "sha256": "b50853055aecfcc30a64cd213a249df10f63bd86010939deeda56595a897e5fc",
+        "size": 2823,
+        "sha256": "70ea7032428867d113f039943d8bb20840fcda14a82ae730174a589de8fd800e",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 3408,
-        "sha256": "bfb8a215312e35e83b8256922141cddd44280dea44994d463fb60125af281c2f",
+        "size": 3411,
+        "sha256": "4898dd6618645d1b9ce69318a89bcdd720cfe3fc60af0d5ce06de10b1d8ac57a",
         "suffix": ".gz"
       }
     },
     "/boot.js": {
-      "size": 2264,
-      "sha256": "a0eb72fc9284f83211ac6b97b697764e5107ec00855008e9bef6a73ed19918b0",
+      "size": 2267,
+      "sha256": "f7d3deea16e992c8dc00fc2ccdc084fb6a1363ccef54398d6876e7b356357140",
       "br": {
-        "size": 850,
-        "sha256": "0ba3b5d05bf127064a24e02128dee3da6802d03ff56b4dd905b38370c312e31e",
+        "size": 851,
+        "sha256": "79b5dcc4a09b69f749283b12bf6575df817ef1f2531e29942be4a91ef28905c8",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 1029,
-        "sha256": "18a00e1ecdaaf29fbb230ac4adaedfcdf05bbd485ad37c5eedaa8a06d567b1a1",
+        "size": 1030,
+        "sha256": "e28704a5e87c4577a0d120c8276d43cf07fe4530b07ce53dfb84c13cde1f8d83",
         "suffix": ".gz"
       }
     },
     "/app.bundle.js": {
-      "size": 178573,
-      "sha256": "8af780d4bdff4779343a565119b4b9f07499dfec34a93dc0f8c77d3d893ac4b5",
+      "size": 183828,
+      "sha256": "0ba216e7777bc15d931e04cb3d5e3f192fba6b11e595b3ba3db9426ad1c6a89d",
       "br": {
-        "size": 55185,
-        "sha256": "e4dfe6b305390d6c7e84758b7ee179e691dcff34b4044603b901b3dee6392580",
+        "size": 56927,
+        "sha256": "342bca7619504cf34ecfb0a99ab48b4b3e1016c704f0bffbcdb136038850c33b",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 65774,
-        "sha256": "9c2b0effdd9b9e58f989db793c5191c499acf0c503aebcaba25baab22abc1b80",
+        "size": 67691,
+        "sha256": "f46636572f2940372ae4ca71defb082b06e74c7291dd921064bc1d603e611a8a",
         "suffix": ".gz"
       }
     },
     "/app.css": {
-      "size": 54929,
-      "sha256": "66287a72afe4990ad4596f63717d2584a02d654f5770501cfece838d6ae66b78",
+      "size": 54620,
+      "sha256": "c33eb3ec485333bb098a2f58d020cb058703a576253aae441d88b9383bc24a2f",
       "br": {
-        "size": 11609,
-        "sha256": "1c007c797351923279a65e4c3fa3b932c25971b5a7d326507e723f1d1a9a07e7",
+        "size": 11521,
+        "sha256": "f2628e4ca2f8eebc59ba5d28ebe4447cefc81f4f8e7624e768adf611d364197d",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 12205,
-        "sha256": "0d33094a7abaf94c11fbf1dce3e090fa7d4925269ba0589e629b8f2b6a91fde8",
+        "size": 12122,
+        "sha256": "0066b5533026c3338ce93222ac4b5bb484bc5374d6de81447e4996e1d56e0c73",
         "suffix": ".gz"
       }
     },
@@ -101,13 +101,25 @@
       "size": 113048,
       "sha256": "368d4926a1ccb3c9e6b2c33794e398d28169b8bf785e1774281c99058f91e85f"
     },
+    "/assets/lumi-cover-rig.webp": {
+      "size": 86654,
+      "sha256": "0851a43085a738cab7518ac0b66ca606126068370ac7985194158cb466279e42"
+    },
     "/assets/mori-puppet.webp": {
       "size": 84194,
       "sha256": "8705016f66aa8bc25218c04b8d689095b93bbd5834e3fae4141c94d1f4dd0e69"
     },
+    "/assets/mori-cover-rig.webp": {
+      "size": 66318,
+      "sha256": "23c9ed1c1f5ee91b8f3e12e0e4ed8a40c5eb224e2e0f00c812bf8b37c9d6c7e6"
+    },
     "/assets/bori-puppet.webp": {
       "size": 145010,
       "sha256": "ab4a4a29c6f83d89bd07a8da2035d35621525295b80f67e50396f35c14bf7bc3"
+    },
+    "/assets/bori-cover-rig.webp": {
+      "size": 100238,
+      "sha256": "2bfa00b1c0478068a5ff4e252d9aea85e31446f41efc4e1c2571b70bbc386b99"
     }
   }
 }

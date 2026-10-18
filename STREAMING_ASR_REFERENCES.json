@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-18",
+  "chosen": "Qwen-ASR-Realtime through same-origin Node WebSocket proxy",
+  "sources": [
+    {
+      "url": "https://github.com/QwenLM/Qwen3-ASR",
+      "finding": "Official 16kHz PCM microphone streaming demo; useful reference for incremental transcription. Self-hosted model deployment is unnecessary for the existing cloud-key prototype."
+    },
+    {
+      "url": "https://github.com/KoljaB/RealtimeSTT",
+      "finding": "Alternative speech-to-text library with voice activity detection and realtime callbacks; useful architecture reference, not included as a runtime dependency."
+    },
+    {
+      "url": "https://github.com/websockets/ws",
+      "finding": "Node WebSocket client/server library used by this integration; browser uses its native WebSocket."
+    },
+    {
+      "url": "https://www.alibabacloud.com/help/en/model-studio/qwen-asr-realtime-client-events",
+      "finding": "session.update, PCM input_audio_buffer.append, server VAD and session.finish."
+    },
+    {
+      "url": "https://www.alibabacloud.com/help/en/model-studio/qwen-asr-realtime-server-events",
+      "finding": "Partial text plus stash is replaceable; completed transcript is authoritative."
+    }
+  ],
+  "limitations": [
+    "Partial hypotheses can be corrected, including provisional language or words.",
+    "LLM and speech generation still follow a confirmed utterance.",
+    "Public server quota remains shared; no phone microphone or outdoor wind test was performed."
+  ]
+}

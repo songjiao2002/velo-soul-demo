@@ -130,6 +130,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
       }finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);active--;}
   }
   return {
+    reserveRealtime(){reserve();let released=false;return ()=>{if(!released){released=true;active--;}};},
     status(){const c=chatConfig(env);return {configured:c.configured,provider:'Qwen',model:c.model,visionModel:c.visionModel,asrModel:c.asrModel,ttsModel:c.ttsModel,skills:SOUL_IDS};},
     async speechStream(input,{signal,emit}={}){
       const payload=validateSpeech(input),config=chatConfig(env);if(!config.configured)throw new ChatError('not_configured',503);
@@ -194,7 +195,7 @@ export async function readChatBody(req,limit=32768){
 
 export function createChatHandler(options={}){
   const service=createChatService(options);
-  return async (req,res)=>{
+  const handler=async (req,res)=>{
     const pathname=new URL(req.url,'http://localhost').pathname;
     if(!['/api/chat','/api/chat/scene','/api/chat/status','/api/vision','/api/transcribe','/api/speech','/api/speech/stream'].includes(pathname))return false;
     const send=(status,body)=>{if(res.destroyed)return;res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(req.method==='HEAD'?undefined:JSON.stringify(body));};
@@ -219,4 +220,6 @@ export function createChatHandler(options={}){
     finally{res.off('close',onClose);}
     return true;
   };
+  handler.reserveRealtime=service.reserveRealtime;
+  return handler;
 }

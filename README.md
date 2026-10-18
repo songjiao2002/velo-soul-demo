@@ -1,5 +1,18 @@
 # VELO SOUL
 
+Current release: **20261018-stream1**. Speech is streamed during the utterance, and the UI replaces tentative transcripts as Qwen revises them. Confirmed text is submitted once after a roughly 450 ms pause. Korean, English and Chinese input remain supported; Chinese still receives English replies. Temporary audio is retained only in memory for a bounded HTTP fallback if streaming fails. This reduces waiting for recognition to begin; model response and network latency remain.
+
+The animated characters now share the covers' 1254 px design coordinates and reuse the covers' actual eye, brow and mouth textures. Separated body/hand textures preserve the original proportions and accessories, with no feet and fixed shoulder pivots. Original covers, QR files and destinations are unchanged. Asset prompts and paths: [IDENTITY_ASSETS.json](IDENTITY_ASSETS.json).
+
+Streaming setup: run npm ci (ws is a server-only dependency). The browser connects to /api/transcribe/live on this same origin; Railway proxies PCM16 audio to Qwen-ASR-Realtime using the server key. No key is sent to the browser or placed in a URL. The proxy enforces origin, language, payload, duration, backpressure and shared demo quota limits. QWEN_REALTIME_ASR=off disables streaming; QWEN_ASR_MODEL continues to configure the HTTP fallback.
+
+References: [official Qwen3-ASR streaming demo](https://github.com/QwenLM/Qwen3-ASR#streaming-demo), [RealtimeSTT](https://github.com/KoljaB/RealtimeSTT), [ws](https://github.com/websockets/ws), and [Qwen streaming events](https://www.alibabacloud.com/help/en/model-studio/qwen-asr-realtime-server-events). The integration uses the existing cloud account, not a self-hosted GPU model.
+
+Validation: 120 automated checks, including incremental revisions, final-only submission, partials across multiple VAD segments, fallback retention, cancellation, PCM duration, same-origin checks and shared quotas. English and Korean generated samples were streamed through the real Qwen API. Device, wind-noise and speaker tests still require a phone.
+
+The sections below retain earlier implementation notes.
+
+
 自行车人格化／数字骑行伙伴 demo。多语言演示版：相机初遇＋声音陪伴＋旅程日记：
 
 - 루미 / Lumi：蓝色，好奇型，BK-024

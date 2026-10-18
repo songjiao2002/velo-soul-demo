@@ -10,7 +10,7 @@ for(const file of ['index.html','boot.js']){
  await writeFile(new URL(file,root),content.replace(/2026\d{4}-[a-z]+\d+/g,BUILD));
 }
 const textFiles=['index.html','boot.js','app.bundle.js','app.css','mic-worklet.js','vendor/jsQR.js'];
-const images=['soul-blue.webp','soul-mint.webp','soul-orange.webp',...['lumi','mori','bori'].map(s=>`assets/${s}-puppet.webp`)];
+const images=['soul-blue.webp','soul-mint.webp','soul-orange.webp',...['lumi','mori','bori'].flatMap(s=>[`assets/${s}-puppet.webp`,`assets/${s}-cover-rig.webp`])];
 const manifest={version:BUILD,files:{}};
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 for(const name of [...textFiles,...images]){
