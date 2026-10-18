@@ -1,9 +1,18 @@
 // Korean is the source language. Translation only touches presentation nodes,
 // so changing language never remounts a camera, ride, or editable note.
 const rows = `
+위치·카메라·마이크 권한을 요청해요. 말하면 자동으로 Qwen에 보내고 음성으로 답해요. 화면·장소 정보도 함께 사용해요. GPS 허용 후 약 2km 격자 위치로 주변 날씨를 자동 조회해요.|Allow location, camera and microphone. Speak to send automatically to Qwen and hear a reply using scene and place context. GPS permission also enables automatic local weather using an approximate 2 km location grid.|允许定位、相机和麦克风，说完自动发送给千问并语音回答，同时结合画面和地点。允许 GPS 后使用约 2 公里网格位置自动查询当地天气。
+등록한 서울 장소 3곳은 GPS로 감지해요. AI 관찰을 켜면 카메라 장면을 분석해요. GPS를 켜면 주변 날씨를 자동 조회해요. 그 외 주변 검색과 자전거의 초대는 시뮬레이션이에요. 소울은 화면 위의 2D AR이며 공간에 고정되지 않아요.|GPS detects 3 curated Seoul places and automatically checks local weather. AI observation analyzes camera scenes when enabled. Other nearby searches and bike invitations are simulated. Souls are 2D screen overlays without spatial tracking.|GPS 可检测已收录的首尔 3 处地点并自动查询当地天气。开启 AI 观察后分析相机画面，其他周边搜索和自行车邀约仍为模拟。灵魂是屏幕 2D 叠加，没有空间追踪。
+카메라는 버튼을 누른 뒤에만 켜집니다. 촬영 버튼으로 남긴 사진과 위치 기록은 이 브라우저에만 보관하며 서버로 전송하지 않습니다. 대화 글·장소·날씨 요약은 Alibaba Cloud Qwen으로 전달됩니다. GPS를 켜면 날씨 조회를 위해 약 2km 격자 위치를 서버와 Open-Meteo에 보내며 정확한 좌표는 보내지 않습니다. AI 관찰을 켜면 분석용 카메라 이미지도 Qwen으로 보내며, 이 사이트에는 저장하지 않습니다. 카메라와 음성 대화를 켜면 마이크를 사용해요. 음성은 서버를 거쳐 Qwen에서 인식하며 녹음 파일은 저장하지 않아요. 답변 중에도 “잠깐” 명령을 듣습니다.|The camera starts after you tap a button. Manually captured photos and recorded trails stay in this browser. Chat text and place/weather summaries go to Alibaba Cloud Qwen. With GPS enabled, an approximate 2 km location grid goes to our server and Open-Meteo for weather; exact coordinates stay on your device. AI observation sends camera frames to Qwen without saving them on this site. Voice conversation uses the microphone and Qwen speech recognition via our server; recordings are not saved. You can say “stop” during a reply to interrupt.|点击按钮后才会开启相机，手动照片与轨迹保存在本浏览器。对话文字和地点、天气摘要发送给阿里云千问。开启 GPS 后会将约 2 公里网格位置发送到本站及 Open-Meteo 查询天气，不发送精确坐标。AI 观察将画面发送给千问，本站不保存分析图。语音对话通过本站调用千问识别，不保存录音；回答时可说“等一下”打断。
+GPS 허용 후 약 2km 격자 위치로 주변 날씨를 자동 조회해요.|GPS permission also enables automatic weather using an approximate 2 km location grid.|允许 GPS 后，会使用约 2 公里网格位置自动查询当地天气。
+등록한 서울 장소 3곳 · GPS 허용 후 자동 감지. 대화에는 장소와 날씨 요약을 보내요. 날씨 조회에는 약 2km 격자 위치를 사용해요.|3 curated Seoul places · Automatic after GPS permission. Chat receives place and weather summaries; weather uses an approximate 2 km location grid.|已收录首尔 3 处地点，GPS 授权后自动检测。对话使用地点与天气摘要，天气查询使用约 2 公里网格位置。
+GPS를 켜면 주변 날씨를 자동으로 확인해요. 아래 버튼은 별도 시뮬레이션이에요.|GPS automatically checks local weather. The buttons below are separate simulations.|开启 GPS 后自动查询当地天气，下方按钮仍是独立的情景模拟。
+GPS를 켜면 주변 날씨를 자동 확인해요. 전체 가게 검색과 근처 자전거 초대는 시뮬레이션이에요. 소울은 화면 위의 2D AR이며 공간에 고정되지 않아요.|GPS automatically checks local weather. Full shop search and nearby bike invitations are simulated. Souls are 2D screen overlays.|GPS 自动获取当地天气。全部店铺搜索与附近自行车邀约仍为模拟，灵魂为屏幕 2D 叠加。
 위치·카메라·마이크 권한을 요청해요. 말하면 자동으로 Qwen에 보내고 음성으로 답해요. 화면·장소 정보도 함께 사용해요.|Allow location, camera and microphone. Speak to send automatically to Qwen and hear its reply, using current scene and place context.|允许定位、相机和麦克风。说完自动发送给千问并用语音回答，同时结合当前画面与地点信息。
 음성 대화 켜기|Start voice conversation|开启连续语音
 
+위치와 주변 날씨를 함께 확인하고 있어요.|Checking your location and local weather.|正在获取定位和当地天气。
+마이크 음성은 Qwen으로 전송돼요. GPS를 허용하면 약 2km 격자 위치로 날씨를 확인해요.|Microphone audio goes to Qwen. With GPS permission, an approximate 2 km grid is used to check local weather.|麦克风语音会发送给千问。允许 GPS 后，使用约 2 公里网格位置查询当地天气。
 GPS · 카메라 · 음성 함께 시작|Start live companionship|开启实时陪伴
 위치·카메라 권한을 요청하고, 현재 화면과 장소 정보를 Qwen에 보내 목소리로 함께해요.|Allow location and camera. Current frames and place context go to Qwen for spoken companionship.|允许定位和相机，将当前画面与地点信息发送给千问，获得语音陪伴。
 함께 시작|Start together|一起出发
@@ -12,7 +21,7 @@ GPS · 카메라 · 음성 함께 시작|Start live companionship|开启实时�
 목소리 듣기|Hear my voice|试听声音
 순간 담기|Take photo|拍摄
 
-AI 관찰을 켜면 카메라 장면을 분석해요. 그 외 주변 검색, 날씨, 자전거의 초대는 시뮬레이션이에요.|AI observation analyzes camera scenes when enabled. Other nearby searches, weather and bicycle invitations are simulations.|开启 AI 观察后可分析相机画面。其他周边搜索、天气与自行车邀约仍为模拟。
+AI 관찰을 켜면 카메라 장면을 분석해요. GPS를 켜면 주변 날씨를 자동으로 확인해요. 주변 가게 검색과 자전거의 초대는 시뮬레이션이에요.|AI observation analyzes camera scenes. GPS automatically checks local weather. Nearby shop searches and bike invitations are simulated.|AI 观察可分析相机画面，GPS 自动获取当地天气。周边店铺搜索与自行车邀约仍为模拟。
 대화 글과 장소 정보는 Alibaba Cloud Qwen으로 전달됩니다. AI 관찰을 켜면 분석용 카메라 이미지도 Qwen으로 보내며, 이 사이트에는 저장하지 않습니다.|Chat text and place information go to Alibaba Cloud Qwen. Enabling AI observation also sends camera images to Qwen; this site does not save those analysis images.|对话文字与地点信息会发送给阿里云千问。开启 AI 观察后也会向千问发送相机图片；本站不保存分析用图。
 카메라와 음성 대화를 켜면 마이크를 사용해요. 음성은 서버를 거쳐 Qwen에서 인식하며 녹음 파일은 저장하지 않아요. 답변 중에도 “잠깐” 명령을 듣습니다.|Camera with voice uses your microphone. Audio goes through our server to Qwen for recognition; recordings are not saved. “Stop” detection continues during replies.|开启相机语音陪伴后使用麦克风。音频经本站发送给千问识别，不保存录音文件。回答时保留“等一下”的打断监听。
 AI 관찰을 켜기 전에는 화면을 서버로 보내지 않아요.|Camera frames stay on your device until you enable AI observation.|开启 AI 观察前，相机画面不会发送到服务器。
@@ -23,7 +32,7 @@ Reading with your device voice|Reading with your device voice|正在使用设备
 등록한 서울 장소 3곳은 GPS로 감지해요. 그 외 주변 검색, 사물 인식, 날씨, 자전거의 초대는 시뮬레이션이에요. 소울은 화면 위의 2D AR이며 공간에 고정되지 않아요.|GPS detects 3 curated Seoul places. Other nearby searches, object recognition, weather and bicycle invitations are simulations. Souls are 2D screen overlays without spatial tracking.|GPS 可检测已收录的首尔 3 处地点；其他周边搜索、相机识物、天气与自行车邀约为模拟。灵魂是 2D 画面叠加，没有空间追踪。
 소울과 대화하기 ↗|Chat with your Soul ↗|和灵魂对话 ↗
 근처 장소에서 소울이 말해요|Your Soul notices nearby places|靠近地点时灵魂会主动说话
-등록한 서울 장소 3곳 · GPS 허용 후 자동 감지. 장소 이름만 Qwen에 보내며 정확한 좌표는 기기에 남아요.|3 curated Seoul places · Automatic after GPS permission. Only the place name goes to Qwen; coordinates stay on your device.|已收录首尔 3 处地点，允许 GPS 后自动触发。只向千问发送地点名称，精确坐标保留在本机。
+등록한 서울 장소 3곳 · GPS 허용 후 자동 감지. 대화에는 장소·날씨 요약을 보내고, 날씨 조회에는 약 2km 격자 위치를 사용해요.|3 curated Seoul places · Automatic after GPS permission. Chat receives place and weather summaries; weather lookup uses an approximate 2 km location grid.|已收录首尔 3 处地点，GPS 授权后自动检测。对话使用地点与天气摘要，天气查询使用约 2 公里网格位置。
 GPS를 켜면 근처 장소를 기다려요.|Enable GPS to notice nearby places.|开启 GPS 后会等待进入地点范围。
 위치 없이 상황 테스트|Try without changing your location|不改变真实定位的情景测试
 선택한 장소 도착 시뮬레이션|Simulate arrival at this place|模拟到达所选地点
@@ -158,9 +167,9 @@ GPS 속도 · km/h|GPS speed · km/h|GPS 速度 · km/h
 상황 시뮬레이션|Simulated scenario|情景模拟
 카메라로 발견해요|Discover through the camera|通过相机发现世界
 날씨와 속도를 느껴요|Feel the weather and pace|感受天气与速度
-GPS로 맛있는 길을 찾아요|Find tasty routes with GPS|用 GPS 寻找美味路线
+GPS로 가까운 장소를 만나요|Meet nearby places with GPS|用 GPS 发现已收录的附近地点
 실제 영상의 사물을 자동 인식하지 않아요.|Objects in the live video are not automatically recognized.|不会自动识别真实视频中的物体。
-날씨는 예시이며, 위치 기록 시 속도만 실제 측정해요.|Weather is simulated; speed is measured when GPS is enabled.|天气为示例；开启位置记录后，速度才来自实际测量。
+GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automatically checks local weather and speed.|开启 GPS 后自动获取当地天气与速度。
 가게 정보와 추천은 예시이며 실제 주변 검색이 아니에요.|Shops and recommendations are examples, not live nearby results.|店铺和推荐为示例，并非真实的附近搜索结果。
 소울과 고른 순간|Moments with your Soul|和灵魂一起挑选的瞬间
 잠깐 멈춰서, 함께 기억할 장면을 담아요.|Pause for a moment and capture a shared memory.|先停下来，拍下值得一起记住的画面。

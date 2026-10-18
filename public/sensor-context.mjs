@@ -9,7 +9,7 @@ export function locationContext(point,speed,now=Date.now()){
  return location;
 }
 
-// Coordinates never leave the device; only validated catalog IDs and coarse
+// Exact coordinates never leave the device; weather lookup separately shares a coarse grid. only validated catalog IDs and coarse
 // accuracy, distance and speed are used in the companion's context.
 export function validateLocationContext(value,now=Date.now()){
  if(!value||typeof value!=='object'||!Number.isFinite(value.observedAt)||now-value.observedAt>30000||value.observedAt-now>5000||!Number.isFinite(value.accuracyMeters)||value.accuracyMeters<0||value.accuracyMeters>60)return null;
@@ -22,5 +22,5 @@ export function validateLocationContext(value,now=Date.now()){
 export function describeLocation(location){
  if(!location)return 'No recent GPS context is available. Do not claim to know the rider location or speed.';
  const place=SEOUL_PLACES.find(p=>p.id===location.placeId);
- return `The client reports a recent GPS fix, accuracy approximately ${location.accuracyMeters} meters. ${location.speedKmh===undefined?'Speed is unknown.':`Reported speed: ${location.speedKmh} km/h.`} ${place?`Nearest known catalog place: ${place.name.en}, approximate straight-line distance ${location.distanceMeters} meters. This does not prove arrival or that the rider is inside. Catalog facts: ${place.fact}`:'No catalog place is identified nearby. The street address and city are unknown; do not invent them.'} Raw GPS coordinates are not provided. No live weather, route or shop search is available.`;
+ return `The client reports a recent GPS fix, accuracy approximately ${location.accuracyMeters} meters. ${location.speedKmh===undefined?'Speed is unknown.':`Reported speed: ${location.speedKmh} km/h.`} ${place?`Nearest known catalog place: ${place.name.en}, approximate straight-line distance ${location.distanceMeters} meters. This does not prove arrival or that the rider is inside. Catalog facts: ${place.fact}`:'No catalog place is identified nearby. The street address and city are unknown; do not invent them.'} Raw GPS coordinates are not provided. Weather is supplied separately when available. No route or shop search is available.`;
 }

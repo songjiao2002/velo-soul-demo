@@ -42,7 +42,7 @@ export class MicrophoneInput {
       const source = context.createMediaStreamSource(stream); this.source = source;
       let node;
       if (context.audioWorklet && this.WorkletNode) {
-        await context.audioWorklet.addModule('/mic-worklet.js?v=20261017-voice8');
+        await context.audioWorklet.addModule('/mic-worklet.js?v=20261018-weather1');
         if (serial !== this.serial) return;
         node = new this.WorkletNode(context, 'soul-mic');
         node.port.onmessage = event => this.samples(event.data, context.sampleRate);
