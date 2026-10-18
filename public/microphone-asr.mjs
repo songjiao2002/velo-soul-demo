@@ -1,3 +1,4 @@
+import {ConversationAudioSession} from './audio-session.mjs';
 import {BUILD} from './build-version.mjs';
 import {StreamingTranscriber} from './asr-stream.mjs';
 // One microphone session per conversation. Utterances are bounded, transient PCM;
@@ -23,61 +24,75 @@ export function encodeWav(chunks, sampleRate) {
 }
 
 export class MicrophoneInput {
-  constructor({mediaDevices = globalThis.navigator?.mediaDevices,
-    Context = globalThis.AudioContext || globalThis.webkitAudioContext,
-    WorkletNode = globalThis.AudioWorkletNode, onLevel = () => {}} = {}) {
-    Object.assign(this, {mediaDevices, Context, WorkletNode, onLevel}); this.serial = 0;
+  constructor({mediaDevices=globalThis.navigator?.mediaDevices,Context=globalThis.AudioContext||globalThis.webkitAudioContext,
+    WorkletNode=globalThis.AudioWorkletNode,audioSession,onLevel=()=>{},setTimer=(...a)=>globalThis.setTimeout(...a),clearTimer=(...a)=>globalThis.clearTimeout(...a)}={}) {
+    Object.assign(this,{mediaDevices,Context,WorkletNode,onLevel,setTimer,clearTimer});this.serial=0;this.waits=new Map();
+    this.ownsSession=!audioSession;this.audioSession=audioSession||new ConversationAudioSession({Context,setTimer,clearTimer});
+    this.deviceChanged=()=>{if(this.stream?.getTracks().some(t=>t.readyState==='ended'||t.muted))this.recoverCapture();};
   }
-  async open() {
-    if (this.opening) return this.opening;
-    const serial = this.serial;
-    // Construct/resume synchronously in the user's camera/voice button gesture.
-    if (!this.mediaDevices?.getUserMedia || !this.Context) throw new Error('unsupported');
-    const context = new this.Context(); this.context = context;
-    const resume = context.resume();
-    this.opening = (async () => {
-      const stream = await this.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
-      if (serial !== this.serial) { stream.getTracks().forEach(t => t.stop()); return; }
-      this.stream = stream;
-      await resume;
-      if (serial !== this.serial) return;
-      const source = context.createMediaStreamSource(stream); this.source = source;
-      let node;
-      if (context.audioWorklet && this.WorkletNode) {
-        await context.audioWorklet.addModule(`/mic-worklet.js?v=${BUILD}`);
-        if (serial !== this.serial) return;
-        node = new this.WorkletNode(context, 'soul-mic');
-        node.port.onmessage = event => this.samples(event.data, context.sampleRate);
-      } else {
-        // Compatibility path for browsers without AudioWorklet.
-        node = context.createScriptProcessor(2048, 1, 1);
-        node.onaudioprocess = event => this.samples(new Float32Array(event.inputBuffer.getChannelData(0)), context.sampleRate);
-      }
-      this.node = node; const mute = context.createGain(); this.mute = mute; mute.gain.value = 0;
-      source.connect(node); node.connect(mute); mute.connect(context.destination);
-      context.onstatechange = () => {
-        if (serial === this.serial && ['suspended','interrupted','closed'].includes(context.state)) this.receiver?.fail('audio-capture');
-      };
-      stream.getTracks().forEach(track => track.addEventListener('ended', () => { if (serial === this.serial) this.receiver?.fail('audio-capture'); }));
+  async open(){
+    if(this.opening)return this.opening;
+    if(!this.mediaDevices?.getUserMedia||!this.Context)throw Error('unsupported');
+    const serial=this.serial;
+    const context=this.audioSession.acquire(this,{onInterrupt:()=>this.receiver?.resetCapture?.(),onFailure:()=>{this.routeFailed=true;this.receiver?.fail('audio-capture');}});this.context=context;
+    const resume=context.resume();Promise.resolve(resume).catch(()=>{});
+    this.opening=(async()=>{
+      const stream=await this.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+      if(serial!==this.serial){stream.getTracks().forEach(t=>t.stop());return;}
+      this.stream=stream;await resume;if(serial!==this.serial)return;
+      await this.connectStream(stream,serial);
+      this.mediaDevices.addEventListener?.('devicechange',this.deviceChanged);
     })();
-    // Handle a rejected resume even if permission is still pending.
-    resume.catch(() => {});
     return this.opening;
   }
-  samples(data, rate) { this.receiver?.samples(data, rate); }
-  async attach(receiver) {
-    await this.open();
-    if (receiver.active && this.stream) this.receiver = receiver;
+  async connectStream(stream,serial){
+    const context=this.context;
+    if(context.audioWorklet&&this.WorkletNode&&!this.workletLoaded){await context.audioWorklet.addModule('/mic-worklet.js?v='+BUILD);if(serial!==this.serial)return;this.workletLoaded=true;}
+    if(serial!==this.serial)return;
+    const source=context.createMediaStreamSource(stream);this.source=source;let node;
+    if(context.audioWorklet&&this.WorkletNode){node=new this.WorkletNode(context,'soul-mic');node.port.onmessage=e=>this.samples(e.data,context.sampleRate);}
+    else{node=context.createScriptProcessor(2048,1,1);node.onaudioprocess=e=>this.samples(new Float32Array(e.inputBuffer.getChannelData(0)),context.sampleRate);}
+    this.node=node;const mute=context.createGain();this.mute=mute;mute.gain.value=0;source.connect(node);node.connect(mute);mute.connect(context.destination);
+    for(const track of stream.getTracks()){
+      const valid=()=>serial===this.serial&&stream===this.stream;
+      track.addEventListener('ended',()=>{if(valid())this.recoverCapture();});
+      track.addEventListener('mute',()=>{if(!valid())return;this.receiver?.resetCapture?.();this.clearTimer(this.muteTimer);this.muteTimer=this.setTimer(()=>{if(valid()&&track.muted&&context.state==='running')this.recoverCapture();},1800);});
+      track.addEventListener('unmute',()=>{if(valid()){this.clearTimer(this.muteTimer);if(context.state!=='running')this.audioSession.recover();}});
+    }
   }
-  detach(receiver) { if (this.receiver === receiver) { this.receiver = null; this.onLevel(0); } }
-  release() {
-    this.serial++; this.receiver = null; this.onLevel(0);
-    this.stream?.getTracks().forEach(t => t.stop()); this.stream = null;
-    if (this.node?.port) this.node.port.onmessage = null;
-    if (this.node) this.node.onaudioprocess = null;
-    this.node?.disconnect(); this.source?.disconnect(); this.mute?.disconnect();
-    if (this.context) { this.context.onstatechange = null; this.context.close().catch(() => {}); }
-    this.node = this.source = this.mute = this.context = this.opening = null;
+  wait(ms){return new Promise(resolve=>{const id=this.setTimer(()=>{this.waits.delete(id);resolve();},ms);this.waits.set(id,resolve);});}
+  recoverCapture(){
+    if(this.repair||!this.stream||globalThis.document?.hidden)return this.repair;
+    const serial=this.serial,valid=()=>serial===this.serial;this.receiver?.resetCapture?.();
+    const task=Promise.resolve().then(async()=>{
+      await this.wait(400);if(!valid())return;
+      // Reacquire only an ended/muted input, never on every reply or healthy device event.
+      if(this.stream?.getTracks().every(t=>t.readyState!=='ended'&&!t.muted))return;
+      this.dropGraph();this.stream?.getTracks().forEach(t=>t.stop());this.stream=null;
+      let discard=false;
+      const request=this.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false}).then(stream=>{
+        if(discard||!valid()){stream.getTracks().forEach(t=>t.stop());throw Error('cancelled');}return stream;
+      });
+      try{
+        const stream=await Promise.race([request,this.wait(4000).then(()=>{throw Error('audio-capture');})]);
+        if(!valid()){stream.getTracks().forEach(t=>t.stop());return;}
+        this.stream=stream;await this.connectStream(stream,serial);if(valid())await this.audioSession.recover();
+      }finally{discard=true;}
+    }).catch(()=>{if(valid()){this.routeFailed=true;this.receiver?.fail('audio-capture');}}).finally(()=>{
+      if(this.repair===task){this.repair=null;for(const [id,resolve]of this.waits){this.clearTimer(id);resolve();}this.waits.clear();}
+    });this.repair=task;return task;
+  }
+  samples(data,rate){if(!this.repair&&this.context?.state==='running'&&!this.stream?.getTracks().some(t=>t.muted))this.receiver?.samples(data,rate);}
+  async attach(receiver){await this.open();if(this.repair)await this.repair;if(this.routeFailed)throw Error('audio-capture');if(receiver.active&&this.stream)this.receiver=receiver;}
+  detach(receiver){if(this.receiver===receiver){this.receiver=null;this.onLevel(0);}}
+  dropGraph(){if(this.node?.port)this.node.port.onmessage=null;if(this.node)this.node.onaudioprocess=null;this.node?.disconnect();this.source?.disconnect();this.mute?.disconnect();this.node=this.source=this.mute=null;}
+  release(){
+    this.serial++;this.receiver=null;this.onLevel(0);this.clearTimer(this.muteTimer);
+    for(const [id,resolve]of this.waits){this.clearTimer(id);resolve();}this.waits.clear();this.repair=null;
+    this.mediaDevices?.removeEventListener?.('devicechange',this.deviceChanged);
+    this.stream?.getTracks().forEach(t=>t.stop());this.stream=null;this.dropGraph();
+    this.audioSession.release(this);if(this.ownsSession)this.audioSession.dispose();
+    this.context=this.opening=null;this.routeFailed=false;this.workletLoaded=false;
   }
 }
 
@@ -89,6 +104,11 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
     start() {
       this.active = true;
       input.attach(this).catch(error => { if (this.active) this.fail(error.name === 'NotAllowedError' ? 'not-allowed' : error.message === 'unsupported' ? 'unsupported' : 'audio-capture'); });
+    }
+    resetCapture(){
+      if(!this.active||this.finalizing)return;
+      this.stream?.close();this.stream=null;this.chunks=[];this.preroll=[];this.total=this.quiet=this.candidate=this.voiced=0;
+      this.speech=false;this.started=false;this.quietReported=false;this.noise=.002;this.onaudiorecovering?.();
     }
     openStream(){
       if(Socket&&location&&Date.now()>=streamDisabledUntil){

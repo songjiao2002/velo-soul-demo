@@ -91,14 +91,14 @@ test('leaving before microphone permission resolves releases a late stream',asyn
  const receiver={active:true},pending=input.attach(receiver);receiver.active=false;input.release();grant(a.stream());await pending;assert.ok(a.tracks[0].stopped);assert.ok(a.contexts[0].closed);assert.equal(input.receiver,null);
 });
 
-test('AudioWorklet path delivers PCM and reports a suspended audio device',async()=>{
+test('AudioWorklet path delivers PCM and resumes a briefly suspended audio device',async()=>{
  const a=fakeAudio();let processor,loaded,failed;
  class Context extends a.Context{constructor(){super();this.audioWorklet={addModule:async url=>{loaded=url;}};}}
  class Node{constructor(){this.port={};processor=this;}connect(){}disconnect(){this.disconnected=true;}}
  const input=new MicrophoneInput({Context,WorkletNode:Node,mediaDevices:{getUserMedia:async()=>a.stream()}});
  let received;const receiver={active:true,samples:(data,rate)=>{received={data,rate};},fail:code=>failed=code};await input.attach(receiver);
  const pcm=new Float32Array(2048);processor.port.onmessage({data:pcm});assert.equal(received.data,pcm);assert.equal(received.rate,48000);assert.match(loaded,/^\/mic-worklet.js/);
- a.contexts[0].state='suspended';a.contexts[0].onstatechange();assert.equal(failed,'audio-capture');input.release();assert.equal(processor.port.onmessage,null);
+ a.contexts[0].resume=async()=>{a.contexts[0].state='running';};a.contexts[0].state='suspended';a.contexts[0].onstatechange();await flush();assert.equal(failed,undefined);assert.equal(a.contexts[0].state,'running');input.release();assert.equal(processor.port.onmessage,null);
 });
 
 test('cloud interruption uses recognized stop commands and aborts late monitor results',async()=>{

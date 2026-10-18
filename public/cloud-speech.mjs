@@ -6,7 +6,7 @@ export function speechChunks(text,limit=540){
  return parts;
 }
 export class CloudSpeechPlayer {
- constructor({onMouth,Context=globalThis.AudioContext||globalThis.webkitAudioContext,fetchImpl=(...args)=>globalThis.fetch(...args),setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{Context,fetchImpl,setTimer,clearTimer});this.serial=0;this.cache=new Map();this.preloads=new Map();this.mouth=onMouth?new SpeechMouthClock({onFrame:onMouth}):null;this.mediaMouthCache=new Map();}
+ constructor({onMouth,audioSession,Context=globalThis.AudioContext||globalThis.webkitAudioContext,fetchImpl=(...args)=>globalThis.fetch(...args),setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{audioSession,Context,fetchImpl,setTimer,clearTimer});this.serial=0;this.cache=new Map();this.preloads=new Map();this.mouth=onMouth?new SpeechMouthClock({onFrame:onMouth}):null;this.mediaMouthCache=new Map();}
  preload(text,{language='en',soul='lumi',source}={}){
   const key=JSON.stringify([text,language,soul]);if(this.preloads.has(key))return this.preloads.get(key).promise;
   const controller=new AbortController(),entry={controller,dynamic:!source};
@@ -27,7 +27,7 @@ export class CloudSpeechPlayer {
  prepare(){
   try{
    if(!this.Context)return Promise.resolve(false);
-   if(!this.context||this.context.state==='closed')this.context=new this.Context();
+   if(!this.context||this.context.state==='closed')this.context=this.audioSession?.getContext()||new this.Context();
    const context=this.context;
    // Unlock the actual playback graph during the initial user gesture.
    const pulse=context.createBufferSource();pulse.buffer=context.createBuffer(1,1,context.sampleRate);pulse.connect(context.destination);pulse.start();pulse.onended=()=>pulse.disconnect();
@@ -65,7 +65,7 @@ export class CloudSpeechPlayer {
    pending+=decoder.decode();if(pending.trim())frame(pending.trim());
    if(!valid())return;if(!done||!played||carry!==null)throw new Error('incomplete_audio');
    received();if(!nodes.size)resolveTail();
-   let timedOut=false;tailTimer=this.setTimer(()=>{timedOut=true;cleanup();},Math.max(0,next-context.currentTime)*1000+5000);
+   let timedOut=false;tailTimer=this.setTimer(()=>{timedOut=true;cleanup();},Math.max(0,next-context.currentTime)*1000+8000);
    await tail;if(timedOut)throw new Error('playback_timeout');
   }finally{cleanup();reader.releaseLock();}
  }
@@ -76,7 +76,7 @@ export class CloudSpeechPlayer {
   if(!this.context){report('blocked');return;}
   if(this.context.state!=='running'){
    let resumeTimer;
-   try{await Promise.race([this.context.resume(),new Promise(resolve=>{resumeTimer=this.setTimer(resolve,1500);})]);}catch{}finally{this.clearTimer(resumeTimer);}
+   try{await Promise.race([this.audioSession?.inputs.size?this.audioSession.recover():this.context.resume(),new Promise(resolve=>{resumeTimer=this.setTimer(resolve,this.audioSession?.inputs.size?6000:1500);})]);}catch{}finally{this.clearTimer(resumeTimer);}
    if(!valid())return;
    if(this.context.state!=='running'){report('blocked');return;}
   }
@@ -111,7 +111,7 @@ export class CloudSpeechPlayer {
      let playTimer,mouthToken;
      const finish=()=>{if(mouthToken!==undefined)this.mouth?.stop(mouthToken);this.clearTimer(playTimer);source.onended=null;source.disconnect();if(this.source===source)this.source=null;if(this.finishPlayback===finish)this.finishPlayback=null;resolve();};
      this.finishPlayback=finish;source.onended=finish;
-     playTimer=this.playTimer=this.setTimer(()=>{source.onended=null;reject(new Error('playback_timeout'));try{source.stop();}catch{}finish();},Math.ceil(buffer.duration/source.playbackRate.value*1000)+5000);
+     playTimer=this.playTimer=this.setTimer(()=>{source.onended=null;reject(new Error('playback_timeout'));try{source.stop();}catch{}finish();},Math.ceil(buffer.duration/source.playbackRate.value*1000)+8000);
      try{mouthToken=this.mouth?.begin(()=>context.state==='running'?context.currentTime:null,soul);this.mouth?.enqueue(buffer.getChannelData?.(0),buffer.sampleRate||context.sampleRate,context.currentTime,source.playbackRate.value,mouthToken);source.start();report('playing');}catch(error){if(mouthToken!==undefined)this.mouth?.stop(mouthToken);this.clearTimer(this.playTimer);reject(error);}
     });
    }
@@ -133,5 +133,5 @@ export class CloudSpeechPlayer {
   }catch{/* A failed animation decode leaves the original audio untouched. */}
   finally{this.clearTimer(timer);if(this.controller===controller)this.controller=null;}
  }
- dispose(){this.stop();this.cache.clear();this.mediaMouthCache.clear();for(const entry of this.preloads.values())entry.controller.abort();this.preloads.clear();const context=this.context;this.context=null;if(context)context.close().catch(()=>{});}
+ dispose(){this.stop();this.cache.clear();this.mediaMouthCache.clear();for(const entry of this.preloads.values())entry.controller.abort();this.preloads.clear();const context=this.context;this.context=null;if(context&&!this.audioSession)context.close().catch(()=>{});}
 }

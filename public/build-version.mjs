@@ -1,1 +1,1 @@
-export const BUILD = '20261018-mouth1';
+export const BUILD = '20261018-bluetooth1';

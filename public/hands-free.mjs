@@ -10,11 +10,11 @@ export const HANDS_FREE_COPY={
 export class HandsFreeConversation {
  constructor({Recognition=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition,fetchImpl=(...args)=>globalThis.fetch(...args),getContext=()=>({}),speak=()=>{},stopSpeech=()=>{},releaseInput=()=>{},onState=()=>{},onTranscript=()=>{},onReply=()=>{},getOpening=()=>null,onOpening=()=>{},introduced=new Set(),setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{Recognition,fetchImpl,getContext,speak,stopSpeech,releaseInput,onState,onTranscript,onReply,getOpening,onOpening,introduced,setTimer,clearTimer});this.active=false;this.epoch=0;this.recognizer=null;this.controller=null;this.timer=null;this.state='off';this.histories={lumi:[],mori:[],bori:[]};}
  setState(state){this.state=state;this.stateSince=Date.now();this.onState(state,this.active);}
- disconnect(){const r=this.recognizer;this.recognizer=null;if(r){r.onresult=r.onend=r.onerror=r.onspeechstart=r.onspeechend=r.onstart=r.onquiet=r.ontranscribing=null;try{r.abort();}catch{}}}
+ disconnect(){const r=this.recognizer;this.recognizer=null;if(r){r.onresult=r.onend=r.onerror=r.onspeechstart=r.onspeechend=r.onstart=r.onquiet=r.ontranscribing=r.onaudiorecovering=null;try{r.abort();}catch{}}}
  stopInterrupt(){this.clearTimer(this.interruptTimer);this.interruptTimer=null;const r=this.interruptRecognizer;this.interruptRecognizer=null;if(r){r.onresult=r.onend=r.onerror=null;try{r.abort();}catch{}}}
  stop(reason='off'){this.active=false;this.epoch++;this.clearTimer(this.timer);this.controller?.abort();this.controller=null;this.disconnect();this.stopInterrupt();this.releaseInput();this.stopSpeech();this.setState(reason);}
  start(soul,language){this.stop();if(!this.Recognition){this.setState('unsupported');return;}this.soul=soul;this.language=language;this.active=true;this.retryCount=0;this.audioIssue=false;this.pendingOpening=this.introduced.has(soul)?null:this.getOpening(soul,language);this.listen();}
- isBusy(){return this.active&&['starting','hearing','transcribing','thinking','synthesizing','speaking','reconnecting'].includes(this.state);}
+ isBusy(){return this.active&&['starting','hearing','transcribing','thinking','synthesizing','speaking','reconnecting','audio_reconnecting'].includes(this.state);}
  resumeAfter(serial,delay=500){this.clearTimer(this.timer);this.timer=this.setTimer(()=>{if(this.active&&serial===this.epoch)this.listen();},delay);}
  listen(){
   if(!this.active)return;this.disconnect();const serial=this.epoch;let r;try{r=new this.Recognition();}catch{this.stop('unsupported');return;}this.recognizer=r;
@@ -25,6 +25,7 @@ export class HandsFreeConversation {
   r.onstart=()=>{if(valid()){started=true;this.clearTimer(this.timer);if(this.pendingOpening?.text){const opening=this.pendingOpening;this.pendingOpening=null;this.onOpening(opening.text,opening.language);this.output(opening.text,opening.language,serial,state=>{if(state==='playing')this.introduced.add(this.soul);});return;}this.setState('listening');this.timer=this.setTimer(()=>{if(valid()){this.disconnect();this.resumeAfter(serial);}},45000);}};
   r.onspeechstart=()=>{if(valid()){this.clearTimer(this.timer);this.setState('hearing');}};
   r.ontranscribing=()=>{if(valid()){this.clearTimer(this.timer);this.setState('transcribing');}};
+  r.onaudiorecovering=()=>{if(valid()){this.clearTimer(this.timer);this.setState('audio_reconnecting');}};
   r.onquiet=()=>{if(valid())this.setState('quiet');};
   r.onresult=e=>{if(!valid())return;let interim='';const finals=[];for(const result of Array.from(e.results)){const text=result[0]?.transcript||'';if(result.isFinal)finals.push(text);else interim+=text;}finalText=finals.join(' ').trim().slice(0,1000);this.onTranscript(finalText||interim,Boolean(finalText));if(finalText){this.retryCount=0;send();}};
   r.onspeechend=()=>{if(valid())try{r.stop();}catch{send();}};
@@ -113,3 +114,7 @@ Object.assign(HANDS_FREE_COPY.zh,{start:'开始交流',stop:'暂停交流',off:'
 HANDS_FREE_COPY.ko.notice='말하는 동안 자막이 나타나고 수정돼요. 약 0.5초 쉬면 최종 문장을 보내고 답을 들어요. 연결이 불안정하면 한 문장 단위 인식으로 전환해요. 음성은 서버를 거쳐 Qwen으로 전송하며 녹음은 저장하지 않아요. 답변 중 “잠깐”으로 끊을 수 있어요. 화면을 켜두세요.';
 HANDS_FREE_COPY.en.notice='Words appear and update while you speak. Pause about 0.5 seconds to send the confirmed sentence and hear a reply. If streaming disconnects, sentence recognition takes over. Audio goes through our server to Qwen; recordings are not saved. Say “stop” to interrupt a reply. Keep this page in the foreground.';
 HANDS_FREE_COPY.zh.notice='说话时文字会逐步出现并修正，停顿约0.5秒后发送确认的句子并语音回答。流式连接中断时会转用整句识别。音频经服务器传给千问，不保存录音。回答时可说“等一下”打断。请保持网页在前台。';
+
+Object.assign(HANDS_FREE_COPY.ko,{audio_reconnecting:'오디오 연결을 복구하고 있어요…','audio-capture':'오디오 연결을 복구하지 못했어요. 이어폰 연결을 확인하고 대화를 다시 켜주세요.'});
+Object.assign(HANDS_FREE_COPY.en,{audio_reconnecting:'Restoring the audio connection…','audio-capture':'Audio could not reconnect. Check your headset connection and start the conversation again.'});
+Object.assign(HANDS_FREE_COPY.zh,{audio_reconnecting:'正在恢复音频连接…','audio-capture':'音频连接未能恢复。请检查耳机连接，再点击开始交流。'});

@@ -22,15 +22,15 @@ const labels={ko:{lumi:'루미',mori:'모리',bori:'보리'},en:{lumi:'Lumi',mor
 
 const LIVE_COPY={ko:{auto:'답변 자동으로 듣기',share:'연결된 GPS·카메라 함께 사용',privacy:'대화는 Qwen으로 전송돼요. 함께 사용을 켜면 최근 위치의 등록 장소·거리·속도와 AI 관찰 중인 현재 화면 1장도 전달돼요. 날씨 요약도 함께 사용해요. 날씨 조회에는 약 2km 격자 위치를 서버와 Open-Meteo에 보내고, 정확한 GPS 좌표는 기기에 남아요. 대화는 탭을 닫으면 사라져요.'},en:{auto:'Read replies automatically',share:'Use connected GPS and camera',privacy:'Messages go to Qwen. With context enabled, a recent catalog place, distance and speed plus one current frame from AI observation may be included. Weather summaries are included. Weather lookup shares an approximate 2 km grid with our server and Open-Meteo; exact GPS coordinates stay on this device. Chat disappears when you close the tab.'},zh:{auto:'自动朗读回复',share:'结合已开启的 GPS 和相机',privacy:'对话会发送给千问。勾选结合传感器后，会附带最近定位匹配的目录地点、距离、速度，以及 AI 观察开启时的一张当前画面。也会附带天气摘要。天气查询会将约 2 公里网格位置发给本站与 Open-Meteo，精确 GPS 坐标留在本机。关闭标签页后对话消失。'}};
 for(const lang of ['ko','en','zh'])COPY[lang].privacy=LIVE_COPY[lang].privacy;
-export function createSoulChat({onOpen=()=>{},getInputLanguage=getLanguage,onInputLanguage=()=>{},getContext=()=>({}),speakReply,stopSpeaking,canSpeak=()=>true,prepareSpeech=()=>{},introduced=new Set(),getOpening=()=>null,onVoiceStart=()=>{},onVoiceIdle=()=>{},onClose=()=>{}}={}){
-  const speech=new CloudSpeechPlayer();let autoRead=true,shareContext=true;
+export function createSoulChat({audioSession,onOpen=()=>{},getInputLanguage=getLanguage,onInputLanguage=()=>{},getContext=()=>({}),speakReply,stopSpeaking,canSpeak=()=>true,prepareSpeech=()=>{},introduced=new Set(),getOpening=()=>null,onVoiceStart=()=>{},onVoiceIdle=()=>{},onClose=()=>{}}={}){
+  const speech=new CloudSpeechPlayer({audioSession});let autoRead=true,shareContext=true;
   const histories={lumi:[],mori:[],bori:[]};
   const dialog=document.createElement('dialog');dialog.className='soul-chat';dialog.dataset.noTranslate='';
   dialog.setAttribute('aria-labelledby','chatTitle');document.body.append(dialog);
   let inputLanguage='ko',replyLanguage='ko',recognizer=null;
   let soul='lumi',language='ko',copy=COPY.ko,configured=false,controller=null,epoch=0,utterance=null,latestReply='';
   const find=selector=>dialog.querySelector(selector);
-  const microphone=new MicrophoneInput({onLevel:level=>{const m=find('#chatMicLevel');if(m)m.value=level;}});
+  const microphone=new MicrophoneInput({audioSession,onLevel:level=>{const m=find('#chatMicLevel');if(m)m.value=level;}});
   const Recognition=createMicrophoneRecognition({input:microphone});let micTimer,chatWakeLock=null;
   function stopSpeech(){stopSpeaking?.();speech.stop();}
   function stopRecognition(){voiceSession.stop();clearTimeout(micTimer);if(recognizer){const r=recognizer;recognizer=null;r.abort();}microphone.release();}

@@ -1,45 +1,45 @@
 {
-  "version": "20261018-mouth1",
+  "version": "20261018-bluetooth1",
   "files": {
     "/index.html": {
-      "size": 7667,
-      "sha256": "0cd8fd592d533700819e9cd74cc50a56617d01c3b4e5eb50a6ebdee8267b4d6e",
+      "size": 7695,
+      "sha256": "bd8d5d7a505771a4338379cdd29e9d369e8840e534031f55e64a14295197a3e0",
       "br": {
-        "size": 3052,
-        "sha256": "0f483e0a32f0610ff75ed1fbdf12b3f6f20452b85bd8b7feadb902b6ad81f6d9",
+        "size": 2827,
+        "sha256": "d738ccc4c5a608b9248718a443414b39133753b8234d376f350384a2df5a4f9f",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 3411,
-        "sha256": "0e5c47f8cb2ea1896e67fb2991e0bd8f8b8f16d5f4e955f3fa59c89bea8fedf6",
+        "size": 3414,
+        "sha256": "9051a3a6ccb30ab524134c7ccb9061e26cf081859d8372e385c5061fdffffb69",
         "suffix": ".gz"
       }
     },
     "/boot.js": {
-      "size": 2266,
-      "sha256": "6358ad92f3e35dbcdc7ad141a18ce4a8489c0aa8ce9375cc633780272ac6da31",
+      "size": 2270,
+      "sha256": "039e478cc9a0c68431c8e47c45f842f4b9e5fb1fdc6996e0b0392a79cfa3bd15",
       "br": {
-        "size": 851,
-        "sha256": "80ba7162f7c315983ac78442e592b040f70a0106e6676e51270933f731f0577b",
+        "size": 854,
+        "sha256": "0917e0c2ed82a91c2d20b61403d32e8a7076fa74114f830a2114d9cd89036282",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 1030,
-        "sha256": "7f53f975cd60037d28be13643333e789b645509f0e05ba95c41174a11a2a87d7",
+        "size": 1032,
+        "sha256": "aba7cc736bc81dbef85ae382e77e14e936fe4f3de3b705684e1ad4556aab6218",
         "suffix": ".gz"
       }
     },
     "/app.bundle.js": {
-      "size": 190267,
-      "sha256": "9869ac1172ece9b023d59c574ff4fd6b53fb1025d937a176f231e9287c1df3af",
+      "size": 197078,
+      "sha256": "69f427dd01c548ba6a55c66291673823626c2d83bffd28ce900745a6c1ebe60d",
       "br": {
-        "size": 59030,
-        "sha256": "75f822a3986a1d4aa62e0ae09c8ffab9e5f57749200d408548bfc1f0ceec9ad4",
+        "size": 60498,
+        "sha256": "72634f21a2baf29a0fe44756ba01b161fd98495a1ce698310ff9571e6d11cad2",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 70092,
-        "sha256": "dd257e93f0b563301056e3de0c8f2641b59836b3e949589e8c13b3d0008f65d9",
+        "size": 71839,
+        "sha256": "d14dda535b24334f314b2b816e285e100f394b342f85a763101c4922dd69d59a",
         "suffix": ".gz"
       }
     },

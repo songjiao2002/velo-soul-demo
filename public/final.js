@@ -7,6 +7,7 @@ const VOICE_LAYOUT={ko:{settings:'카메라 설정',title:'곁에서 듣고 있�
 import {MicrophoneInput,createMicrophoneRecognition} from './microphone-asr.mjs';
 import {HandsFreeConversation,HANDS_FREE_COPY} from './hands-free.mjs';
 import {CloudSpeechPlayer} from './cloud-speech.mjs';
+import {ConversationAudioSession} from './audio-session.mjs';
 import {locationContext} from './sensor-context.mjs';
 import {SoulVisionObserver,captureVisionFrame,VISION_COPY} from './soul-vision.mjs';
 import {createSoulChat} from './soul-chat.mjs';
@@ -31,7 +32,8 @@ const recordedVoice=new RecordedVoicePlayer({audio,onState:state=>{if(state==='p
  const messages={loading:'목소리를 준비하고 있어요…',playing:voiceLanguage==='en'?'영어 목소리 재생 중':'한국어 목소리 재생 중',ended:'다시 듣기로 목소리를 들을 수 있어요.',blocked:'소리를 켜려면 듣기 버튼을 눌러주세요.',timeout:'불러오기가 지연돼요. 다시 듣기를 눌러주세요.',error:'소리를 재생하지 못했어요. 다시 듣기를 눌러주세요.'};
  voiceStatus(messages[state]);
 }});
-const liveSpeech=new CloudSpeechPlayer({onMouth:frame=>paintSoulMouth(document,frame)});
+const audioSession=new ConversationAudioSession();
+const liveSpeech=new CloudSpeechPlayer({audioSession,onMouth:frame=>paintSoulMouth(document,frame)});
 function preloadIntro(id=selected){const intro=soulIntroduction(id,inputLanguage(),voiceLanguage);if(intro)liveSpeech.preload(intro.text,{soul:id,language:intro.language,source:introductionClip(intro.text,id,intro.language)});}
 function stopVoice(){paintSoulExpression(document,"rest");liveSpeech.stop();recordedVoice.stop();voiceSerial++;clearTimeout(voiceTimer);window.speechSynthesis?.cancel();document.body.classList.remove('voice-playing');}
 function speak(line,key,id=selected){
@@ -43,7 +45,7 @@ function speak(line,key,id=selected){
 }
 
 const introducedSouls=new Set();
-const soulChat=createSoulChat({introduced:introducedSouls,getOpening:(id,lang)=>soulIntroduction(id,lang,voiceLanguage),onVoiceIdle:()=>weather.flush(),onVoiceStart:()=>{if(watch===null)gps();},onClose:()=>{if(!['ride','camera'].includes(screen))stopGPS();},getInputLanguage:inputLanguage,onInputLanguage:setSpokenLanguage,onOpen:()=>{handsFree?.stop();stopVoice();stopPlaceTalk();placeFence?.pause();globalThis.queueMicrotask(paintWeatherUI);},getContext:chatSensorContext,speakReply:sayLive,stopSpeaking:stopVoice,canSpeak:()=>voiceOn,prepareSpeech:()=>{voiceOn=true;preloadIntro();liveSpeech.prepare();}});
+const soulChat=createSoulChat({audioSession,introduced:introducedSouls,getOpening:(id,lang)=>soulIntroduction(id,lang,voiceLanguage),onVoiceIdle:()=>weather.flush(),onVoiceStart:()=>{if(watch===null)gps();},onClose:()=>{if(!['ride','camera'].includes(screen))stopGPS();},getInputLanguage:inputLanguage,onInputLanguage:setSpokenLanguage,onOpen:()=>{handsFree?.stop();stopVoice();stopPlaceTalk();placeFence?.pause();globalThis.queueMicrotask(paintWeatherUI);},getContext:chatSensorContext,speakReply:sayLive,stopSpeaking:stopVoice,canSpeak:()=>voiceOn,prepareSpeech:()=>{voiceOn=true;preloadIntro();liveSpeech.prepare();}});
 let placeFence=null,placeRequest=null,placeEpoch=0,visionObserver=null;
 const weather=new WeatherCompanion({getSoul:()=>selected,getLanguage:()=>voiceLanguage,onChange:()=>paintWeatherUI(),
  canSpeak:()=>voiceOn&&!document.hidden&&!placeRequest&&!document.body.classList.contains('voice-playing')&&(soulChat.isOpen()?soulChat.canAnnounceWeather():handsFree?.active&&!handsFree.audioIssue&&['listening','quiet'].includes(handsFree.state)&&Date.now()-handsFree.stateSince>(weather.openingPending()?250:2000)),
@@ -115,11 +117,11 @@ document.addEventListener('click',async e=>{const b=e.target.closest('button,a')
 $('infoDialog').querySelector('.dialog-close').onclick=()=>$('infoDialog').close();
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('rideCameraModal')&&!soulChat.isOpen())closeRideCamera();if(e.key==='Tab'&&$('rideCameraModal')&&!soulChat.isOpen()){const items=[...$('rideCameraModal').querySelectorAll('button:not(:disabled),select:not(:disabled)')];const first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)return;handsFree?.stop();releaseWakeLock();companionPending=false;visionObserver?.stop();if($('visionToggle'))$('visionToggle').disabled=true;stopPlaceTalk();stopVoice();if(camera){camera.stop();camState='off';clearTimeout(scanTimer);$('cameraView')?.classList.remove('live');if($('cameraLabel'))$('cameraLabel').textContent='CAMERA PAUSED';if($('cameraStatus'))$('cameraStatus').textContent='화면을 떠나 카메라를 껐어요. 다시 켜려면 버튼을 눌러주세요.';if($('cameraStart')){$('cameraStart').disabled=false;$('cameraStart').textContent='카메라 다시 켜기';}if($('capturePhoto'))$('capturePhoto').disabled=true;}if(watch!==null){stopGPS();if(ride)ride.speed=null;gpsStatus='화면을 떠나 위치 기록을 멈췄어요. 다시 켜서 이어갈 수 있어요.';updateGPSUI();}});
-window.addEventListener('pagehide',cleanup);window.addEventListener('popstate',()=>{ride=null;draft=null;routeFromURL();});
+window.addEventListener('pagehide',()=>{cleanup();audioSession.dispose();});window.addEventListener('popstate',()=>{ride=null;draft=null;routeFromURL();});
 function routeFromURL(){const p=new URLSearchParams(location.search),id=p.get('bike');if(p.get('view')==='journeys')journal();else if(p.get('view')==='scan')scanner();else if(Object.hasOwn(SOULS,id)){theme(id);p.get('view')==='camera'?encounter():welcome(id);}else home();}
 startLanguageUI();$('voiceSelect').value=voiceLanguage;$('voiceSelect').addEventListener('change',e=>{const active=handsFree?.active;liveSpeech.prepare();setSpokenLanguage(e.target.value);soulChat.setInputLanguage(e.target.value);if(active){handsFree.start(selected,inputLanguage());requestWakeLock();}else if(!soulChat.isOpen()&&['welcome','camera'].includes(screen)){voiceOn=true;speak(SOULS[selected].hello,'hello');}});
 $('languageSelect').addEventListener('change',()=>{document.querySelectorAll('[data-weather-card]').forEach(e=>e.outerHTML=weatherMarkup(getLanguage()));paintWeatherUI();handsFree?.stop();visionObserver?.stop();const panel=$('visionPanel');if(panel)panel.outerHTML=visionMarkup();if($('visionToggle'))$('visionToggle').disabled=camState!=='live';if($('placeSelect'))for(const option of $('placeSelect').options)option.textContent=SEOUL_PLACES.find(p=>p.id===option.value).name[getLanguage()];});
-const microphoneInput=new MicrophoneInput({onLevel:level=>{document.querySelectorAll('[data-mic-level]').forEach(m=>{m.value=level;m.setAttribute('aria-valuetext',Math.round(level*100)+'%');});}});
+const microphoneInput=new MicrophoneInput({audioSession,onLevel:level=>{document.querySelectorAll('[data-mic-level]').forEach(m=>{m.value=level;m.setAttribute('aria-valuetext',Math.round(level*100)+'%');});}});
 const CloudRecognition=createMicrophoneRecognition({input:microphoneInput,Socket:globalThis.WebSocket});
 handsFree=new HandsFreeConversation({introduced:introducedSouls,getOpening:(id,lang)=>soulIntroduction(id,lang,voiceLanguage),onOpening:text=>{if($('cameraCaption'))$('cameraCaption').textContent=text;},Recognition:CloudRecognition,releaseInput:()=>microphoneInput.release(),getContext:chatSensorContext,speak:playLiveVoice,stopSpeech:stopVoice,onState:paintHandsFree,onTranscript:(text,final=true)=>{for(const id of ['cameraCaption','heardText']){const el=$(id);if(el){el.textContent=text;el.dataset.transcriptState=final?'confirmed':'interim';}}},onReply:text=>{if($('rideQuote')){$('rideQuote').dataset.noTranslate='';$('rideQuote').textContent=text;$('quoteTitle').textContent='VOICE · Qwen';}}});
 document.addEventListener('change',e=>{if(e.target.id==='liveInputLanguage'){const lang=e.target.value;setSpokenLanguage(lang);if(handsFree.active){handsFree.start(selected,lang);requestWakeLock();}}});
