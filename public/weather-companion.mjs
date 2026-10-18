@@ -1,16 +1,17 @@
-import {weatherArea,weatherFresh,weatherLine,WeatherNoticeGate} from './weather-core.mjs';
+import {weatherArea,weatherFresh,weatherLine,weatherGreeting,WeatherNoticeGate} from './weather-core.mjs';
 export class WeatherCompanion{
  constructor({fetchImpl=(...args)=>globalThis.fetch(...args),getSoul=()=> 'mori',getLanguage=()=> 'en',canSpeak=()=>false,speak=()=>false,onChange=()=>{},refreshPosition=async()=>null,now=Date.now,setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){
   Object.assign(this,{fetchImpl,getSoul,getLanguage,canSpeak,speak,onChange,refreshPosition,now,setTimer,clearTimer});this.epoch=0;this.active=false;this.autoSpeak=true;this.gate=new WeatherNoticeGate();this.state='off';
  }
  setState(state){this.state=state;this.onChange(state,this.snapshot);}
- start(){if(this.active)return;this.active=true;this.epoch++;this.nextFetch=0;this.lastAttempt=-Infinity;this.setState('waiting');this.schedule();}
+ start(){if(this.active)return;this.active=true;this.epoch++;this.startedAt=this.now();this.nextFetch=0;this.lastAttempt=-Infinity;this.setState('waiting');this.schedule();}
  stop(){this.active=false;this.epoch++;this.controller?.abort();this.controller=null;this.clearTimer(this.timer);this.timer=null;this.snapshot=null;this.point=null;this.areaKey=null;this.busy=false;this.gate=new WeatherNoticeGate();this.setState('off');}
  position(point){if(!this.active)return;const area=weatherArea(point,this.now());if(!area)return;const key=`${area.latitude},${area.longitude}`;this.point=point;if(key!==this.areaKey){this.areaKey=key;this.snapshot=null;this.nextFetch=0;this.setState('loading');}void this.refresh();}
  reference(){return this.active&&weatherArea(this.point,this.now())&&weatherFresh(this.snapshot,this.now())?this.snapshot.id:null;}
+ openingPending(){return this.active&&this.autoSpeak&&!this.gate.greeted&&this.state!=='unavailable'&&(!!this.reference()||this.now()-this.startedAt<15000);}
  schedule(){this.clearTimer(this.timer);if(this.active)this.timer=this.setTimer(()=>{this.tick();this.schedule();},5000);}
  tick(){if(!this.active)return;if(this.snapshot&&!weatherFresh(this.snapshot,this.now())){this.snapshot=null;this.setState('stale');}void this.refresh();this.flush();}
- flush(){if(!this.reference()||!this.autoSpeak||!this.canSpeak())return;const notice=this.gate.candidate(this.snapshot,this.now());if(!notice)return;const accepted=this.speak(weatherLine(this.snapshot,this.getSoul(),this.getLanguage(),notice.risk),this.getLanguage(),notice);if(accepted)this.gate.mark(notice,this.now());}
+ flush(){if(!this.reference()||!this.autoSpeak||!this.canSpeak())return;const notice=this.gate.candidate(this.snapshot,this.now());if(!notice)return;const line=(notice.greeting?weatherGreeting:weatherLine)(this.snapshot,this.getSoul(),this.getLanguage(),notice.risk);const accepted=this.speak(line,this.getLanguage(),notice);if(accepted)this.gate.mark(notice,this.now());}
  async refresh(){
   if(!this.active||this.busy||(this.now()<this.nextFetch&&weatherArea(this.point,this.now()))||this.now()-this.lastAttempt<60000||!this.point)return;
   const serial=this.epoch;this.busy=true;this.lastAttempt=this.now();const controller=new AbortController();this.controller=controller;

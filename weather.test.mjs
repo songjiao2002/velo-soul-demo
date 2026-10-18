@@ -37,7 +37,7 @@ test('weather handler enforces same origin, methods and bounded JSON bodies',asy
  assert.equal((await fetch(base+'/api/weather')).status,405);assert.equal((await post({},'https://elsewhere.test')).status,403);assert.equal((await post({value:'x'.repeat(1100)})).status,413);assert.equal(calls,0);const response=await post(weatherArea(point,time));assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');assert.equal(calls,1);
 });
 test('automatic notices deduplicate across GPS updates and allow worsening weather',()=>{
- const gate=new WeatherNoticeGate(),rain=snapshot(),first=gate.candidate(rain,time);assert.equal(first.kind,'rain');gate.mark(first,time);assert.equal(gate.candidate(rain,time+60000),null);
+ const gate=new WeatherNoticeGate(),rain=snapshot(),first=gate.candidate(rain,time);assert.equal(first.kind,'greeting');assert.equal(first.risk.kind,'rain');gate.mark(first,time);assert.equal(gate.candidate(rain,time+60000),null);
  const storm={...rain,code:95},urgent=gate.candidate(storm,time+10000);assert.equal(urgent.kind,'storm');gate.mark(urgent,time+10000);assert.equal(gate.candidate(rain,time+130000),null);
  assert.equal(gate.candidate({...rain,fetchedAt:time+31*60000,observedAt:time+31*60000},time+31*60000).kind,'rain');
 });
@@ -60,6 +60,13 @@ test('weather refresh renews a stationary GPS fix without refetching fresh cache
 });
 test('provider timeout cancels the fetch and returns a sanitized error',async()=>{
  let cancelled=false;const service=createWeatherService({now:()=>time,timeoutMs:5,fetchImpl:async(_,options)=>new Promise((_,reject)=>options.signal.addEventListener('abort',()=>{cancelled=true;reject(new Error('private network details'));}))});await assert.rejects(service.lookup(weatherArea(point,time)),{code:'weather_timeout'});assert.equal(cancelled,true);
+});
+test('routine weather is one opening greeting, while later rain still triggers a precaution',()=>{
+ const gate=new WeatherNoticeGate(),dry=snapshot({code:0,precipitationMm:0,recentPrecipitationMm:0,nextHours:[]});const first=gate.candidate(dry,time);assert.equal(first.greeting,true);gate.mark(first,time);
+ const later=time+3600000;assert.equal(gate.candidate({...dry,fetchedAt:later,observedAt:later},later),null,'No periodic dry-weather chatter');const rain={...snapshot(),fetchedAt:later,observedAt:later};assert.equal(gate.candidate(rain,later).kind,'rain');
+});
+test('opening greeting precedes other automatic observations but does not block on missing GPS',async()=>{
+ const a=companion();a.c.start();assert.equal(a.c.openingPending(),true);a.setNow(time+16000);assert.equal(a.c.openingPending(),false);a.c.position({...point,time:time+16000});await flush();assert.equal(a.c.openingPending(),true);a.allow();a.c.tick();assert.match(a.spoken[0].line,/안녕, 나는 모리야/);assert.equal(a.c.openingPending(),false);a.c.stop();
 });
 test('chat receives only server-resolved weather and never trusts client weather claims',async()=>{
  let request;const weather=snapshot();const service=createChatService({env:{DASHSCOPE_API_KEY:'test-key'},now:()=>time,getWeather:id=>id===weather.id?weather:null,fetchImpl:async(_,options)=>{request=JSON.parse(options.body);return Response.json({choices:[{message:{content:'비가 올 수 있으니 천천히 가자.'}}]});}});

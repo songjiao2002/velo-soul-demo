@@ -43,13 +43,19 @@ export function weatherLine(w,soul,language='en',risk=weatherRisk(w)){
  if(ko)return `주변 날씨 정보는 ${c}, 기온은 약 ${temp}도야. `+({lumi:'이런 날엔 어떤 작은 풍경이 눈에 들어올까?',mori:temp<8?'쌀쌀하네. 몸이 편한 속도로 함께 가자.':'바람은 편안하게 느껴져? 오늘은 네 속도에 맞출게.',bori:temp<12?'나중에 안전하게 쉬면서 따뜻한 간식 이야기할까?':'오늘 쉬는 시간엔 어떤 간식이 당겨?'}[soul]);
  return `Local weather data show ${c}, about ${temp} degrees Celsius. `+({lumi:'What little detail might catch your eye today?',mori:temp<8?'A chilly day. Let’s keep a comfortable pace together.':'How does the air feel to you? I’ll follow your pace.',bori:temp<12?'When we stop somewhere safe, shall we dream up a warm snack?':'What snack would you fancy when we take a break?'}[soul]);
 }
+export function weatherGreeting(w,soul,language='en',risk=weatherRisk(w)){
+ const name={lumi:['Lumi','루미'],mori:['Mori','모리'],bori:['Bori','보리']}[soul];
+ return (language==='ko'?`안녕, 나는 ${name[1]}야. `:`Hi, I’m ${name[0]}. `)+weatherLine(w,soul,language,risk);
+}
 export class WeatherNoticeGate{
- constructor(){this.seen=new Map();this.lastAt=-Infinity;this.lastLevel=0;this.lastKind=null;}
+ constructor(){this.seen=new Map();this.lastAt=-Infinity;this.lastLevel=0;this.lastKind=null;this.greeted=false;}
  candidate(w,now=Date.now()){
-  if(!weatherFresh(w,now))return null;const risk=weatherRisk(w),kind=risk?.kind||'smalltalk',level=risk?.level||0;
-  if(now-(this.seen.get(kind)??-Infinity)<(risk?30:20)*60000)return null;
+  if(!weatherFresh(w,now))return null;const risk=weatherRisk(w),level=risk?.level||0;
+  if(!this.greeted)return {kind:'greeting',level,risk,greeting:true};
+  if(!risk)return null;const kind=risk.kind;
+  if(now-(this.seen.get(kind)??-Infinity)<30*60000)return null;
   if(now-this.lastAt<120000&&level<=this.lastLevel)return null;
   return {kind,level,risk};
  }
- mark(notice,now=Date.now()){this.seen.set(notice.kind,now);this.lastAt=now;this.lastLevel=notice.level;this.lastKind=notice.kind;}
+ mark(notice,now=Date.now()){if(notice.greeting)this.greeted=true;this.seen.set(notice.risk?.kind||notice.kind,now);this.lastAt=now;this.lastLevel=notice.level;this.lastKind=notice.kind;}
 }
