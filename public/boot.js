@@ -36,7 +36,7 @@
   });
   // One classic bundle avoids a chain of module requests and partial versions.
   var script = document.createElement('script');
-  script.src = '/app.bundle.js?v=20261018-weather2';
+  script.src = '/app.bundle.js?v=20261018-weather3';
   script.async = true;
   script.onerror = function () { failed(new Error('Could not download the app. Please reload.')); };
   script.onload = function () { if (!ready) failed(new Error('App startup did not complete. Please reload.')); };

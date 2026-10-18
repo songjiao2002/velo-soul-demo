@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import {createWeatherService,createWeatherHandler,parseWeather,describeWeather} from './weather-service.mjs';
-import {weatherArea,weatherRisk,weatherLine,weatherFresh,WeatherNoticeGate} from './public/weather-core.mjs';
+import {weatherArea,weatherRisk,weatherLine,weatherWarning,weatherRisks,weatherFresh,WeatherNoticeGate} from './public/weather-core.mjs';
 import {WeatherCompanion} from './public/weather-companion.mjs';
 import {createChatService} from './chat-service.mjs';
 const flush=()=>new Promise(r=>setImmediate(r));
@@ -15,8 +15,8 @@ test('weather queries coarsen coordinates and reject missing, stale or inaccurat
 });
 test('precautions separate snow, freezing risk, recent wetness and future precipitation',()=>{
  const dry=snapshot({code:0,precipitationMm:0,recentPrecipitationMm:0,nextHours:[]});assert.equal(weatherRisk(dry),null);assert.equal(weatherRisk({...dry,temperatureC:-5}),null);
- for(const [change,expected] of [[{code:61},'rain'],[{code:71},'snow'],[{code:66},'ice'],[{temperatureC:1,precipitationMm:.2},'ice'],[{recentPrecipitationMm:.3},'wet'],[{code:95},'storm'],[{nextHours:[{code:71,snowfallCm:.1}]},'forecast_snow'],[{nextHours:[{code:3,probability:70}]},'forecast_rain']])assert.equal(weatherRisk({...dry,...change}).kind,expected);
- assert.match(weatherLine(dry,'bori','ko'),/간식/);assert.match(weatherLine(snapshot(),'lumi','en'),/may be slippery/);assert.match(weatherLine({...dry,nextHours:[{code:3,probability:70}]},'mori','en'),/possible in the next two hours/);
+ for(const [change,expected] of [[{code:61},'rain'],[{code:71},'snow'],[{code:66},'ice'],[{temperatureC:1,precipitationMm:.2},'ice'],[{recentPrecipitationMm:.3},'wet'],[{code:95},'storm'],[{nextHours:[{at:time+3600000,code:71,snowfallCm:.1}]},'forecast_snow'],[{nextHours:[{at:time+5400000,code:3,probability:70}]},'forecast_rain']])assert.equal(weatherRisk({...dry,...change}).kind,expected);
+ assert.match(weatherLine(dry,'bori','ko'),/간식/);assert.match(weatherLine(snapshot(),'lumi','en'),/may be slippery/);assert.match(weatherLine({...dry,nextHours:[{at:time+5400000,code:3,probability:70}]},'mori','en'),/possible in the next two hours/);
 });
 test('invalid weather is not rendered as zero, and old data cannot drive warnings',()=>{
  for(const value of [null,fixture({temperature_2m:null}),fixture({precipitation:null}),fixture({time:time/1000-3600})])assert.throws(()=>parseWeather(value,time));
@@ -67,6 +67,22 @@ test('routine weather is one opening greeting, while later rain still triggers a
 });
 test('opening greeting precedes other automatic observations but does not block on missing GPS',async()=>{
  const a=companion();a.c.start();assert.equal(a.c.openingPending(),true);a.setNow(time+16000);assert.equal(a.c.openingPending(),false);a.c.position({...point,time:time+16000});await flush();assert.equal(a.c.openingPending(),true);a.allow();a.c.tick();assert.match(a.spoken[0].line,/안녕, 나는 모리야/);assert.equal(a.c.openingPending(),false);a.c.stop();
+});
+test('new one-hour rain forecasts trigger after the greeting and keep Korean / English uncertainty',()=>{
+ const gate=new WeatherNoticeGate(),dry=snapshot({code:0,precipitationMm:0,nextHours:[]});gate.mark(gate.candidate(dry,time),time);
+ const later=time+300000,w={...dry,fetchedAt:later,observedAt:later,nextHours:[{at:later+3500000,code:61,probability:75,precipitationMm:.3}]};const n=gate.candidate(w,later);assert.equal(n.kind,'forecast_rain');assert.equal(n.risk.withinHours,1);assert.match(weatherWarning(n.risk,'en'),/possible in the next hour/);assert.match(weatherWarning(n.risk,'ko'),/한 시간 안에 비가 올 가능성/);assert.match(weatherWarning(n.risk,'zh'),/未来约一小时可能/);gate.mark(n,later);assert.equal(gate.candidate(w,later+60000),null);
+});
+test('approaching forecasts can update the notice, and expired forecast windows are ignored',()=>{
+ const gate=new WeatherNoticeGate(),dry=snapshot({code:0,precipitationMm:0,nextHours:[]});gate.mark(gate.candidate(dry,time),time);
+ const first=time+300000,forecastAt=time+4800000,w={...dry,fetchedAt:first,observedAt:first,nextHours:[{at:forecastAt,code:61,probability:80}]};const n=gate.candidate(w,first);assert.equal(n.risk.withinHours,2);gate.mark(n,first);
+ const later=time+1500000;assert.equal(gate.candidate({...w,fetchedAt:later,observedAt:later},later).risk.withinHours,1);assert.equal(weatherRisks(w,forecastAt+1).length,0);
+});
+test('severe future weather is not hidden by current light rain',()=>{
+ const w=snapshot({nextHours:[{at:time+3500000,code:95,probability:80}]});assert.equal(weatherRisk(w,time).kind,'forecast_storm');assert.match(weatherLine(w,'lumi','ko',weatherRisk(w,time)),/뇌우가 올 가능성/);
+ const ice=weatherRisk({...w,code:0,precipitationMm:0,nextHours:[{at:time+3500000,code:66,probability:80}]},time);assert.equal(ice.kind,'forecast_ice');assert.match(weatherWarning(ice,'en'),/could become icy/);
+});
+test('another rider refreshing the same area does not invalidate an earlier fresh weather reference',async()=>{
+ let now=time;const service=createWeatherService({now:()=>now,fetchImpl:async()=>Response.json(fixture({time:Math.floor(now/1000)}))});const first=await service.lookup(weatherArea(point,now));now+=301000;const next=await service.lookup(weatherArea({...point,time:now},now));assert.notEqual(next.id,first.id);assert.ok(service.resolve(first.id));assert.ok(service.resolve(next.id));now=time+16*60000;assert.equal(service.resolve(first.id),null);
 });
 test('chat receives only server-resolved weather and never trusts client weather claims',async()=>{
  let request;const weather=snapshot();const service=createChatService({env:{DASHSCOPE_API_KEY:'test-key'},now:()=>time,getWeather:id=>id===weather.id?weather:null,fetchImpl:async(_,options)=>{request=JSON.parse(options.body);return Response.json({choices:[{message:{content:'비가 올 수 있으니 천천히 가자.'}}]});}});

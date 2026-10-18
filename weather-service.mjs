@@ -16,7 +16,7 @@ export function parseWeather(data,now=Date.now()){
 }
 export function describeWeather(w,now=Date.now()){
  if(!weatherFresh(w,now))return 'No current server-verified weather is available. Do not invent local weather, rain, snow, or road conditions. Ask the rider to enable GPS weather if needed.';
- const risk=weatherRisk(w);
+ const risk=weatherRisk(w,now);
  return `SERVER-VERIFIED LOCAL WEATHER: Open-Meteo model estimate for an approximate GPS area, NOT a street sensor or official warning. Current data time ${new Date(w.observedAt).toISOString()}; fetched ${new Date(w.fetchedAt).toISOString()}. Conditions: ${condition(w.code)}; air temperature ${w.temperatureC} C; feels like ${w.feelsLikeC??'unknown'} C; wind ${w.windKmh??'unknown'} km/h; current interval precipitation ${w.precipitationMm} mm and snowfall ${w.snowfallCm} cm; preceding two hours estimated precipitation ${w.recentPrecipitationMm} mm. Next two hourly forecast points: ${JSON.stringify(w.nextHours)}. ${risk?`Precaution category: ${risk.kind}. Mention possible slipperiness briefly when relevant; freezing risk is an inference, never confirmed ice.`:'No precipitation risk detected by this limited check; this does NOT prove the road is safe.'} Use this to chat naturally in character. Distinguish current estimates from future possibilities. Never claim to observe the road, prove dry pavement, guarantee safety or invent an address. No street-level navigation or business lookup is available.`;
 }
 export function createWeatherService({fetchImpl=fetch,now=Date.now,timeoutMs=10000}={}){
@@ -25,6 +25,7 @@ export function createWeatherService({fetchImpl=fetch,now=Date.now,timeoutMs=100
   resolve(id){const w=typeof id==='string'?ids.get(id):null;return weatherFresh(w,now())?w:null;},
   async lookup(input,{signal}={}){
    const area=weatherArea({lat:input?.latitude,lon:input?.longitude,accuracy:input?.accuracy,time:input?.observedAt},now());if(!area)throw new WeatherError('invalid_location',400);
+   for(const [id,value] of ids)if(!weatherFresh(value,now()))ids.delete(id);
    const key=`${area.latitude},${area.longitude}`,cached=cells.get(key);if(cached&&now()-cached.fetchedAt<300000&&weatherFresh(cached,now()))return cached;
    const m=Math.floor(now()/60000),d=Math.floor(now()/86400000);if(m!==minute){minute=m;minuteCount=0;}if(d!==day){day=d;dayCount=0;}
    if(active>=3||minuteCount>=30||dayCount>=1000)throw new WeatherError('weather_rate_limited',429);active++;minuteCount++;dayCount++;
@@ -35,8 +36,10 @@ export function createWeatherService({fetchImpl=fetch,now=Date.now,timeoutMs=100
     const response=await fetchImpl(url,{signal:controller.signal,redirect:'error'});if(!response.ok)throw new WeatherError('weather_unavailable');
     const chunks=[];let size=0;for await(const chunk of response.body){size+=chunk.length;if(size>100000)throw new WeatherError('weather_unavailable');chunks.push(chunk);}
     const weather={...parseWeather(JSON.parse(Buffer.concat(chunks).toString('utf8')),now()),id:randomUUID()};
-    if(cached)ids.delete(cached.id);cells.delete(key);cells.set(key,weather);ids.set(weather.id,weather);
-    while(cells.size>200){const first=cells.keys().next().value;ids.delete(cells.get(first).id);cells.delete(first);}return weather;
+    cells.delete(key);cells.set(key,weather);ids.set(weather.id,weather);
+    // Other riders may still hold an earlier, fresh reference from this area.
+    while(ids.size>512)ids.delete(ids.keys().next().value);
+    while(cells.size>200)cells.delete(cells.keys().next().value);return weather;
    }catch(e){throw e instanceof WeatherError?e:new WeatherError(controller.signal.aborted?'weather_timeout':'weather_unavailable');}
    finally{clearTimeout(timeout);signal?.removeEventListener('abort',abort);active--;}
   }

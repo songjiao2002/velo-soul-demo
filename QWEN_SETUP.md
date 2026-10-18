@@ -107,7 +107,7 @@ API Key 仅在服务端使用。`/api/chat` 与 `/api/vision` 共用调用限额
 
 语言选择依据：[Qwen-ASR API](https://www.alibabacloud.com/help/en/model-studio/qwen-asr-api-reference)。流式合成依据：[Qwen-TTS API](https://www.alibabacloud.com/help/en/model-studio/qwen-tts-api)。当前仍是短语 ASR 加轮流对话；只把音频输出改为流式，不声称已实现全双工电话。
 
-## GPS 自动天气陪伴（2026-10-18 / weather2）
+## GPS 自动天气陪伴（2026-10-18 / weather3）
 
 进入「实时陪伴」或「相机＋语音陪伴」并允许 GPS 后，自动调用本站 POST /api/weather 获取所在地天气，无需点天气按钮。首次取得天气后，等对话空闲至少两秒，以当前英语或韩语做一次天气开场寒暄；正在说话或回答时延后。随后只主动补充天气风险提醒，不定时重复普通天气闲聊。开启一次后持续运行，直到暂停陪伴、关闭 GPS 或页面转入后台。天气卡片可单独关闭自动播报。
 
@@ -118,3 +118,5 @@ Lumi 留意天气中的小发现；Mori 关心舒适节奏；Bori 联系安全�
 冰滑判断是推测：冻雨，或气温不高于 2°C 且当前/近期有降水，提示「可能结冰」，不把低温干燥等同于结冰。模型估计不等于实际路面检测，也不是官方预警。地点推荐仍只覆盖既有首尔目录；没有接入所有咖啡馆搜索或路线规划。
 
 [Open-Meteo 文档](https://open-meteo.com/en/docs) · [使用条款](https://open-meteo.com/en/terms) · [CC BY 4.0 数据许可](https://open-meteo.com/en/licence)。当前使用适合教育/研究原型的免费非商业接口，无新增密钥；若改作商业服务需按提供方条款更换方案。天气卡片注明来源、模型估计和 VELO SOUL 摘要。
+
+预报提醒：检查未来两小时的逐小时数据，对约一小时内和两小时内的可能降雨、降雪、雷雨或冻雨分别说明。新预报在开场之后仍会自动提醒；风险临近可更新提醒，但不反复读相同预报。小时预报只表示一个时间窗口，不声称确定的降雨开始时刻。
