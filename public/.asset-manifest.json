@@ -1,0 +1,113 @@
+{
+  "version": "20261018-load1",
+  "files": {
+    "/index.html": {
+      "size": 7660,
+      "sha256": "7f39bf12e82327160b0a9a27cd479a885f88e09f64f77f55c69164cb5b73e2ba",
+      "br": {
+        "size": 3050,
+        "sha256": "16d272e6c7697df51b5756647ca4e6ec96ebbb40d7a7c2c3c0a08e158f642b62",
+        "suffix": ".br"
+      },
+      "gzip": {
+        "size": 3408,
+        "sha256": "37c1b1c47f72febd715caa77b4541bff0daac4c7162bfd982e72d6113413f409",
+        "suffix": ".gz"
+      }
+    },
+    "/boot.js": {
+      "size": 2265,
+      "sha256": "eeb8ffb072794f77849c44bd65641e55ce677139c3389c5c57d19e1ee9aa4d11",
+      "br": {
+        "size": 850,
+        "sha256": "39310e5191d20f8eb74853dda53772ddb2d18c33162faaeb69eae3a6bbf1824f",
+        "suffix": ".br"
+      },
+      "gzip": {
+        "size": 1029,
+        "sha256": "cc6c86ef2f3a8ff82c8c173dd849cb3bafe4af99a678541f9adffe63ddee9540",
+        "suffix": ".gz"
+      }
+    },
+    "/app.bundle.js": {
+      "size": 177750,
+      "sha256": "ae6bd78c738de6ec14f8dc76bddd9103362b4d5c3a7ea321e23b7196ed49763f",
+      "br": {
+        "size": 54902,
+        "sha256": "274fd134ad2c06e8fa72472fe9184b17f04e7e5a2255190a398b1f0d25fb1469",
+        "suffix": ".br"
+      },
+      "gzip": {
+        "size": 65497,
+        "sha256": "7b845ece33f7458f8d9ea33e23b8fd38f2e88a923605a4a899927754388756b7",
+        "suffix": ".gz"
+      }
+    },
+    "/app.css": {
+      "size": 55984,
+      "sha256": "bcb111e939beacdc3eefac8e62bf6b7b92f5eb469a0ada34559c0a7fe408647a",
+      "br": {
+        "size": 11782,
+        "sha256": "7bd52b779f183c81c04c06976fbf4a7f2eaad394c5a1e1cbfdf2af2631d4f8f4",
+        "suffix": ".br"
+      },
+      "gzip": {
+        "size": 12412,
+        "sha256": "0dc860921a06eac8d631a83bf06e042511e33cc8c2bbac0e893f556007e6881d",
+        "suffix": ".gz"
+      }
+    },
+    "/mic-worklet.js": {
+      "size": 637,
+      "sha256": "ba8297bbef669f379758030f17c08150594044c5522de1bba88c1f8b9f37dc41",
+      "br": {
+        "size": 302,
+        "sha256": "5ffe12f47769633813ca9bf18e5bc410c8d3a25b0f527b22c3d8acb6d1acf3f2",
+        "suffix": ".br"
+      },
+      "gzip": {
+        "size": 348,
+        "sha256": "d3f0d6be8ca2a0a22802184cfe0e7dc481b13d706934d1e81fe9ad0de47f812a",
+        "suffix": ".gz"
+      }
+    },
+    "/vendor/jsQR.js": {
+      "size": 256885,
+      "sha256": "bc40c8a15196236b2314db0856f72ca0b49980cd5413b8c852a7349f5fee0859",
+      "br": {
+        "size": 46099,
+        "sha256": "5f6fc077e55561f404d72ef4833f7c8ae6f0a8e213a808d5551c6482661ec93b",
+        "suffix": ".br"
+      },
+      "gzip": {
+        "size": 56888,
+        "sha256": "8da2a2da2c3a0085604b7ce848cfb94742b51d29e6a59ee139ece1c706f10fad",
+        "suffix": ".gz"
+      }
+    },
+    "/soul-blue.webp": {
+      "size": 9020,
+      "sha256": "1cb3544ede25119c2f17ee2e5471f3981c701930f6fd267e401c5b6886136e5c"
+    },
+    "/soul-mint.webp": {
+      "size": 4178,
+      "sha256": "65bb3f329b9acba2e345a713694e47eac856732bff2cceac43b4c91210237619"
+    },
+    "/soul-orange.webp": {
+      "size": 9186,
+      "sha256": "13d8d85fda503b3ce9aa1c7c0f1f4d07e5023971198be6766d00beadc0bf3a04"
+    },
+    "/assets/lumi-puppet.webp": {
+      "size": 113048,
+      "sha256": "368d4926a1ccb3c9e6b2c33794e398d28169b8bf785e1774281c99058f91e85f"
+    },
+    "/assets/mori-puppet.webp": {
+      "size": 84194,
+      "sha256": "8705016f66aa8bc25218c04b8d689095b93bbd5834e3fae4141c94d1f4dd0e69"
+    },
+    "/assets/bori-puppet.webp": {
+      "size": 145010,
+      "sha256": "ab4a4a29c6f83d89bd07a8da2035d35621525295b80f67e50396f35c14bf7bc3"
+    }
+  }
+}

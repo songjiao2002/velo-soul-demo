@@ -111,3 +111,17 @@ Voice replies use QWEN_VOICE_MODEL (default qwen-flash, thinking disabled), sepa
 Camera and chat characters use separate arms, feet, body and programmable eyes/mouth. Greeting gestures, blinks, listening gaze, thinking face and speaking mouth follow actual session/playback state. Reduced-motion settings disable the animation. Assets are generated with built-in imagegen; prompts and saved paths are in ASSET_GENERATION.json. Runtime SVG/CSS articulates the unchanged PNG atlases.
 
 Validation: opening/cancellation/continuous conversation/half-second endpointing regressions; production bundle DOM simulation in English and Korean; all six packaged introductions synthesized and transcribed through Qwen. A static SVG layout render was inspected. Physical-device microphone, wind noise, autoplay and browser animation rendering still need on-device verification.
+
+## Load1: smaller downloads, unchanged QR codes
+
+The public origin and all `/?bike=lumi|mori|bori` destinations are unchanged. Existing QR routes, colors, generation, PNG download names and SVG previews are untouched; regression tests compare all six outputs against their previously published SHA-256 hashes.
+
+The three 480px WebP portraits total 22,384 bytes, replacing 3,753,277 bytes of initial PNG downloads. Full-resolution WebP animation atlases total 342,252 bytes instead of 4,600,492 bytes; SVG coordinates, alpha edges, expressions and joint animations are preserved. Original PNG assets remain available. These WebP files were encoded from the original PNGs using sharp with quality 86, alphaQuality 100 for atlases and effort 6; portraits use a 480×480 inside resize. This is a transfer-size comparison, not a measured mobile loading-time guarantee.
+
+`npm ci && npm run build` bundles the JavaScript and the six stylesheets (in their existing cascade order), then runs `build-assets.mjs`. The build writes Brotli/gzip representations and a content-hash manifest. Generated files are committed and copied into the Docker image, so production needs no build-time dependencies. The `public/build-version.mjs` identifier also updates HTML/boot URLs during this build. Bump it when changing assets.
+
+The server negotiates Brotli/gzip, supports ETag revalidation, and only marks assets with the current build query as immutable. HTML always revalidates, enabling updates through existing QR links. Byte-range media playback retains the identity representation. At startup, stale manifest entries are ignored if their identity bytes no longer match, so editing a source output locally cannot silently serve its old compressed counterpart.
+
+Startup reads only the journey count from IndexedDB. Photos and detailed routes are read when opening the journal, and saving no longer reads the whole history twice. The QR decoder stays lazy-loaded; camera, microphone and GPS retain their existing consent-based start flow. Introduction audio remains the previously validated Korean/English recordings.
+
+Validation: 113 automated tests, startup failure recovery, simulated English/Korean continuous conversation, journal count/detail loading, and comparison of decoded WebP character layouts with the original PNG layout. Physical phone rendering and device input are not covered by these checks.

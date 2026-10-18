@@ -7,6 +7,7 @@ import { deflateSync, crc32 } from 'node:zlib';
 import qrcode from './vendor/qrcode.mjs';
 import { createChatHandler } from './chat-service.mjs';
 import {createWeatherService,createWeatherHandler} from './weather-service.mjs';
+import {loadAssetManifest,preferredEncoding,matchesETag} from './static-assets.mjs';
 
 // .env is local-only and excluded from Git/Docker; Railway injects environment variables.
 const envPath=fileURLToPath(new URL('./.env',import.meta.url));
@@ -16,7 +17,8 @@ const handleWeather=createWeatherHandler(weatherService);
 const handleChat=createChatHandler({getWeather:id=>weatherService.resolve(id)});
 
 const root = fileURLToPath(new URL('./public/', import.meta.url));
-const types = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.mjs':'text/javascript; charset=utf-8', '.svg':'image/svg+xml', '.png':'image/png', '.wav':'audio/wav', '.mp3':'audio/mpeg', '.json':'application/json; charset=utf-8' };
+const assets=loadAssetManifest(new URL('./public/',import.meta.url));
+const types = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.mjs':'text/javascript; charset=utf-8', '.svg':'image/svg+xml', '.png':'image/png', '.webp':'image/webp', '.wav':'audio/wav', '.mp3':'audio/mpeg', '.json':'application/json; charset=utf-8' };
 const colors = { lumi:'#2441c7', mori:'#117455', bori:'#a84313' };
 
 function qrCode(soul, origin) {
@@ -85,6 +87,27 @@ export const server = http.createServer(async (req, res) => {
     if (!file.startsWith(root)) return send(404, 'Not found');
     const info = await stat(file);
     if (!info.isFile()) return send(404, 'Not found');
+    const entry=assets.files[pathname==='/'?'/index.html':pathname];
+    const version=new URL(req.url,'http://localhost').searchParams.get('v');
+    res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');
+    res.setHeader('Cache-Control',entry&&path.extname(file)!=='.html'&&version===assets.version?'public, max-age=31536000, immutable':/\.(mp3|wav|png)$/.test(file)?'public, max-age=86400':'no-cache');
+    if(entry){
+      if(entry.br||entry.gzip)res.setHeader('Vary','Accept-Encoding');
+      // Byte ranges always refer to the original file, including media playback.
+      const coding=req.headers.range?'identity':preferredEncoding(req.headers['accept-encoding'],entry);
+      if(!coding)return send(406,'No acceptable encoding');
+      const variant=coding==='identity'?entry:entry[coding],etag='"'+variant.sha256+'"';
+      res.setHeader('ETag',etag);
+      if(coding!=='identity')res.setHeader('Content-Encoding',coding);
+      if(matchesETag(req.headers['if-none-match'],etag)){res.writeHead(304);return res.end();}
+      if(coding!=='identity'){
+        res.setHeader('Content-Length',variant.size);
+        if(req.method==='HEAD')return res.end();
+        const stream=createReadStream(file+variant.suffix);
+        stream.on('error',()=>res.destroy());res.on('close',()=>stream.destroy());
+        return stream.pipe(res);
+      }
+    }
     let start=0, end=info.size-1, status=200;
     if (req.headers.range && req.method === 'GET') {
       const match = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range);
@@ -106,8 +129,7 @@ export const server = http.createServer(async (req, res) => {
     res.writeHead(status, {
       'Content-Type':types[path.extname(file)] || 'application/octet-stream',
       'Content-Length':Math.max(0,end-start+1),
-      'Accept-Ranges':'bytes',
-      'Cache-Control':/\.(mp3|wav|png)$/.test(file) ? 'public, max-age=86400' : 'no-cache'
+      'Accept-Ranges':'bytes'
     });
     if (req.method === 'HEAD' || info.size === 0) return res.end();
     const stream=createReadStream(file,{start,end});

@@ -1,7 +1,10 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { server, makeQr } from './server.mjs';
+import { server, makeQr, makeQrPng } from './server.mjs';
 import { readFile } from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {BUILD} from './public/build-version.mjs';
+import {preferredEncoding} from './static-assets.mjs';
 import vm from 'node:vm';
 let base;
 before(async()=>{await new Promise(r=>server.listen(0,'127.0.0.1',r));base='http://127.0.0.1:'+server.address().port;});
@@ -53,5 +56,60 @@ test('packaged English WAV supports correct MIME, HEAD and partial playback',asy
   const part=await fetch(path,{headers:{Range:'bytes=0-43'}});
   assert.equal(part.status,206);assert.equal(part.headers.get('content-range'),`bytes 0-43/${size}`);
   assert.equal(Buffer.from(await part.arrayBuffer()).toString('ascii',0,4),'RIFF');
+ }
+});
+
+test('Brotli and gzip serve the same complete app with representation-specific validators',async()=>{
+ const original=await readFile(new URL('./public/app.bundle.js',import.meta.url));
+ const tags=new Set();
+ for(const encoding of ['br','gzip','identity']){
+  const r=await fetch(base+'/app.bundle.js?v='+BUILD,{headers:{'Accept-Encoding':encoding}});
+  assert.equal(r.status,200);assert.equal(r.headers.get('content-encoding'),encoding==='identity'?null:encoding);
+  assert.equal(r.headers.get('vary'),'Accept-Encoding');
+  assert.deepEqual(Buffer.from(await r.arrayBuffer()),original);
+  if(encoding!=='identity')assert.ok(Number(r.headers.get('content-length'))<original.length/2);
+  const tag=r.headers.get('etag');assert.ok(tag);tags.add(tag);
+  const cached=await fetch(base+'/app.bundle.js?v='+BUILD,{headers:{'Accept-Encoding':encoding,'If-None-Match':'W/'+tag}});
+  assert.equal(cached.status,304);assert.equal((await cached.arrayBuffer()).byteLength,0);
+ }
+ assert.equal(tags.size,3);
+});
+
+test('cache policy revalidates HTML and unversioned files but retains current build assets',async()=>{
+ for(const file of ['/','/?bike=lumi','/app.bundle.js','/app.bundle.js?v=older','/app.css?v=older']){
+  const r=await fetch(base+file,{method:'HEAD'});assert.equal(r.headers.get('cache-control'),'no-cache',file);
+ }
+ for(const file of ['/app.bundle.js','/app.css','/soul-blue.webp','/assets/mori-puppet.webp']){
+  const r=await fetch(base+file+'?v='+BUILD,{method:'HEAD'});assert.equal(r.headers.get('cache-control'),'public, max-age=31536000, immutable');
+  assert.equal((await r.arrayBuffer()).byteLength,0);
+ }
+ assert.equal((await fetch(base+'/soul-blue.webp',{method:'HEAD'})).headers.get('content-type'),'image/webp');
+});
+
+test('compressed asset HEAD, encoding opt-out and byte range requests remain valid',async()=>{
+ const path=base+'/app.bundle.js';
+ const head=await fetch(path,{method:'HEAD',headers:{'Accept-Encoding':'br'}});
+ assert.equal(head.headers.get('content-encoding'),'br');assert.ok(Number(head.headers.get('content-length'))>0);
+ assert.equal((await head.arrayBuffer()).byteLength,0);
+ const r=await fetch(path,{headers:{Range:'bytes=0-15','Accept-Encoding':'br'}});
+ assert.equal(r.status,206);assert.equal(r.headers.get('content-encoding'),null);
+ const bytes=await readFile(new URL('./public/app.bundle.js',import.meta.url));
+ assert.deepEqual(Buffer.from(await r.arrayBuffer()),bytes.subarray(0,16));
+ assert.equal((await fetch(path,{headers:{'Accept-Encoding':'br;q=0,gzip;q=0'}})).headers.get('content-encoding'),null);
+ assert.equal((await fetch(path,{headers:{'Accept-Encoding':'*;q=0'}})).status,406);
+ assert.equal(preferredEncoding('br;q=0.5,gzip;q=1',{br:{},gzip:{}}),'gzip');
+ assert.equal(preferredEncoding('br;q=0.5,identity;q=1',{br:{}}),'identity');
+});
+
+test('all previously published QR PNGs and SVGs stay byte-for-byte identical',()=>{
+ const expected={
+  lumi:['323470880dbc0480c9d6101ae0af5853b15df9939f03d690e2166751fd1f24f5','696cf48aa1099eab62f90471baafe66dc43aa327570091c030f14ee3126a7a8f'],
+  mori:['4b6cb842c3b7d416d0b0835e7289f74591c4a82f459b68fa47e8079d61629f8a','21bfe17cec4b453c0df31b3197e8cfefb480a8457563c6e86832da610158d4e4'],
+  bori:['f157255736a73ac159ca1009179a64ac176d7018ff6791c77f30fbef9e4a3590','d2c10e36bb307f2d11bee74cc62d0d2f1f4dfb34f11682cf35d95f9fcd9fa251']
+ };
+ for(const soul of Object.keys(expected)){
+  const origin='https://velo-soul-demo-production.up.railway.app';
+  const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
+  assert.deepEqual([hash(makeQrPng(soul,origin)),hash(makeQr(soul,origin))],expected[soul]);
  }
 });

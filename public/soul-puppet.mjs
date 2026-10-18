@@ -1,8 +1,9 @@
+import {BUILD} from './build-version.mjs';
 let nextId=0;
 const names={lumi:'Lumi',mori:'Mori',bori:'Bori'};
 export function soulPuppet(soul){
  if(!names[soul])return '';
- const id=`soul-surface-${++nextId}`,file=`/assets/${soul}-puppet.png?v=20261018-voice9`;
+ const id=`soul-surface-${++nextId}`,file=`/assets/${soul}-puppet.webp?v=${BUILD}`;
  const image=`<image href="${file}" width="1536" height="1024" filter="url(#${id})"/>`;
  const part=(name,box)=>`<span class="soul-joint ${name}"><svg viewBox="${box}" aria-hidden="true">${image}</svg></span>`;
  const eye=x=>`<g class="soul-eye" style="--eye-x:${x}px" transform="translate(${x} 265)"><g class="soul-eye-blink"><ellipse class="eye-white" rx="35" ry="44" fill="#edf6ff"/><g class="soul-pupil"><ellipse rx="27" ry="38" fill="#121e2b"/><ellipse cx="-9" cy="-15" rx="9" ry="12" fill="white"/><circle cx="10" cy="17" r="4" fill="white" opacity=".5"/></g></g><path class="soul-eye-smile" d="M-28 0 Q0 25 28 0" fill="none" stroke="#18372c" stroke-width="10" stroke-linecap="round"/></g>`;

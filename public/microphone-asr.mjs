@@ -1,3 +1,4 @@
+import {BUILD} from './build-version.mjs';
 // One microphone session per conversation. Utterances are bounded, transient PCM;
 // no recording is saved to local storage or sent until speech ends.
 export function encodeWav(chunks, sampleRate) {
@@ -42,7 +43,7 @@ export class MicrophoneInput {
       const source = context.createMediaStreamSource(stream); this.source = source;
       let node;
       if (context.audioWorklet && this.WorkletNode) {
-        await context.audioWorklet.addModule('/mic-worklet.js?v=20261018-voice9');
+        await context.audioWorklet.addModule(`/mic-worklet.js?v=${BUILD}`);
         if (serial !== this.serial) return;
         node = new this.WorkletNode(context, 'soul-mic');
         node.port.onmessage = event => this.samples(event.data, context.sampleRate);
