@@ -125,3 +125,11 @@ The server negotiates Brotli/gzip, supports ETag revalidation, and only marks as
 Startup reads only the journey count from IndexedDB. Photos and detailed routes are read when opening the journal, and saving no longer reads the whole history twice. The QR decoder stays lazy-loaded; camera, microphone and GPS retain their existing consent-based start flow. Introduction audio remains the previously validated Korean/English recordings.
 
 Validation: 113 automated tests, startup failure recovery, simulated English/Korean continuous conversation, journal count/detail loading, and comparison of decoded WebP character layouts with the original PNG layout. Physical phone rendering and device input are not covered by these checks.
+
+## Rig1: attached hands and a floating ghost silhouette
+
+The original three character images, colors, accessories, facial features and atlas bytes are unchanged. The animated SVG now draws the torso and two arms only; it does not draw the foot cells. Each arm has a fixed shoulder anchor inside the opaque torso, with the arm's texture root at the local rotation origin. Arms and torso share the same floating parent transform, and idle/wave animations rotate only at the shoulders. The torso masks the join. Mori and Bori use mirrored-side atlas cells so the shoulder end meets the body. Bori's snack is parented to the right arm and follows the hand.
+
+A slow vertical float, gentle sideways drift and small body deformation replace the walking-like movement. Lumi, Mori and Bori keep different motion tempos. Arm timing trails the body slightly while the shoulder anchors stay fixed. The existing speaking, listening, thinking and blinking expressions remain, and reduced-motion preferences disable animations.
+
+Validation uses three rendered poses per character from the actual SVG markup, the existing 113-test suite and English/Korean simulated voice sessions. QR outputs, original artwork and the public character links remain unchanged. These checks do not replace a physical-phone animation test.

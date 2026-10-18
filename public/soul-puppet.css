@@ -1,14 +1,12 @@
-/* Each limb and the face has its own transform; no per-frame JavaScript. */
-.soul-puppet{display:block;position:relative;width:100%;aspect-ratio:340/410;--soul-tempo:4.2s;--limb-tempo:3.2s;filter:drop-shadow(0 10px 14px #121c3426)}
-.soul-puppet.mori{--soul-tempo:6.5s;--limb-tempo:5.5s}.soul-puppet.bori{--soul-tempo:2.8s;--limb-tempo:2.2s}
-.puppet-defs{position:absolute;width:0;height:0;overflow:hidden}.soul-body{position:absolute;inset:0;animation:puppet-breathe var(--soul-tempo) ease-in-out infinite;transform-origin:50% 62%}
-.soul-core{position:absolute;left:18%;top:0;width:74%;height:88%;overflow:hidden;z-index:2}
-.soul-joint{display:block;position:absolute;will-change:transform}.soul-joint svg{width:100%;height:100%;overflow:hidden}
-.arm-left{left:4%;top:44%;width:29%;height:28%;transform-origin:84% 20%;animation:arm-left-idle var(--limb-tempo) ease-in-out infinite;z-index:3}
-.arm-right{right:-1%;top:44%;width:29%;height:28%;transform-origin:16% 20%;animation:arm-right-idle var(--limb-tempo) -.7s ease-in-out infinite;z-index:3}
-.leg-left{left:31%;top:73%;width:20%;height:24%;transform-origin:65% 8%;animation:foot-left var(--limb-tempo) ease-in-out infinite;z-index:1}
-.leg-right{left:57%;top:73%;width:20%;height:24%;transform-origin:35% 8%;animation:foot-right var(--limb-tempo) -.5s ease-in-out infinite;z-index:1}
-.soul-snack{width:35%;height:28%;right:0;top:51%;z-index:4;animation:snack-bob var(--limb-tempo) ease-in-out infinite}
+/* Shared body space keeps both shoulder pivots attached throughout every pose. */
+.soul-puppet{display:block;position:relative;width:100%;aspect-ratio:340/410;--soul-tempo:4.8s;--limb-tempo:4.8s;filter:drop-shadow(0 10px 14px #121c3426)}
+.soul-puppet.mori{--soul-tempo:7.2s;--limb-tempo:7.2s}.soul-puppet.bori{--soul-tempo:3.8s;--limb-tempo:3.8s}
+.puppet-defs{position:absolute;width:0;height:0;overflow:hidden}.soul-body{position:absolute;inset:0;animation:puppet-float var(--soul-tempo) ease-in-out infinite;transform-origin:50% 54%}
+.soul-rig{display:block;width:100%;height:100%;overflow:visible;animation:puppet-soften var(--soul-tempo) ease-in-out infinite;transform-origin:50% 54%}
+.soul-core,.soul-joint svg{overflow:hidden}
+.soul-arm{transform-box:view-box;transform-origin:0 0;will-change:transform}
+.arm-left{animation:arm-left-idle var(--limb-tempo) .3s ease-in-out infinite both}
+.arm-right{animation:arm-right-idle var(--limb-tempo) .65s ease-in-out infinite both}
 .soul-emote{position:absolute;right:0;top:16%;color:#fff;font:700 27px system-ui;text-shadow:0 1px 12px var(--accent);animation:emote-float 3s ease-in-out infinite;opacity:.8}
 .soul-face{transform-origin:278px 280px;animation:face-look 9s ease-in-out infinite}.soul-eye-blink{transform-origin:0 0;animation:eye-blink 5.7s infinite}.soul-pupil{transition:transform .25s}
 .soul-eye-smile{display:none}.soul-brow{fill:none;stroke:#25314d;stroke-width:7;stroke-linecap:round;opacity:.7}.soul-mouth .mouth-talk,.mouth-thought{display:none}
@@ -19,22 +17,17 @@
 .soul-puppet[data-expression="thinking"] .mouth-smile{display:none}.soul-puppet[data-expression="thinking"] .mouth-thought{display:block}.soul-puppet[data-expression="thinking"] .soul-emote{opacity:.35}
 .soul-puppet[data-expression="talking"] .mouth-smile{display:none}.soul-puppet[data-expression="talking"] .mouth-talk{display:block;animation:mouth-speech .32s ease-in-out infinite alternate;transform-origin:0 0}
 .soul-puppet[data-expression="talking"] .arm-left{animation:arm-wave 1.7s ease-in-out infinite}.soul-puppet[data-expression="greeting"] .arm-left{animation:arm-wave .85s ease-in-out 4,arm-left-idle var(--limb-tempo) 3.4s ease-in-out infinite}
-.soul-puppet[data-expression="greeting"] .leg-right{animation:foot-right 1s ease-in-out 3,foot-right var(--limb-tempo) 3s ease-in-out infinite}
-.soul-puppet.bori[data-expression="talking"] .soul-body{animation:bori-talk 2s ease-in-out infinite}
 .soul-chat-avatar{width:76px!important;height:82px!important;overflow:visible!important;background:none!important;flex:none}.soul-chat-avatar .soul-puppet{width:76px}
 .camera-view .soul-overlay .soul-puppet{margin-top:-12%;width:122%;margin-left:-11%}
-@keyframes puppet-breathe{0%,100%{transform:translateY(0) rotate(-2deg) scale(1,.98)}50%{transform:translateY(-9px) rotate(2deg) scale(1.02,1.02)}}
-@keyframes arm-left-idle{0%,100%{transform:rotate(9deg)}50%{transform:rotate(-14deg) translateY(-3px)}}
-@keyframes arm-right-idle{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(16deg) translateY(2px)}}
-@keyframes arm-wave{0%,100%{transform:rotate(25deg)}30%{transform:rotate(85deg)}60%{transform:rotate(55deg)}80%{transform:rotate(80deg)}}
-@keyframes foot-left{0%,100%{transform:rotate(9deg) translateY(0)}50%{transform:rotate(-16deg) translateY(-6px)}}
-@keyframes foot-right{0%,100%{transform:rotate(-8deg) translateY(-4px)}50%{transform:rotate(17deg) translateY(3px)}}
+@keyframes puppet-float{0%,100%{transform:translate(0,2px) rotate(-2deg)}25%{transform:translate(4px,-4px) rotate(0)}50%{transform:translate(0,-12px) rotate(2deg)}75%{transform:translate(-4px,-4px) rotate(0)}}
+@keyframes puppet-soften{0%,100%{transform:scale(1,.99)}50%{transform:scale(1.01,1.01)}}
+@keyframes arm-left-idle{0%,100%{transform:rotate(5deg)}50%{transform:rotate(19deg)}}
+@keyframes arm-right-idle{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(-19deg)}}
+@keyframes arm-wave{0%,100%{transform:rotate(12deg)}30%{transform:rotate(67deg)}60%{transform:rotate(40deg)}80%{transform:rotate(60deg)}}
 @keyframes eye-blink{0%,43%,47%,80%,84%,100%{transform:scaleY(1)}45%,82%{transform:scaleY(.06)}}
 @keyframes mouth-speech{0%{transform:scale(.65,.25)}45%{transform:scale(1,.8)}100%{transform:scale(.8,1.12)}}
 @keyframes face-look{0%,35%,65%,100%{transform:translateX(0)}42%,55%{transform:translateX(-5px)}}
 @keyframes emote-float{0%,100%{transform:translateY(0) rotate(-8deg)}50%{transform:translateY(-8px) rotate(8deg)}}
-@keyframes snack-bob{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(5deg) translateY(-4px)}}
-@keyframes bori-talk{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-5px) rotate(3deg) scale(1.02,.98)}}
 @media(prefers-reduced-motion:reduce){.soul-puppet,.soul-puppet *{animation:none!important;transition:none!important}}
 
 .welcome-puppet{position:relative;width:190px;max-width:70%;margin:0 auto;z-index:2}.welcome-art .welcome-puppet .soul-puppet{animation:none}.soul-chat-avatar .soul-emote{font-size:14px}
