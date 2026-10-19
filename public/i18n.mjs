@@ -1,6 +1,26 @@
 // Korean is the source language. Translation only touches presentation nodes,
 // so changing language never remounts a camera, ride, or editable note.
 const rows = `
+우리의 길은 여기서 시작돼요.|Our path starts here.|我们的路，从这里开始。
+GPS를 켜면 함께 간 길이 그려져요.|Turn on GPS to trace our journey.|开启 GPS，画下我们一起走过的路。
+작은 여정이 남길 선을 기다려요.|A little journey, waiting to unfold.|等一段小小的旅程，留下线条。
+실제 궤적 · 도로 지도 아님|GPS trace · not a street map|实际轨迹 · 非街道地图
+위치 기록 대기|Waiting for GPS|等待定位记录
+시작|Start|出发
+지금|Now|现在
+
+나는 이 자전거에 머물러.|This bicycle is where I stay.|我住在这辆自行车里。
+오늘의 한 장면은 너와 함께하고 싶어.|I'd like to share a little of today with you.|想和你一起，遇见今天的一个瞬间。
+함께 출발하기|Let's go together|和它一起出发
+다른 만남 방식과 권한 안내|Other ways to meet & permissions|其他见面方式与权限说明
+시작하면 카메라·마이크·위치를 요청해요. 음성과 AI 관찰 장면은 Qwen으로 보내요.|Starting requests camera, microphone and location. Voice and AI-observed frames go to Qwen.|开始后会请求相机、麦克风和定位权限；语音与 AI 观察画面将发送给千问。
+잠깐 멈춘 뒤 시작해요. 달리는 동안에는 목소리로 함께해요.|Start while stopped. Once you're riding, let our voices keep you company.|停稳后再开始。骑行途中，让声音陪着你。
+자전거에 머무는 작은 영혼들.|Little souls, each with a bicycle to call home.|每辆自行车里，住着一个小小的灵魂。
+당신과 나눌 오늘의 한 장면을 기다려요.|Waiting to share a small moment of your day.|等你一起，遇见今天的某个瞬间。
+저마다의 성격, 저마다의 이야기.|A different character. A different story.|不同的性格，各自的故事。
+여정은 끝나도, 작은 이야기는 자전거에 남아요.|The ride ends. A little story can stay with the bicycle.|旅程会结束，一点故事可以留在车上。
+원한다면 다음 만남을 위해 한마디를 맡겨 주세요.|If you like, leave a thought for the next meeting.|愿意的话，留一句话给下一次相遇。
+
 기록 더 보기|Load more journeys|加载更多旅程
 사진 더 보기|Show more photos|显示更多照片
 기록을 불러오지 못했어요. 다시 시도해주세요.|Could not load journeys. Please try again.|未能加载旅程，请重试。

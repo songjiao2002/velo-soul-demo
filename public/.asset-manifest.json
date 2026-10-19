@@ -1,59 +1,59 @@
 {
-  "version": "20261019-memory1",
+  "version": "20261019-map1",
   "files": {
     "/index.html": {
-      "size": 7721,
-      "sha256": "6c20660f9344645e0c18fd98ca191487fbf497099013fd8f0bb49e6542dd9f8d",
+      "size": 7700,
+      "sha256": "d3b991b8e789a1d24fcb97912567cb3c320fe3bdaa09be483683e3f4d999a06b",
       "br": {
-        "size": 2839,
-        "sha256": "7c1fac6cefd03a2970f482f5a14148f2fe51ff04bf7a9e783bf01004da21c438",
+        "size": 3072,
+        "sha256": "2bda858f9d0daa0aefceeec94f3f91bf05f983074cc2530faa300f51304f5dde",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 3427,
-        "sha256": "7119101e0675ae70a8d45e3c33c7f146979cdea5411324b8a7f6a321ab3e1c19",
+        "size": 3424,
+        "sha256": "76343663262a4a8952cce65595e7ae66dcc2a5f4c7de4e0d3ce7f0dcec24a9ad",
         "suffix": ".gz"
       }
     },
     "/boot.js": {
-      "size": 2267,
-      "sha256": "3c627e4d48662bf5061b118e5b271d1b94f3d27c7f5065867ae96e2e202b33db",
+      "size": 2264,
+      "sha256": "0275b70ab5df36e97be69ab905d1e62bbfb0dad503bd2d0e527249c8c22cdc35",
       "br": {
-        "size": 850,
-        "sha256": "dd1efef77efe3219998b69061efd296b8fe94e499b76a32a1e57b3372923a12d",
+        "size": 849,
+        "sha256": "7e9ae6ea0f079603c1803be32944c5eddd52da209d77f857b0a4d559f75a8ea2",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 1030,
-        "sha256": "1ccca3d1511b4fb89731e9d85d5c53f43127199deef258a51795ae25ca44599f",
+        "size": 1029,
+        "sha256": "9aa0b8eaaea7f82c4b1fa843f4e51df156fec07df48d0819e5d1ab3820b654fc",
         "suffix": ".gz"
       }
     },
     "/app.bundle.js": {
-      "size": 217566,
-      "sha256": "d33dad468c9336d5058c6f621a26e4407de4879795a33a9081bd7d6f4a92db83",
+      "size": 235811,
+      "sha256": "203ff7b82882ab09bcb2184f4ac202905f2baa9c6f949f5584394416654ab57c",
       "br": {
-        "size": 66586,
-        "sha256": "12f75fa6806b7340c7ad75aeac5dfd4cc023b5c7c8226ebbb96a6b08757e1684",
+        "size": 72213,
+        "sha256": "9ee7563416455e507711032ff597e1629979e3a1aa08e83ac5b0c49a81903a30",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 79412,
-        "sha256": "a872b9e8fa787d50c60d5845db907702b2a7fd0d74479b41594e390460a6f003",
+        "size": 85976,
+        "sha256": "2db27e977fd89ab2294433e0ccb41aab488a5f62b138a1945a003bff232f8a07",
         "suffix": ".gz"
       }
     },
     "/app.css": {
-      "size": 56244,
-      "sha256": "a9ec8f1634b40a60ef7a861d315541df4af905f223374e96f94e836ec1783c31",
+      "size": 68142,
+      "sha256": "67e0a998789195c5ccfcdd834f570cf7a83fbe994e7f0ce77892ca54db31dd52",
       "br": {
-        "size": 11859,
-        "sha256": "5949c924b042fdf3d4e092b6f7fba66f57e5b4f8973ee3123cca321793a902a9",
+        "size": 14204,
+        "sha256": "702c9608b1ffb6c51957a2a16dcba1f3c381b81c2367d742f15dbb2ce56f2fe1",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 12514,
-        "sha256": "179593bc865a5c7ede81c9a40a0c5904b5dd1aee80d1f2af82276c9942d9eac7",
+        "size": 15084,
+        "sha256": "fb252d69de78c7f343ab64d16267f14c416d39144c2d0799574d87ab26f376e0",
         "suffix": ".gz"
       }
     },
@@ -82,6 +82,48 @@
       "gzip": {
         "size": 56888,
         "sha256": "8da2a2da2c3a0085604b7ce848cfb94742b51d29e6a59ee139ece1c706f10fad",
+        "suffix": ".gz"
+      }
+    },
+    "/vendor/maplibre/maplibre-gl.mjs": {
+      "size": 1098062,
+      "sha256": "41198b23679a7d8892183408bbef2eabdc74745beb90261f6be0f660b7aeb2fd",
+      "br": {
+        "size": 264408,
+        "sha256": "4d0b1aab8e93d5a92381ce382c9048b8d8fac0b441c528fe0fcf610960f55a70",
+        "suffix": ".br"
+      },
+      "gzip": {
+        "size": 293454,
+        "sha256": "d126675998271cff8201092b80030796bcb3e62401c018bf6da9f02131f45cea",
+        "suffix": ".gz"
+      }
+    },
+    "/vendor/maplibre/maplibre-gl-worker.mjs": {
+      "size": 518806,
+      "sha256": "1c69066368331aae63967ed24a9affcf962cf55fcc6d8f532a8b040f736dbcfa",
+      "br": {
+        "size": 133195,
+        "sha256": "b7744d099a0ce7c93f1bf09ccb2f55e4cb4cd547853f8ae74b84f270d6d02390",
+        "suffix": ".br"
+      },
+      "gzip": {
+        "size": 147886,
+        "sha256": "ac53314f239d3756cba4cfdfd5a9a90284d7dbc832c955a98916d8798c89bd2b",
+        "suffix": ".gz"
+      }
+    },
+    "/vendor/maplibre/maplibre-gl.css": {
+      "size": 71596,
+      "sha256": "a90798a1953017790e590f7e1bd35ff103a8a4263972cb47290b78adf86f8c20",
+      "br": {
+        "size": 9130,
+        "sha256": "17684ab79a80d27442f037153d1ac6e2a3a30e01daaa6fcea35b0916fcda3168",
+        "suffix": ".br"
+      },
+      "gzip": {
+        "size": 10161,
+        "sha256": "7bc38867957f6c2fffac9dfee683d989d40e9663d1287c32b01caf693edc02c1",
         "suffix": ".gz"
       }
     },

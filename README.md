@@ -200,3 +200,7 @@ Storage: Node SQLite at `/data/velo-memory/memories.sqlite` on a Railway volume 
 Only a volunteered sentence, inferred theme, bike ID, random ID, timestamp and withdrawal-token hash are stored. Recent 12 records per bike, 30-day retention cleaned on access, global 10 writes/minute and 120/day. A browser-held random token permits withdrawal; clearing browser data loses that token. HTTPS same-origin JSON writes, size bounds, idempotent retry and basic link/contact rejection are enforced. Public GET reveals no token/hash. Public text is escaped in the UI. This is a research demo, not a public-content moderation system.
 
 Validation: 167 automated tests, bundled farewell/consent/withdrawal and language-switch flow, existing EN/KO continuous speech, 14 photo captures and paginated gallery regression. Hardware voice behavior and research outcomes are not established by these tests. The Korean design note and exact GitHub reference commits are in [BICYCLE_MEMORY_DESIGN_KO.md](docs/BICYCLE_MEMORY_DESIGN_KO.md). Referenced ideas were reimplemented independently; Mem0 and Generative Agents are not runtime dependencies.
+
+## Korea map and quieter opening (20261019-map1)
+
+The opening map uses real Korean OpenStreetMap data through OpenFreeMap with a custom style and original landmark icons. MapLibre 6.15.0 is loaded separately on demand. The encounter has one main invitation; fonts and map hierarchy are refined for mobile. See [map sources, privacy and implementation](docs/KOREA_MAP.md). Existing QR bytes and characters remain unchanged.
