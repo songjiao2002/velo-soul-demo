@@ -34,16 +34,29 @@ export class MicrophoneInput {
     if(this.opening)return this.opening;
     if(!this.mediaDevices?.getUserMedia||!this.Context)throw Error('unsupported');
     const serial=this.serial;
-    const context=this.audioSession.acquire(this,{onInterrupt:()=>this.receiver?.resetCapture?.(),onFailure:()=>{this.routeFailed=true;this.receiver?.fail('audio-capture');}});this.context=context;
-    const resume=context.resume();Promise.resolve(resume).catch(()=>{});
     this.opening=(async()=>{
-      const stream=await this.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
-      if(serial!==this.serial){stream.getTracks().forEach(t=>t.stop());return;}
-      this.stream=stream;await resume;if(serial!==this.serial)return;
-      await this.connectStream(stream,serial);
+      const context=this.audioSession.acquire(this,{onInterrupt:()=>this.receiver?.resetCapture?.(),onFailure:()=>{this.routeFailed=true;this.receiver?.fail('audio-capture');}});this.context=context;
+      // Start resume and permission capture in the original user gesture. Both
+      // waits must settle when stopped, even if the browser never resolves them.
+      const resume=Promise.resolve(context.resume());resume.catch(()=>{});
+      const request=this.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false}).then(stream=>{
+        if(serial!==this.serial){stream.getTracks().forEach(t=>t.stop());return;}
+        this.stream=stream;return stream;
+      });
+      const [stream]=await this.deadline(Promise.all([request,resume]),10000);
+      if(serial!==this.serial)return;if(context.state!=='running')throw Error('audio-capture');
+      await this.deadline(this.connectStream(stream,serial),3000);
+      if(serial!==this.serial)return;
       this.mediaDevices.addEventListener?.('devicechange',this.deviceChanged);
-    })();
+    })().catch(error=>{if(serial!==this.serial)return;this.release();throw error;});
     return this.opening;
+  }
+  async deadline(promise,ms){
+    let timer;
+    try{return await Promise.race([promise,new Promise((_,reject)=>{
+      timer=this.setTimer(()=>{this.waits.delete(timer);reject(Error('audio-capture'));},ms);
+      this.waits.set(timer,()=>reject(Error('cancelled')));
+    })]);}finally{this.clearTimer(timer);this.waits.delete(timer);}
   }
   async connectStream(stream,serial){
     const context=this.context;
@@ -83,7 +96,7 @@ export class MicrophoneInput {
     });this.repair=task;return task;
   }
   samples(data,rate){if(!this.repair&&this.context?.state==='running'&&!this.stream?.getTracks().some(t=>t.muted))this.receiver?.samples(data,rate);}
-  async attach(receiver){await this.open();if(this.repair)await this.repair;if(this.routeFailed)throw Error('audio-capture');if(receiver.active&&this.stream)this.receiver=receiver;}
+  async attach(receiver){const serial=this.serial;await this.open();if(this.repair)await this.repair;if(serial!==this.serial)return;if(this.routeFailed)throw Error('audio-capture');if(receiver.active&&this.stream)this.receiver=receiver;}
   detach(receiver){if(this.receiver===receiver){this.receiver=null;this.onLevel(0);}}
   dropGraph(){if(this.node?.port)this.node.port.onmessage=null;if(this.node)this.node.onaudioprocess=null;this.node?.disconnect();this.source?.disconnect();this.mute?.disconnect();this.node=this.source=this.mute=null;}
   release(){

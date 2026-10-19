@@ -68,3 +68,17 @@ test('disconnecting the audio stream aborts upstream work and releases the share
  const server=http.createServer(async(req,res)=>{await handler(req,res);});await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>{server.close(r);server.closeAllConnections();}));const base='http://127.0.0.1:'+server.address().port;
  for(let i=0;i<4;i++){const controller=new AbortController();const r=await fetch(base+'/api/speech/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal});assert.equal(r.status,200);await r.body.getReader().read();controller.abort();for(let tries=0;tries<100&&!signals[i].aborted;tries++)await new Promise(r=>setTimeout(r,2));assert.equal(signals[i].aborted,true);await flush();}
 });
+
+test('provider completion releases the upstream reader without waiting for connection EOF',async()=>{
+ let cancelled=false;const frames=[];
+ const body=new ReadableStream({start(c){c.enqueue(new TextEncoder().encode(sse(wav)+done));},cancel(){cancelled=true;}});
+ const relay=relaySpeech(new Response(body,{headers:{'Content-Type':'text/event-stream'}}),f=>frames.push(f));
+ await flush();assert.equal(cancelled,true);assert.deepEqual(frames.at(-1),{done:true});await relay;
+});
+
+test('browser finishes received audio even when the response remains open after done',async()=>{
+ const a=player(),states=[];await a.p.prepare();const playing=a.p.speak('Hello',{onState:s=>states.push(s)});await flush();
+ a.send({audio:pcm.toString('base64'),rate:24000});a.send({done:true});await flush();
+ assert.equal([...a.timers.values()].some(t=>t.ms===35000),false,'network deadline cleared at protocol completion');
+ a.sources.at(-1).onended();await playing;assert.equal(states.at(-1),'ended');assert.equal(a.timers.size,0);a.p.dispose();
+});

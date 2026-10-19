@@ -164,3 +164,13 @@ Previously any suspended/interrupted context immediately failed capture and ende
 References: [W3C Audio Session working draft](https://www.w3.org/TR/audio-session/#proactive-play-and-record-example), [Web Audio interrupted state](https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/state), [MediaStreamTrack mute events](https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack/mute_event). These document browser behavior, not a guarantee for every headset.
 
 Validation: 137 automated tests including shared graph reuse, transient/permanent interruption, healthy route changes, track loss, timeout, cancellation and late-grant cleanup; English/Korean simulated camera/chat flows. Actual Bluetooth hardware routing, phone sleep and outdoor use require device testing.
+
+## Perf1: bounded voice replay cache and startup cleanup
+
+Successfully completed streaming speech is retained in a page-session LRU cache, keyed by the exact spoken chunk, language and Soul. Replaying the same reply reuses its PCM without another TTS request, while preserving playback rate and audio-driven mouth movement. The decoded reply cache is limited to eight entries and 6 MiB; oversized responses still play without being retained. Interrupted, truncated or failed streams do not enter the cache. This cache stores generated replies in browser memory only, is cleared on disposal, and does not cache microphone recordings or alter server billing/rate limits. New text still requires a model request.
+
+The client and server finish reading when the validated speech protocol completion marker arrives, rather than waiting for connection EOF. Already queued audio still plays to completion before listening resumes. Network errors and missing completion markers remain failures. This releases the provider stream and shared request slot promptly when the provider leaves its connection open.
+
+Initial microphone permission/audio-resume waits now have a 10-second deadline, and worklet startup has a 3-second deadline. Stop/exit settles pending startup immediately. Denied permission or stalled startup releases the capture and audio-session lease; a permission grant or worklet completion arriving after cancellation cannot attach to a later conversation. The existing conversation-level startup timer and Bluetooth recovery remain in place.
+
+Validation: 148 automated checks, including exact-PCM cache reuse, language/personality isolation, memory eviction, interrupted stream exclusion, protocol completion without EOF, failed startup/retry and late-grant cleanup. The new checks use controlled browser/audio primitives, not physical microphone/headset hardware. Existing artwork, recordings, styles, QR destinations and downloads are unchanged.

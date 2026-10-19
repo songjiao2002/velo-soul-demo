@@ -60,3 +60,32 @@ test('a hanging reconnect times out and cleans up a late grant instead of record
 test('unsupported Audio Session API still shares a graph without forcing output routing',()=>{
  const a=setup(),session=new ConversationAudioSession({Context:a.Context,navigator:{},document:a.document});const owner={};const context=session.acquire(owner);assert.equal(session.getContext(),context);session.release(owner);session.dispose();a.session.dispose();
 });
+
+test('a stalled initial audio resume times out, releases capture, and allows a clean retry',async()=>{
+ const a=setup(),resume=a.Context.prototype.resume;a.Context.prototype.resume=()=>new Promise(()=>{});
+ const rejected=assert.rejects(a.input.open(),/audio-capture/);await flush();await a.run(10000);await rejected;
+ assert.equal(a.tracks[0].stopped,true);assert.equal(a.input.stream,null);assert.equal(a.session.inputs.size,0);assert.equal(a.timers.size,0);
+ a.Context.prototype.resume=resume;await a.input.attach({active:true});assert.equal(a.requests.length,2);assert.equal(a.contexts.length,1);
+ a.input.release();a.session.dispose();
+});
+
+test('pausing while permission is pending settles startup and cannot attach to a newer conversation',async()=>{
+ const a=setup();let grant;a.setGrant(()=>new Promise(resolve=>grant=resolve));
+ const oldReceiver={active:true},old=a.input.attach(oldReceiver);await flush();a.input.release();await old;
+ assert.equal(a.timers.size,0);a.setGrant(null);const current={active:true};await a.input.attach(current);
+ const late=a.stream();grant(late);await flush();assert.equal(late.getTracks()[0].stopped,true);assert.equal(a.input.receiver,current);assert.notEqual(a.input.stream,late);
+ a.input.release();a.session.dispose();
+});
+
+test('permission denial releases the audio session and a new attempt can succeed',async()=>{
+ const a=setup();a.setGrant(async()=>{throw Object.assign(new Error('denied'),{name:'NotAllowedError'});});
+ await assert.rejects(a.input.open(),{name:'NotAllowedError'});assert.equal(a.session.inputs.size,0);assert.equal(a.platform.type,'auto');assert.equal(a.timers.size,0);
+ a.setGrant(null);await a.input.attach({active:true});assert.equal(a.requests.length,2);a.input.release();a.session.dispose();
+});
+
+test('stalled worklet loading cannot leave capture open or attach a late audio graph',async()=>{
+ const a=setup();let loaded;const context=a.session.getContext();context.audioWorklet={addModule:()=>new Promise(resolve=>loaded=resolve)};
+ a.input.WorkletNode=class{constructor(){assert.fail('late worklet must not attach');}};
+ const rejected=assert.rejects(a.input.open(),/audio-capture/);await flush();await a.run(3000);await rejected;
+ assert.equal(a.tracks[0].stopped,true);loaded();await flush();assert.equal(a.input.node,null);assert.equal(a.timers.size,0);a.session.dispose();
+});

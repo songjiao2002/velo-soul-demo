@@ -36,6 +36,9 @@ export async function relaySpeech(response,emit){
  for await(const chunk of response.body){
   pending+=decoder.decode(chunk,{stream:true});if(pending.length>6000000)throw new Error('invalid_stream');
   let end;while((end=pending.indexOf('\n'))!==-1){const value=pending.slice(0,end).trimEnd();pending=pending.slice(end+1);await line(value);}
+  // The protocol's finish marker is authoritative. Release the connection and
+  // shared request slot without waiting for a slow upstream socket to close.
+  if(done)break;
  }
  pending+=decoder.decode();if(pending.trim())await line(pending.trimEnd());
  if(!ready||!done)throw new Error('incomplete_audio');
