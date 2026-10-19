@@ -29,7 +29,7 @@ test('QR routes encode the current deployment origin for every soul',async()=>{
   for(const soul of ['lumi','mori','bori']) {
     const r=await fetch(base+`/qr-${soul}.svg`);
     assert.equal(await r.text(),makeQr(soul,base));
-    assert.equal(r.headers.get('cache-control'),'no-store');
+    assert.equal(r.headers.get('cache-control'),'public, max-age=3600');
   }
 });
 test('audio supports Safari byte-range requests and HEAD',async()=>{
@@ -56,6 +56,16 @@ test('packaged English WAV supports correct MIME, HEAD and partial playback',asy
   const part=await fetch(path,{headers:{Range:'bytes=0-43'}});
   assert.equal(part.status,206);assert.equal(part.headers.get('content-range'),`bytes 0-43/${size}`);
   assert.equal(Buffer.from(await part.arrayBuffer()).toString('ascii',0,4),'RIFF');
+ }
+});
+
+test('QR downloads preserve bytes and filenames while supporting HEAD and conditional cache hits',async()=>{
+ for(const format of ['png','svg']){
+  const response=await fetch(base+'/qr-lumi.'+format),bytes=Buffer.from(await response.arrayBuffer()),etag=response.headers.get('etag');
+  assert.deepEqual(bytes,Buffer.from(format==='png'?makeQrPng('lumi',base):makeQr('lumi',base)));
+  const head=await fetch(base+'/qr-lumi.'+format,{method:'HEAD'});assert.equal(head.status,200);assert.equal(head.headers.get('etag'),etag);assert.equal(Number(head.headers.get('content-length')),bytes.length);assert.equal((await head.arrayBuffer()).byteLength,0);
+  if(format==='png')assert.equal(head.headers.get('content-disposition'),'attachment; filename="velo-soul-lumi.png"');
+  const cached=await fetch(base+'/qr-lumi.'+format,{headers:{'If-None-Match':etag}});assert.equal(cached.status,304);assert.equal((await cached.arrayBuffer()).byteLength,0);
  }
 });
 

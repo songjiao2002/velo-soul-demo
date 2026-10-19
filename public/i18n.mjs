@@ -1,6 +1,10 @@
 // Korean is the source language. Translation only touches presentation nodes,
 // so changing language never remounts a camera, ride, or editable note.
 const rows = `
+기록 더 보기|Load more journeys|加载更多旅程
+사진 더 보기|Show more photos|显示更多照片
+기록을 불러오지 못했어요. 다시 시도해주세요.|Could not load journeys. Please try again.|未能加载旅程，请重试。
+다시 시도|Try again|重试
 사진 다시 저장|Download photo again|重新下载照片
 저장 ↓|Save ↓|保存 ↓
 사진을 누르면 다시 저장할 수 있어요.|Tap a photo to download it again.|点击照片可重新下载。

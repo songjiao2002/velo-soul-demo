@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deflateSync, crc32 } from 'node:zlib';
 import qrcode from './vendor/qrcode.mjs';
+import {QrCache} from './qr-cache.mjs';
 import { createChatHandler } from './chat-service.mjs';
 import {createWeatherService,createWeatherHandler} from './weather-service.mjs';
 import {loadAssetManifest,preferredEncoding,matchesETag} from './static-assets.mjs';
@@ -21,6 +22,7 @@ const root = fileURLToPath(new URL('./public/', import.meta.url));
 const assets=loadAssetManifest(new URL('./public/',import.meta.url));
 const types = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.mjs':'text/javascript; charset=utf-8', '.svg':'image/svg+xml', '.png':'image/png', '.webp':'image/webp', '.wav':'audio/wav', '.mp3':'audio/mpeg', '.json':'application/json; charset=utf-8' };
 const colors = { lumi:'#2441c7', mori:'#117455', bori:'#a84313' };
+const qrCache=new QrCache();
 
 function qrCode(soul, origin) {
   const qr = qrcode(0, 'M');
@@ -76,12 +78,13 @@ export const server = http.createServer(async (req, res) => {
     if (pathname === '/healthz') return send(200, '{"status":"ok","app":"velo-soul"}', types['.json']);
     const qrMatch = pathname.match(/^\/qr-(lumi|mori|bori)\.(svg|png)$/);
     if (qrMatch) {
-      res.setHeader('Cache-Control', 'no-store');
-      if(qrMatch[2]==='png'){
-        res.setHeader('Content-Disposition',`attachment; filename="velo-soul-${qrMatch[1]}.png"`);
-        return send(200,makeQrPng(qrMatch[1],originFor(req)),types['.png']);
-      }
-      return send(200, makeQr(qrMatch[1], originFor(req)), types['.svg']);
+      const [,soul,format]=qrMatch,origin=originFor(req);
+      const qr=qrCache.get(soul,origin,format,()=>format==='png'?makeQrPng(soul,origin):makeQr(soul,origin));
+      res.setHeader('Cache-Control','public, max-age=3600');
+      res.setHeader('ETag',qr.etag);
+      if(format==='png')res.setHeader('Content-Disposition',`attachment; filename="velo-soul-${soul}.png"`);
+      if(matchesETag(req.headers['if-none-match'],qr.etag)){res.writeHead(304);res.end();return;}
+      return send(200,qr.body,types['.'+format]);
     }
     if (pathname.includes('\\') || pathname.includes('\0') || pathname.split('/').some(p=>p.startsWith('.'))) return send(404, 'Not found');
     const file = path.resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
