@@ -50,3 +50,13 @@ Primary references:
 - [Mobile output-selection limitation](https://issues.chromium.org/issues/444576985)
 
 Coverage is simulated automated testing plus real desktop browser rendering; WeChat/Kakao/Samsung hardware audio routing is unverified.
+
+## Output chooser and opt-in protection (20261019-bluetooth5)
+
+Each page starts with **Follow device (default)**, using the operating system's current route without forcing speakers or restoring a previous sink. Device choices and protection are page-memory only. Playback-mode preference remains separate.
+
+The panel offers Bluetooth and Speaker entry points plus actual browser-permitted device names. These entry points express the user's intent; they do not classify or pair hardware. Only a successful `setSinkId` marks a specific output selected. Generic default/communications aliases are not accepted as a specific device. In unsupported browsers, the buttons provide Samsung system instructions and never claim to have switched the route.
+
+Choosing Bluetooth first mutes both output paths and enables protection, including when the picker is unsupported, cancelled or denied. A successful specific-device selection enables playback. Device loss and selection errors mute output; returning to the device default is an explicit action that resets the actual sink before removing protection. The independent protection checkbox does not change a missing sink into a working one. Tests and packaged greetings respect the same gate; a failed Web Audio media-node connection uses the routed cloud player instead of bypassing the chosen output. Output changes do not replace the microphone.
+
+This is not a guarantee of physical Bluetooth routing. Device labels are supplied by the browser, and operating-system notifications can arrive after the route changes. Follow-device mode intentionally leaves routing to the OS. Verify the actual audible device before riding; physical Samsung/WeChat/Kakao testing remains outstanding.

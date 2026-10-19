@@ -1,4 +1,4 @@
-import {AudioDevices,createAudioDeviceUI,audioDeviceButton} from './audio-devices.mjs';
+import {AudioDevices,createAudioDeviceUI,audioDeviceButton,AUDIO_DEVICE_COPY} from './audio-devices.mjs';
 import {RideView,rideViewMarkup} from './ride-view.mjs';
 import {KoreaMap,mapMarkup} from './korea-map.mjs';
 import {journeyMap} from './journey-map.mjs';
@@ -51,8 +51,9 @@ function stopVoice(){paintSoulExpression(document,"rest");liveSpeech.stop();reco
 function speak(line,key,id=selected){
  handsFree?.stop();stopVoice();activeVoiceSoul=id;currentLine={line,key,id};
  if(!voiceOn){voiceStatus('목소리를 쉬고 있어요.');return;}
+ if(!audioDevices.canPlay()){voiceStatus((AUDIO_DEVICE_COPY[getLanguage()]||AUDIO_DEVICE_COPY.en)[audioDevices.state]);return;}
  const src=voiceFile(voiceLanguage,id,key,line);
- if(src&&audioSession.playbackMode!=='media'){liveSpeech.prepare();audioDevices.routeMedia(audio);recordedVoice.play(src);return;}
+ if(src&&audioSession.playbackMode!=='media'){liveSpeech.prepare();if(audioDevices.routeMedia(audio)){recordedVoice.play(src);return;}}
  liveSpeech.prepare();liveSpeech.speak(line,{language:voiceLanguage,soul:id,source:src,onState:state=>{paintSoulExpression(document,state==='playing'?'talking':state==='loading'?'thinking':'rest');document.body.classList.toggle('voice-playing',state==='playing');voiceStatus(state==='playing'?'한국어 목소리 재생 중':state==='ended'?'다시 듣기로 목소리를 들을 수 있어요.':'목소리를 준비하고 있어요…');}});
 }
 
