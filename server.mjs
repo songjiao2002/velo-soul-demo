@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {openBikeMemory,createMemoryHandler} from './bike-memory.mjs';
 import {attachRealtimeAsr} from './asr-realtime.mjs';
 import { createReadStream, existsSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
@@ -16,7 +17,9 @@ const envPath=fileURLToPath(new URL('./.env',import.meta.url));
 if(existsSync(envPath))process.loadEnvFile(envPath);
 const weatherService=createWeatherService();
 const handleWeather=createWeatherHandler(weatherService);
-const handleChat=createChatHandler({getWeather:id=>weatherService.resolve(id)});
+const bikeMemories=openBikeMemory();
+const handleMemory=createMemoryHandler(bikeMemories);
+const handleChat=createChatHandler({getWeather:id=>weatherService.resolve(id),getBikeMemory:id=>bikeMemories?.latest(id)});
 
 const root = fileURLToPath(new URL('./public/', import.meta.url));
 const assets=loadAssetManifest(new URL('./public/',import.meta.url));
@@ -64,7 +67,7 @@ export const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=(self)');
-  if(await handleWeather(req,res)||await handleChat(req,res))return;
+  if(await handleMemory(req,res)||await handleWeather(req,res)||await handleChat(req,res))return;
   const send = (code, body, type='text/plain; charset=utf-8') => {
     res.writeHead(code, { 'Content-Type':type, 'Content-Length':Buffer.byteLength(body) });
     res.end(req.method === 'HEAD' ? undefined : body);

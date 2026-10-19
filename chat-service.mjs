@@ -1,3 +1,4 @@
+import {memoryContext} from './public/bike-memory-core.mjs';
 import {SEOUL_PLACES} from './public/seoul-places.mjs';
 import {VISION_SCENES} from './public/vision-core.mjs';
 import {readFile} from 'node:fs/promises';
@@ -91,7 +92,7 @@ export function speechAudioURL(value){
  u.protocol='https:';return u.href;
 }
 
-export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,timeoutMs=30000,getWeather=()=>null}={}){
+export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,timeoutMs=30000,getWeather=()=>null,getBikeMemory=()=>null}={}){
   const skills=loadSoulSkills();
   // A shared demo budget deliberately covers all visitors and cannot be bypassed with new cookies.
   const maxDaily=Number(env.QWEN_MAX_DAILY_REQUESTS)||200;
@@ -175,6 +176,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
           if(payload.image){const last=requestBody.messages.at(-1);last.content=[{type:'text',text:last.content},{type:'image_url',image_url:{url:payload.image}}];}
         }
         requestBody.messages[0].content+='\n\n'+describeWeather(weather,now());
+        if(!vision){const memory=getBikeMemory(payload.soul);if(memory?.bike===payload.soul)requestBody.messages[0].content+='\n\n'+memoryContext(memory);}
         if(payload.voice&&!vision){requestBody.max_tokens=100;requestBody.messages[0].content+='\nVOICE MODE: Reply in one short, complete sentence first; at most two sentences, 24 English words or 65 Korean characters. Do not introduce yourself again unless the rider asks who you are. No emoji, Markdown or long lists. Leave room for the rider to respond. The requested output language is mandatory, including greetings and short acknowledgements.';}
         const data=await complete(requestBody,config,signal),choice=data?.choices?.[0],reply=choice?.message?.content;
         if(typeof reply!=='string'||!reply.trim()||reply.length>10000)throw new ChatError('invalid_response',502);
