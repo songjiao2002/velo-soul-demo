@@ -1,1 +1,1 @@
-export const BUILD = '20261019-bluetooth3';
+export const BUILD = '20261019-bluetooth4';

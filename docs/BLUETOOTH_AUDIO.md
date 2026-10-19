@@ -33,3 +33,20 @@ Primary references:
 - [MediaDevices.selectAudioOutput](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/selectAudioOutput)
 - [Chromium mobile output-selection limitation](https://issues.chromium.org/issues/444576985)
 - [WebKit microphone route issue](https://bugs.webkit.org/show_bug.cgi?id=282939) — informs activation order; not proof of the reported Samsung cause.
+
+## Embedded browser follow-up (20261019-bluetooth4)
+
+The user reports speaker output even before microphone capture in a Samsung in-app browser. This is not explained by microphone reconnects alone. No physical reproduction is available.
+
+An optional Media compatibility playback mode uses one persistent HTML audio element with complete WAV responses. It bypasses Web Audio output for both packaged introductions and generated replies, retains continuous microphone capture, supports cancellation, and releases object URLs. It may add first-audio latency because it waits for each complete speech clip; the default streaming path is unchanged. Decode for mouth movement never connects to audio output. Mode changes are rejected during an active microphone session. Only the mode enum is stored locally; device identifiers stay in memory. Explicitly selected output loss also mutes native playback. There is no fallback to another output after denied playback.
+
+A saved introduction is available as a no-microphone test on the encounter page and device panel. This test cannot verify where the user hears it. WeChat, KakaoTalk, Naver, Daum, Instagram, LINE, Facebook and generic Android WebView tokens receive guidance; UA recognition is best-effort, not a capability test. Normal Chrome and Samsung Internet are not marked as embedded.
+
+Android links let the user try Chrome/Samsung Internet, with a copyable original soul URL when intents are blocked. No automatic redirect, app install, proprietary Kakao bridge or permission request is used. Camera/autostart, arbitrary query parameters and fragments are omitted on handoff. Local photos, history and active conversation do not move to another browser; the UI says so. Existing QR files and URLs are unchanged.
+
+Primary references:
+- [Kakao official UA examples](https://developers.kakao.com/docs/en/kakaologin/utilize)
+- [Chrome Android intents](https://developer.chrome.com/docs/android/intents)
+- [Mobile output-selection limitation](https://issues.chromium.org/issues/444576985)
+
+Coverage is simulated automated testing plus real desktop browser rendering; WeChat/Kakao/Samsung hardware audio routing is unverified.

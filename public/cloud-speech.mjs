@@ -1,3 +1,4 @@
+import {NativeSpeechPlayer} from './native-speech.mjs';
 import {SpeechMouthClock} from './speech-mouth.mjs';
 import {SpeechAudioCache} from './speech-cache.mjs';
 // Dynamic replies use real audio, independent of installed speechSynthesis voices.
@@ -7,8 +8,9 @@ export function speechChunks(text,limit=540){
  return parts;
 }
 export class CloudSpeechPlayer {
- constructor({onMouth,audioSession,Context=globalThis.AudioContext||globalThis.webkitAudioContext,fetchImpl=(...args)=>globalThis.fetch(...args),setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{audioSession,Context,fetchImpl,setTimer,clearTimer});this.serial=0;this.cache=new SpeechAudioCache();this.preloads=new Map();this.mouth=onMouth?new SpeechMouthClock({onFrame:onMouth}):null;this.mediaMouthCache=new Map();}
+ constructor({onMouth,audioSession,Context=globalThis.AudioContext||globalThis.webkitAudioContext,fetchImpl=(...args)=>globalThis.fetch(...args),setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{audioSession,Context,fetchImpl,setTimer,clearTimer});this.serial=0;this.cache=new SpeechAudioCache();this.preloads=new Map();this.mouth=onMouth?new SpeechMouthClock({onFrame:onMouth}):null;this.mediaMouthCache=new Map();this.native=new NativeSpeechPlayer({fetchImpl,setTimer,clearTimer,mouth:this.mouth,decode:bytes=>(this.context||audioSession?.context)?.decodeAudioData(bytes)});if(audioSession)audioSession.nativeSpeech=this.native;}
  preload(text,{language='en',soul='lumi',source}={}){
+  if(this.audioSession?.playbackMode==='media')return this.native.preload(text,{language,soul,source});
   const key=JSON.stringify([text,language,soul]);if(this.cache.has(key))return Promise.resolve(null);if(this.preloads.has(key))return this.preloads.get(key).promise;
   const controller=new AbortController(),entry={controller,dynamic:!source};
   const timer=this.setTimer(()=>controller.abort(),source?3000:8000);
@@ -24,8 +26,9 @@ export class CloudSpeechPlayer {
   while(this.preloads.size>8){const oldest=this.preloads.keys().next().value;this.preloads.get(oldest).controller.abort();this.preloads.delete(oldest);}
   return entry.promise;
  }
- cancelPrefetches(){for(const [key,entry] of this.preloads)if(entry.dynamic){entry.controller.abort();this.preloads.delete(key);}}
+ cancelPrefetches(){this.native.cancelPrefetches();for(const [key,entry] of this.preloads)if(entry.dynamic){entry.controller.abort();this.preloads.delete(key);}}
  prepare(){
+  if(this.audioSession?.playbackMode==='media')return this.native.prepare();
   try{
    if(!this.Context)return Promise.resolve(false);
    if(!this.context||this.context.state==='closed')this.context=this.audioSession?.getContext()||new this.Context();
@@ -36,7 +39,7 @@ export class CloudSpeechPlayer {
    return Promise.resolve(context.resume()).then(()=>context.state==='running',()=>false);
   }catch{return Promise.resolve(false);}
  }
- stop(){this.serial++;this.mouth?.stop();this.controller?.abort();this.controller=null;this.streamStop?.();this.clearTimer(this.timer);this.clearTimer(this.playTimer);if(this.source){this.source.onended=null;try{this.source.stop();this.source.disconnect();}catch{}this.source=null;}this.finishPlayback?.();this.finishPlayback=null;}
+ stop(){this.serial++;this.native.stop();this.mouth?.stop();this.controller?.abort();this.controller=null;this.streamStop?.();this.clearTimer(this.timer);this.clearTimer(this.playTimer);if(this.source){this.source.onended=null;try{this.source.stop();this.source.disconnect();}catch{}this.source=null;}this.finishPlayback?.();this.finishPlayback=null;}
  async playStream(response,{soul,valid,report,received}){
   const context=this.context,reader=response.body.getReader(),decoder=new TextDecoder(),nodes=new Set();
   const rate=soul==='mori'?.94:soul==='bori'?1.04:1;
@@ -85,6 +88,7 @@ export class CloudSpeechPlayer {
   this.stop();const serial=this.serial,valid=()=>serial===this.serial,report=state=>{if(valid())onState(state);};
   const parts=speechChunks(text);if(!parts.length){report('ended');return;}
   report('loading');
+  if(this.audioSession?.playbackMode==='media')return this.native.speak(parts,{language,soul,source,report,allowed:()=>!['missing','unavailable','checking'].includes(this.audioSession.devices?.state)});
   if(!this.context){report('blocked');return;}
   if(this.audioSession?.devices&&['missing','unavailable','checking'].includes(this.audioSession.devices.state)){report('blocked');return;}
   if(this.context.state!=='running'){
@@ -147,5 +151,5 @@ export class CloudSpeechPlayer {
   }catch{/* A failed animation decode leaves the original audio untouched. */}
   finally{this.clearTimer(timer);if(this.controller===controller)this.controller=null;}
  }
- dispose(){this.stop();this.cache.clear();this.mediaMouthCache.clear();for(const entry of this.preloads.values())entry.controller.abort();this.preloads.clear();const context=this.context;this.context=null;if(context&&!this.audioSession)context.close().catch(()=>{});}
+ dispose(){this.stop();this.native.dispose();this.cache.clear();this.mediaMouthCache.clear();for(const entry of this.preloads.values())entry.controller.abort();this.preloads.clear();const context=this.context;this.context=null;if(context&&!this.audioSession)context.close().catch(()=>{});}
 }
