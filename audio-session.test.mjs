@@ -32,8 +32,8 @@ test('a short audio interruption resumes without releasing the mic or failing th
 });
 test('persistent interruptions have bounded recovery and report an actionable failure',async()=>{
  const a=setup();let failure;await a.input.attach({active:true,fail:code=>failure=code});const context=a.contexts[0];context.blocked=true;context.interrupt();await flush();
- for(const ms of [250,700,1400])await a.run(ms);
- assert.equal(failure,'audio-capture');assert.equal(context.resumes,5,'initial resume plus four recovery attempts');assert.equal(a.timers.size,0);a.input.release();a.session.dispose();
+ for(const ms of [250,700,1400,2500])await a.run(ms);
+ assert.equal(failure,'audio-capture');assert.equal(context.resumes,6,'initial resume plus five recovery attempts');assert.equal(a.timers.size,0);a.input.release();a.session.dispose();
 });
 test('stopping during route recovery cancels retries and does not restart input',async()=>{
  const a=setup();await a.input.attach({active:true,fail(){assert.fail('late failure');}});const context=a.contexts[0];context.blocked=true;context.interrupt();await flush();
@@ -88,4 +88,36 @@ test('stalled worklet loading cannot leave capture open or attach a late audio g
  a.input.WorkletNode=class{constructor(){assert.fail('late worklet must not attach');}};
  const rejected=assert.rejects(a.input.open(),/audio-capture/);await flush();await a.run(3000);await rejected;
  assert.equal(a.tracks[0].stopped,true);loaded();await flush();assert.equal(a.input.node,null);assert.equal(a.timers.size,0);a.session.dispose();
+});
+
+test('duplex activation waits for microphone permission and never precedes capture',async()=>{
+ const a=setup();let grant;a.setGrant(()=>new Promise(resolve=>grant=resolve));const opening=a.input.open();await flush();
+ assert.deepEqual(a.types,[]);const stream=a.stream();grant(stream);await opening;
+ assert.deepEqual(a.types,['play-and-record']);a.input.release();a.session.dispose();
+});
+
+test('Android route-change event bursts preserve a temporarily muted live microphone',async()=>{
+ const a=setup();await a.input.attach({active:true,resetCapture(){}});a.tracks[0].mute();
+ for(let i=0;i<12;i++)a.devices.dispatchEvent(new Event('devicechange'));
+ await flush();assert.equal(a.requests.length,1);assert.equal([...a.timers.values()].filter(t=>t.ms===4500).length,1);
+ assert.equal([...a.timers.values()].some(t=>t.ms===400),false);a.tracks[0].unmute();await flush();
+ assert.equal(a.timers.size,0);assert.equal(a.tracks[0].stopped,undefined);a.input.release();a.session.dispose();
+});
+
+test('a persistently muted input repairs once after grace while a pause cancels the repair',async()=>{
+ const a=setup();await a.input.attach({active:true,resetCapture(){}});a.tracks[0].mute();await a.run(4500);await a.run(400);
+ assert.equal(a.requests.length,2);assert.equal(a.tracks[0].stopped,true);assert.equal(a.contexts.length,1);
+ a.tracks[1].mute();a.input.release();await flush();assert.equal(a.requests.length,2);assert.equal(a.timers.size,0);a.session.dispose();
+});
+
+test('an explicitly selected microphone is applied once and kept for subsequent turns',async()=>{
+ const a=setup();await a.input.attach({active:true,resetCapture(){}});a.session.inputDeviceId='headset-input';
+ const change=a.session.inputs.get(a.input).changeInput();await flush();await a.run(400);await change;
+ assert.deepEqual(a.requests[1].audio.deviceId,{exact:'headset-input'});assert.equal(a.contexts.length,1);
+ await a.input.attach({active:true});assert.equal(a.requests.length,2);a.input.release();a.session.dispose();
+});
+
+test('a permission grant which suspends the graph can recover before first listening',async()=>{
+ const a=setup();a.setGrant(async()=>{a.contexts[0].state='interrupted';return a.stream();});
+ await a.input.attach({active:true});assert.equal(a.contexts[0].state,'running');assert.equal(a.requests.length,1);assert.equal(a.tracks[0].stopped,undefined);a.input.release();a.session.dispose();
 });

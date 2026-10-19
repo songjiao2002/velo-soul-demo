@@ -17,10 +17,17 @@ export class ConversationAudioSession {
   return this.context;
  }
  acquire(owner,callbacks={}){
-  if(!this.inputs.size){try{const session=this.navigator?.audioSession;if(session){this.previousType=session.type;session.type='play-and-record';}}catch{/* Optional API. */}}
+  // Reserve the graph in the user gesture, but activate duplex only once the
+  // microphone has been granted. Pre-activating can select the handset route.
+  if(!this.inputs.size){try{this.previousType=this.navigator?.audioSession?.type;}catch{}}
   this.inputs.set(owner,callbacks);
   try{return this.getContext();}catch(error){this.release(owner);throw error;}
  }
+ captureReady(owner){
+  if(!this.inputs.has(owner))return;
+  try{const session=this.navigator?.audioSession;if(session)session.type='play-and-record';}catch{/* Optional API. */}
+ }
+ getOutput(){return this.devices?.destination()||this.getContext().destination;}
  release(owner){
   if(!this.inputs.delete(owner)||this.inputs.size)return;
   this.epoch++;this.cancelWaits();this.pending=null;
@@ -41,7 +48,7 @@ export class ConversationAudioSession {
   const task=Promise.resolve().then(async()=>{
    for(const callbacks of this.inputs.values())callbacks.onInterrupt?.();
    // Let a short Bluetooth route switch settle. A hanging resume is bounded.
-   for(const delay of [0,250,700,1400]){
+   for(const delay of [0,250,700,1400,2500]){
     if(delay)await this.wait(delay);if(!valid())return false;
     if(context.state==='running')return true;if(context.state==='closed')break;
     if(this.navigator?.audioSession?.state==='interrupted')continue;
@@ -54,6 +61,7 @@ export class ConversationAudioSession {
   this.pending=task;return task;
  }
  dispose(){
+  this.devices?.dispose();
   for(const owner of [...this.inputs.keys()])this.release(owner);
   this.navigator?.mediaDevices?.removeEventListener?.('devicechange',this.changed);
   this.navigator?.audioSession?.removeEventListener?.('statechange',this.changed);

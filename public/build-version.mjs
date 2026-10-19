@@ -1,1 +1,1 @@
-export const BUILD = '20261019-map1';
+export const BUILD = '20261019-bluetooth2';

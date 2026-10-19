@@ -66,7 +66,7 @@ function originFor(req) {
 export const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=(self)');
+  res.setHeader('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=(self), speaker-selection=(self)');
   if(await handleMemory(req,res)||await handleWeather(req,res)||await handleChat(req,res))return;
   const send = (code, body, type='text/plain; charset=utf-8') => {
     res.writeHead(code, { 'Content-Type':type, 'Content-Length':Buffer.byteLength(body) });

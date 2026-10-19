@@ -25,29 +25,33 @@ export function encodeWav(chunks, sampleRate) {
 
 export class MicrophoneInput {
   constructor({mediaDevices=globalThis.navigator?.mediaDevices,Context=globalThis.AudioContext||globalThis.webkitAudioContext,
-    WorkletNode=globalThis.AudioWorkletNode,audioSession,onLevel=()=>{},setTimer=(...a)=>globalThis.setTimeout(...a),clearTimer=(...a)=>globalThis.clearTimeout(...a)}={}) {
-    Object.assign(this,{mediaDevices,Context,WorkletNode,onLevel,setTimer,clearTimer});this.serial=0;this.waits=new Map();
+    WorkletNode=globalThis.AudioWorkletNode,audioSession,document=globalThis.document,onLevel=()=>{},setTimer=(...a)=>globalThis.setTimeout(...a),clearTimer=(...a)=>globalThis.clearTimeout(...a)}={}) {
+    Object.assign(this,{mediaDevices,Context,WorkletNode,document,onLevel,setTimer,clearTimer});this.serial=0;this.waits=new Map();
     this.ownsSession=!audioSession;this.audioSession=audioSession||new ConversationAudioSession({Context,setTimer,clearTimer});
-    this.deviceChanged=()=>{if(this.stream?.getTracks().some(t=>t.readyState==='ended'||t.muted))this.recoverCapture();};
+    this.deviceChanged=()=>{if(this.document?.hidden)return;const tracks=this.stream?.getTracks()||[];if(tracks.some(t=>t.readyState==='ended'))this.recoverCapture();else if(tracks.some(t=>t.muted))this.deferMutedRecovery();};
   }
+  constraints(){const deviceId=this.audioSession.inputDeviceId;return {audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,...(deviceId?{deviceId:{exact:deviceId}}:{})},video:false};}
   async open(){
     if(this.opening)return this.opening;
     if(!this.mediaDevices?.getUserMedia||!this.Context)throw Error('unsupported');
     const serial=this.serial;
     this.opening=(async()=>{
-      const context=this.audioSession.acquire(this,{onInterrupt:()=>this.receiver?.resetCapture?.(),onFailure:()=>{this.routeFailed=true;this.receiver?.fail('audio-capture');}});this.context=context;
+      const context=this.audioSession.acquire(this,{onInterrupt:()=>this.receiver?.resetCapture?.(),onFailure:()=>{this.routeFailed=true;this.receiver?.fail('audio-capture');},changeInput:()=>this.recoverCapture(true),getInput:()=>this.stream?.getTracks()[0]});this.context=context;
       // Start resume and permission capture in the original user gesture. Both
       // waits must settle when stopped, even if the browser never resolves them.
       const resume=Promise.resolve(context.resume());resume.catch(()=>{});
-      const request=this.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false}).then(stream=>{
+      const request=this.mediaDevices.getUserMedia(this.constraints()).then(stream=>{
         if(serial!==this.serial){stream.getTracks().forEach(t=>t.stop());return;}
-        this.stream=stream;return stream;
+        this.stream=stream;this.audioSession.captureReady(this);return stream;
       });
       const [stream]=await this.deadline(Promise.all([request,resume]),10000);
+      if(serial!==this.serial)return;
+      if(context.state!=='running')await this.audioSession.recover();
       if(serial!==this.serial)return;if(context.state!=='running')throw Error('audio-capture');
       await this.deadline(this.connectStream(stream,serial),3000);
       if(serial!==this.serial)return;
       this.mediaDevices.addEventListener?.('devicechange',this.deviceChanged);
+      this.document?.addEventListener?.('visibilitychange',this.deviceChanged);
     })().catch(error=>{if(serial!==this.serial)return;this.release();throw error;});
     return this.opening;
   }
@@ -69,29 +73,36 @@ export class MicrophoneInput {
     for(const track of stream.getTracks()){
       const valid=()=>serial===this.serial&&stream===this.stream;
       track.addEventListener('ended',()=>{if(valid())this.recoverCapture();});
-      track.addEventListener('mute',()=>{if(!valid())return;this.receiver?.resetCapture?.();this.clearTimer(this.muteTimer);this.muteTimer=this.setTimer(()=>{if(valid()&&track.muted&&context.state==='running')this.recoverCapture();},1800);});
-      track.addEventListener('unmute',()=>{if(valid()){this.clearTimer(this.muteTimer);if(context.state!=='running')this.audioSession.recover();}});
+      track.addEventListener('mute',()=>{if(!valid())return;this.receiver?.resetCapture?.();this.deferMutedRecovery();});
+      track.addEventListener('unmute',()=>{if(valid()){this.clearTimer(this.muteTimer);this.muteTimer=null;if(context.state!=='running')this.audioSession.recover();}});
     }
   }
+  deferMutedRecovery(){
+    if(this.muteTimer||this.document?.hidden)return;
+    const serial=this.serial;
+    // Android Bluetooth profile changes can mute a live track for several
+    // seconds. Device-change bursts must not shorten or extend this grace.
+    this.muteTimer=this.setTimer(()=>{this.muteTimer=null;if(serial===this.serial&&!this.document?.hidden&&this.stream?.getTracks().some(t=>t.muted))this.recoverCapture();},4500);
+  }
   wait(ms){return new Promise(resolve=>{const id=this.setTimer(()=>{this.waits.delete(id);resolve();},ms);this.waits.set(id,resolve);});}
-  recoverCapture(){
-    if(this.repair||!this.stream||globalThis.document?.hidden)return this.repair;
+  recoverCapture(force=false){
+    if(this.repair||!this.stream||this.document?.hidden)return this.repair;
     const serial=this.serial,valid=()=>serial===this.serial;this.receiver?.resetCapture?.();
     const task=Promise.resolve().then(async()=>{
       await this.wait(400);if(!valid())return;
       // Reacquire only an ended/muted input, never on every reply or healthy device event.
-      if(this.stream?.getTracks().every(t=>t.readyState!=='ended'&&!t.muted))return;
+      if(!force&&this.stream?.getTracks().every(t=>t.readyState!=='ended'&&!t.muted))return;
       this.dropGraph();this.stream?.getTracks().forEach(t=>t.stop());this.stream=null;
       let discard=false;
-      const request=this.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false}).then(stream=>{
+      const request=this.mediaDevices.getUserMedia(this.constraints()).then(stream=>{
         if(discard||!valid()){stream.getTracks().forEach(t=>t.stop());throw Error('cancelled');}return stream;
       });
       try{
         const stream=await Promise.race([request,this.wait(4000).then(()=>{throw Error('audio-capture');})]);
         if(!valid()){stream.getTracks().forEach(t=>t.stop());return;}
-        this.stream=stream;await this.connectStream(stream,serial);if(valid())await this.audioSession.recover();
+        this.stream=stream;this.audioSession.captureReady(this);await this.deadline(this.connectStream(stream,serial),3000);if(valid())return await this.audioSession.recover();return false;
       }finally{discard=true;}
-    }).catch(()=>{if(valid()){this.routeFailed=true;this.receiver?.fail('audio-capture');}}).finally(()=>{
+    }).catch(()=>{if(valid()){this.routeFailed=true;this.dropGraph();this.stream?.getTracks().forEach(t=>t.stop());this.stream=null;this.receiver?.fail('audio-capture');}return false;}).finally(()=>{
       if(this.repair===task){this.repair=null;for(const [id,resolve]of this.waits){this.clearTimer(id);resolve();}this.waits.clear();}
     });this.repair=task;return task;
   }
@@ -100,9 +111,10 @@ export class MicrophoneInput {
   detach(receiver){if(this.receiver===receiver){this.receiver=null;this.onLevel(0);}}
   dropGraph(){if(this.node?.port)this.node.port.onmessage=null;if(this.node)this.node.onaudioprocess=null;this.node?.disconnect();this.source?.disconnect();this.mute?.disconnect();this.node=this.source=this.mute=null;}
   release(){
-    this.serial++;this.receiver=null;this.onLevel(0);this.clearTimer(this.muteTimer);
+    this.serial++;this.receiver=null;this.onLevel(0);this.clearTimer(this.muteTimer);this.muteTimer=null;
     for(const [id,resolve]of this.waits){this.clearTimer(id);resolve();}this.waits.clear();this.repair=null;
     this.mediaDevices?.removeEventListener?.('devicechange',this.deviceChanged);
+    this.document?.removeEventListener?.('visibilitychange',this.deviceChanged);
     this.stream?.getTracks().forEach(t=>t.stop());this.stream=null;this.dropGraph();
     this.audioSession.release(this);if(this.ownsSession)this.audioSession.dispose();
     this.context=this.opening=null;this.routeFailed=false;this.workletLoaded=false;

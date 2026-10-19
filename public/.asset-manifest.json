@@ -1,59 +1,59 @@
 {
-  "version": "20261019-map1",
+  "version": "20261019-bluetooth2",
   "files": {
     "/index.html": {
-      "size": 7700,
-      "sha256": "d3b991b8e789a1d24fcb97912567cb3c320fe3bdaa09be483683e3f4d999a06b",
+      "size": 7742,
+      "sha256": "b741c0bfb2d067d7310d380e697807987c79c3afb40a12ef1daa7ebde6b24781",
       "br": {
-        "size": 3072,
-        "sha256": "2bda858f9d0daa0aefceeec94f3f91bf05f983074cc2530faa300f51304f5dde",
+        "size": 2842,
+        "sha256": "f9e9e3471ac154161d64a3b5aad9b50ca91bbafaf2d6ff7ff5f531eee0596914",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 3424,
-        "sha256": "76343663262a4a8952cce65595e7ae66dcc2a5f4c7de4e0d3ce7f0dcec24a9ad",
+        "size": 3427,
+        "sha256": "d4539484b7114db99837fc4a5096ba63ecfbc07542572e7ba5d21c38aedb6bb6",
         "suffix": ".gz"
       }
     },
     "/boot.js": {
-      "size": 2264,
-      "sha256": "0275b70ab5df36e97be69ab905d1e62bbfb0dad503bd2d0e527249c8c22cdc35",
+      "size": 2270,
+      "sha256": "12c29a89ddd8197295b0617a4983790920a16516560e08ac1168bd957958400b",
       "br": {
-        "size": 849,
-        "sha256": "7e9ae6ea0f079603c1803be32944c5eddd52da209d77f857b0a4d559f75a8ea2",
+        "size": 854,
+        "sha256": "bfba0d09241bd19d469d1f6eef548b834fe8cc1e9e934dca53b238f810ce3943",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 1029,
-        "sha256": "9aa0b8eaaea7f82c4b1fa843f4e51df156fec07df48d0819e5d1ab3820b654fc",
+        "size": 1032,
+        "sha256": "6087a09ae0603dc876db051d231d06e823737eda1f62147a75775f309e3c7cc2",
         "suffix": ".gz"
       }
     },
     "/app.bundle.js": {
-      "size": 235811,
-      "sha256": "203ff7b82882ab09bcb2184f4ac202905f2baa9c6f949f5584394416654ab57c",
+      "size": 252546,
+      "sha256": "f40edd6cb5264fae8da19a9511159a7770ac5ef02fae2a3a32db932f48e1d407",
       "br": {
-        "size": 72213,
-        "sha256": "9ee7563416455e507711032ff597e1629979e3a1aa08e83ac5b0c49a81903a30",
+        "size": 76804,
+        "sha256": "a61ec54baf141545f4f46b4158930bb75dc9b6a04b4dc98d783aed404d332cc7",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 85976,
-        "sha256": "2db27e977fd89ab2294433e0ccb41aab488a5f62b138a1945a003bff232f8a07",
+        "size": 91563,
+        "sha256": "c0d0a60f2d44e25d5da6a441fc72d1510d290944a3cee463fbd29f32584e9b19",
         "suffix": ".gz"
       }
     },
     "/app.css": {
-      "size": 68142,
-      "sha256": "67e0a998789195c5ccfcdd834f570cf7a83fbe994e7f0ce77892ca54db31dd52",
+      "size": 74333,
+      "sha256": "b03a8d4e863f319f9107c7c49c2ebe362e3709377e2a69aa72949dfaac6089fc",
       "br": {
-        "size": 14204,
-        "sha256": "702c9608b1ffb6c51957a2a16dcba1f3c381b81c2367d742f15dbb2ce56f2fe1",
+        "size": 15205,
+        "sha256": "2665f5fb0c0cc96e8267a574c3d7adf127648a5fb7fa9ba2828e25673604223d",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 15084,
-        "sha256": "fb252d69de78c7f343ab64d16267f14c416d39144c2d0799574d87ab26f376e0",
+        "size": 16140,
+        "sha256": "61497d12ed29d6080b44d8288d6bdc51a965da2f4851df02bf26c42a33c5ff17",
         "suffix": ".gz"
       }
     },

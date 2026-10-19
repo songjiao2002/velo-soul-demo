@@ -21,7 +21,9 @@ export class RecordedVoicePlayer {
  stop(){
   this.serial++;clearTimeout(this.timer);this.timer=null;
   this.audio.onplaying=this.audio.onended=this.audio.onerror=null;
-  this.audio.pause();this.audio.removeAttribute('src');this.audio.load();
+  // Do not touch the native media session between cloud voice turns when
+  // this element is idle; load()/pause() can relinquish Android audio focus.
+  if(this.audio.getAttribute?.('src')||this.audio.src){this.audio.pause();this.audio.removeAttribute('src');this.audio.load();}
  }
  play(src){
   this.stop();const serial=this.serial,a=this.audio;

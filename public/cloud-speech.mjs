@@ -31,7 +31,8 @@ export class CloudSpeechPlayer {
    if(!this.context||this.context.state==='closed')this.context=this.audioSession?.getContext()||new this.Context();
    const context=this.context;
    // Unlock the actual playback graph during the initial user gesture.
-   const pulse=context.createBufferSource();pulse.buffer=context.createBuffer(1,1,context.sampleRate);pulse.connect(context.destination);pulse.start();pulse.onended=()=>pulse.disconnect();
+   if(this.unlockedContext!==context){const pulse=context.createBufferSource();pulse.buffer=context.createBuffer(1,1,context.sampleRate);pulse.connect(this.audioSession?.getOutput()||context.destination);pulse.start();pulse.onended=()=>pulse.disconnect();this.unlockedContext=context;}
+   if(context.state==='running')return Promise.resolve(true);
    return Promise.resolve(context.resume()).then(()=>context.state==='running',()=>false);
   }catch{return Promise.resolve(false);}
  }
@@ -56,7 +57,7 @@ export class CloudSpeechPlayer {
    sampleCount+=count;
    if(sampleCount*4>this.cache.maxBytes)samplesToCache=null;
    else samplesToCache?.push(samples);
-   const source=context.createBufferSource();source.buffer=buffer;source.playbackRate.value=rate;source.connect(context.destination);nodes.add(source);
+   const source=context.createBufferSource();source.buffer=buffer;source.playbackRate.value=rate;source.connect(this.audioSession?.getOutput()||context.destination);nodes.add(source);
    source.onended=()=>{source.onended=null;source.disconnect();nodes.delete(source);if(done&&!nodes.size)resolveTail();};
    next=Math.max(next,context.currentTime+.03);if(!played)mouthToken=this.mouth?.begin(()=>context.state==='running'?context.currentTime:null,soul);this.mouth?.enqueue(samples,24000,next,rate,mouthToken);source.start(next);next+=count/24000/rate;
    if(!played){played=true;report('playing');}
@@ -85,9 +86,10 @@ export class CloudSpeechPlayer {
   const parts=speechChunks(text);if(!parts.length){report('ended');return;}
   report('loading');
   if(!this.context){report('blocked');return;}
+  if(this.audioSession?.devices&&['missing','unavailable','checking'].includes(this.audioSession.devices.state)){report('blocked');return;}
   if(this.context.state!=='running'){
    let resumeTimer;
-   try{await Promise.race([this.audioSession?.inputs.size?this.audioSession.recover():this.context.resume(),new Promise(resolve=>{resumeTimer=this.setTimer(resolve,this.audioSession?.inputs.size?6000:1500);})]);}catch{}finally{this.clearTimer(resumeTimer);}
+   try{await Promise.race([this.audioSession?.inputs.size?this.audioSession.recover():this.context.resume(),new Promise(resolve=>{resumeTimer=this.setTimer(resolve,this.audioSession?.inputs.size?10000:1500);})]);}catch{}finally{this.clearTimer(resumeTimer);}
    if(!valid())return;
    if(this.context.state!=='running'){report('blocked');return;}
   }
@@ -119,7 +121,7 @@ export class CloudSpeechPlayer {
     if(context.state!=='running'){report('blocked');return;}
     await new Promise((resolve,reject)=>{
      const source=context.createBufferSource();this.source=source;source.buffer=buffer;
-     source.playbackRate.value=soul==='mori'?.94:soul==='bori'?1.04:1;source.connect(context.destination);
+     source.playbackRate.value=soul==='mori'?.94:soul==='bori'?1.04:1;source.connect(this.audioSession?.getOutput()||context.destination);
      let playTimer,mouthToken;
      const finish=()=>{if(mouthToken!==undefined)this.mouth?.stop(mouthToken);this.clearTimer(playTimer);source.onended=null;source.disconnect();if(this.source===source)this.source=null;if(this.finishPlayback===finish)this.finishPlayback=null;resolve();};
      this.finishPlayback=finish;source.onended=finish;

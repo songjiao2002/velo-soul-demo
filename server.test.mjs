@@ -12,7 +12,7 @@ after(()=>new Promise(r=>server.close(r)));
 
 test('final UI, camera modules and decoder use executable MIME and camera policy',async()=>{
   for(const p of ['/boot.js','/final.js','/soul-core.mjs','/vendor/jsQR.js']){const r=await fetch(base+p);assert.equal(r.status,200);assert.match(r.headers.get('content-type'),/javascript/);}
-  const home=await fetch(base+'/');const html=await home.text();assert.match(html,/id="startupHome"/);for(const soul of ['lumi','mori','bori'])assert.ok(html.includes('href="/?bike='+soul+'"'));assert.match(html,/boot\.js\?v=/);assert.equal(home.headers.get('permissions-policy'),'camera=(self), microphone=(self), geolocation=(self)');
+  const home=await fetch(base+'/');const html=await home.text();assert.match(html,/id="startupHome"/);for(const soul of ['lumi','mori','bori'])assert.ok(html.includes('href="/?bike='+soul+'"'));assert.match(html,/boot\.js\?v=/);assert.equal(home.headers.get('permissions-policy'),'camera=(self), microphone=(self), geolocation=(self), speaker-selection=(self)');
 });
 test('all three colored QR codes decode to their correct public character URL',async()=>{
  const sandbox={module:{exports:{}},exports:{}};vm.runInNewContext(await readFile(new URL('./public/vendor/jsQR.js',import.meta.url),'utf8'),sandbox);const decode=sandbox.module.exports;
