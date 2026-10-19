@@ -1,9 +1,16 @@
 // Korean is the source language. Translation only touches presentation nodes,
 // so changing language never remounts a camera, ride, or editable note.
 const rows = `
+사진 다시 저장|Download photo again|重新下载照片
+저장 ↓|Save ↓|保存 ↓
+사진을 누르면 다시 저장할 수 있어요.|Tap a photo to download it again.|点击照片可重新下载。
+사진 다운로드를 요청했어요. 휴대폰의 다운로드 또는 파일 앱을 확인해주세요.|Photo download requested. Check Downloads or Files on your phone.|已请求下载照片，请查看手机的“下载”或“文件”。
+사진 다운로드를 시작하지 못했어요. 사진을 다시 눌러주세요.|Could not start the download. Tap the photo to try again.|未能开始下载，请点击照片重试。
+사진을 찍지 못했어요. 카메라가 준비되면 다시 눌러주세요.|Could not capture a photo. Try again when the camera is ready.|未能拍摄，请等相机就绪后重试。
+촬영한 사진은 기기에 다운로드하고, 여정의 사진 미리보기와 GPS 경로는 이 브라우저에 보관해요. 다른 사람에게 자동으로 공유되지 않아요.|Captured photos download to your device. Journey photo previews and GPS trails stay in this browser and are not shared automatically.|抓拍照片下载到本机，旅程照片预览和 GPS 轨迹保存在本浏览器，不会自动分享。
 위치·카메라·마이크 권한을 요청해요. 말하면 자동으로 Qwen에 보내고 음성으로 답해요. 화면·장소 정보도 함께 사용해요. GPS 허용 후 약 2km 격자 위치로 주변 날씨를 자동 조회해요.|Allow location, camera and microphone. Speak to send automatically to Qwen and hear a reply using scene and place context. GPS permission also enables automatic local weather using an approximate 2 km location grid.|允许定位、相机和麦克风，说完自动发送给千问并语音回答，同时结合画面和地点。允许 GPS 后使用约 2 公里网格位置自动查询当地天气。
 등록한 서울 장소 3곳은 GPS로 감지해요. AI 관찰을 켜면 카메라 장면을 분석해요. GPS를 켜면 주변 날씨를 자동 조회해요. 그 외 주변 검색과 자전거의 초대는 시뮬레이션이에요. 소울은 화면 위의 2D AR이며 공간에 고정되지 않아요.|GPS detects 3 curated Seoul places and automatically checks local weather. AI observation analyzes camera scenes when enabled. Other nearby searches and bike invitations are simulated. Souls are 2D screen overlays without spatial tracking.|GPS 可检测已收录的首尔 3 处地点并自动查询当地天气。开启 AI 观察后分析相机画面，其他周边搜索和自行车邀约仍为模拟。灵魂是屏幕 2D 叠加，没有空间追踪。
-카메라는 버튼을 누른 뒤에만 켜집니다. 촬영 버튼으로 남긴 사진과 위치 기록은 이 브라우저에만 보관하며 서버로 전송하지 않습니다. 대화 글·장소·날씨 요약은 Alibaba Cloud Qwen으로 전달됩니다. GPS를 켜면 날씨 조회를 위해 약 2km 격자 위치를 서버와 Open-Meteo에 보내며 정확한 좌표는 보내지 않습니다. AI 관찰을 켜면 분석용 카메라 이미지도 Qwen으로 보내며, 이 사이트에는 저장하지 않습니다. 카메라와 음성 대화를 켜면 마이크를 사용해요. 음성은 서버를 거쳐 Qwen에서 인식하며 녹음 파일은 저장하지 않아요. 답변 중에도 “잠깐” 명령을 듣습니다.|The camera starts after you tap a button. Manually captured photos and recorded trails stay in this browser. Chat text and place/weather summaries go to Alibaba Cloud Qwen. With GPS enabled, an approximate 2 km location grid goes to our server and Open-Meteo for weather; exact coordinates stay on your device. AI observation sends camera frames to Qwen without saving them on this site. Voice conversation uses the microphone and Qwen speech recognition via our server; recordings are not saved. You can say “stop” during a reply to interrupt.|点击按钮后才会开启相机，手动照片与轨迹保存在本浏览器。对话文字和地点、天气摘要发送给阿里云千问。开启 GPS 后会将约 2 公里网格位置发送到本站及 Open-Meteo 查询天气，不发送精确坐标。AI 观察将画面发送给千问，本站不保存分析图。语音对话通过本站调用千问识别，不保存录音；回答时可说“等一下”打断。
+카메라는 버튼을 누른 뒤에만 켜집니다. 촬영 버튼을 누르면 사진 다운로드를 요청해요. 사진 미리보기와 위치 기록은 이 브라우저에 보관하며 서버로 전송하지 않습니다. 대화 글·장소·날씨 요약은 Alibaba Cloud Qwen으로 전달됩니다. GPS를 켜면 날씨 조회를 위해 약 2km 격자 위치를 서버와 Open-Meteo에 보내며 정확한 좌표는 보내지 않습니다. AI 관찰을 켜면 분석용 카메라 이미지도 Qwen으로 보내며, 이 사이트에는 저장하지 않습니다. 카메라와 음성 대화를 켜면 마이크를 사용해요. 음성은 서버를 거쳐 Qwen에서 인식하며 녹음 파일은 저장하지 않아요. 답변 중에도 “잠깐” 명령을 듣습니다.|The camera starts after you tap a button. The shutter requests a photo download to your device. Photo previews and recorded trails stay in this browser. Chat text and place/weather summaries go to Alibaba Cloud Qwen. With GPS enabled, an approximate 2 km location grid goes to our server and Open-Meteo for weather; exact coordinates stay on your device. AI observation sends camera frames to Qwen without saving them on this site. Voice conversation uses the microphone and Qwen speech recognition via our server; recordings are not saved. You can say “stop” during a reply to interrupt.|点击按钮后才会开启相机，抓拍后会请求下载照片到本机，照片预览与轨迹保存在本浏览器。对话文字和地点、天气摘要发送给阿里云千问。开启 GPS 后会将约 2 公里网格位置发送到本站及 Open-Meteo 查询天气，不发送精确坐标。AI 观察将画面发送给千问，本站不保存分析图。语音对话通过本站调用千问识别，不保存录音；回答时可说“等一下”打断。
 GPS 허용 후 약 2km 격자 위치로 주변 날씨를 자동 조회해요.|GPS permission also enables automatic weather using an approximate 2 km location grid.|允许 GPS 后，会使用约 2 公里网格位置自动查询当地天气。
 등록한 서울 장소 3곳 · GPS 허용 후 자동 감지. 대화에는 장소와 날씨 요약을 보내요. 날씨 조회에는 약 2km 격자 위치를 사용해요.|3 curated Seoul places · Automatic after GPS permission. Chat receives place and weather summaries; weather uses an approximate 2 km location grid.|已收录首尔 3 处地点，GPS 授权后自动检测。对话使用地点与天气摘要，天气查询使用约 2 公里网格位置。
 GPS를 켜면 주변 날씨를 자동으로 확인해요. 아래 버튼은 별도 시뮬레이션이에요.|GPS automatically checks local weather. The buttons below are separate simulations.|开启 GPS 后自动查询当地天气，下方按钮仍是独立的情景模拟。
@@ -187,9 +194,7 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
 함께 기억할 순간|A moment to remember|一起珍藏的瞬间
 카메라 닫기|Close camera|关闭相机窗口
 순간 담기|Capture a moment|记录瞬间
-촬영 버튼을 누른 장면만 기록해요. 최대 4장.|Only photos you take are saved. Up to 4 per ride.|仅保存你主动拍摄的照片，每次旅程最多 4 张。
 잠깐 멈춘 뒤 카메라를 켜주세요.|Stop riding before enabling the camera.|请先停下来，再开启相机。
-한 여정에 4장까지 담을 수 있어요.|You can save up to 4 photos per ride.|每次旅程最多保存 4 张照片。
 소울과 함께한 장면을 담았어요.|Your shared moment is captured.|已经记录下和灵魂相伴的瞬间。
 오늘 체험에서는|In today's demo,|在今天的体验中，
 우리가 골라 담은 장면도 여기 남겨 둘게.|I'll keep the moments we captured here, too.|我们一起拍下的瞬间，也留在这里吧。
@@ -325,10 +330,9 @@ export function locale(){return {ko:'ko-KR',en:'en-US',zh:'zh-CN'}[language];}
 export function translate(value,lang=language){
  let text=String(value??'');if(lang==='ko'||!['en','zh'].includes(lang))return text;
  for(const [pattern,en,zh] of dynamic)text=text.replace(pattern,(_,n)=>(lang==='en'?en:zh)(name(n,lang)));
- text=text.replace(/GPS 오차가 커서 기다리는 중이에요 \(±(\d+)m\)\./g,(_,n)=>lang==='en'?`Waiting for better GPS accuracy (±${n}m).`:`GPS 误差较大，等待更准确信号（±${n} 米）。`)
+ text=text.replace(/사진 (\d+)장/g,(_,n)=>lang==='en'?`Photos ${n}`:`照片 ${n} 张`)
+ .replace(/GPS 오차가 커서 기다리는 중이에요 \(±(\d+)m\)\./g,(_,n)=>lang==='en'?`Waiting for better GPS accuracy (±${n}m).`:`GPS 误差较大，等待更准确信号（±${n} 米）。`)
  .replace(/실제 GPS 기록 중 · 정확도 ±(\d+)m/g,(_,n)=>lang==='en'?`Live GPS tracking · Accuracy ±${n}m`:`实际 GPS 记录中 · 精度 ±${n} 米`)
- .replace(/사진 (\d+) \/ 4 · 이 기기에만 보관/g,(_,n)=>lang==='en'?`Photos ${n} / 4 · On this device only`:`照片 ${n} / 4 · 仅保存在本机`)
- .replace(/순간을 담았어요\. (\d+) \/ 4장/g,(_,n)=>lang==='en'?`Moment captured. ${n} / 4 photos`:`已记录瞬间。${n} / 4 张`)
  .replace(/소울과 함께 담은 장면 (\d+)/g,(_,n)=>lang==='en'?`Scene with your Soul ${n}`:`和灵魂一起记录的画面 ${n}`)
  .replace(/함께 담은 순간 (\d+)/g,(_,n)=>lang==='en'?`Shared moment ${n}`:`一起记录的瞬间 ${n}`)
  .replace(/(\d+)월 (\d+)일/g,(_,m,d)=>lang==='en'?new Intl.DateTimeFormat('en-US',{month:'long',day:'numeric',timeZone:'UTC'}).format(Date.UTC(2026,+m-1,+d)):`${m}月${d}日`);

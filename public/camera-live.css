@@ -40,6 +40,9 @@ body.camera-open{overflow:hidden}
 .camera-photo-preview{position:relative;width:48px;height:48px;background:#ffffff12;border:1px solid #ffffff40;border-radius:11px;display:grid;place-items:center;overflow:hidden}
 .camera-photo-preview img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
 .camera-photo-preview span{font-size:10px;z-index:1;background:#0005;padding:2px 4px;border-radius:4px}
+.camera-photo-preview{padding:0;color:white;align-content:center;gap:1px}
+.camera-photo-preview small{position:relative;z-index:1;font-size:9px;background:#0009;padding:0 3px;border-radius:3px}
+.memory-preview a,.post-photos a{display:block;min-width:0;line-height:0}
 .camera-fullscreen .camera-status{padding:8px 0 0;color:#c8d4cb;font-size:10px;line-height:1.3;min-height:22px}
 .camera-continue{background:none;border:0;font-size:11px;color:#d3f28d!important;padding:7px 0 0}
 .camera-fullscreen .capture-flash:before{content:'';position:absolute;inset:0;background:white;z-index:8;animation:shutter-flash .24s ease-out both;pointer-events:none}

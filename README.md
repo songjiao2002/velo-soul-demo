@@ -174,3 +174,11 @@ The client and server finish reading when the validated speech protocol completi
 Initial microphone permission/audio-resume waits now have a 10-second deadline, and worklet startup has a 3-second deadline. Stop/exit settles pending startup immediately. Denied permission or stalled startup releases the capture and audio-session lease; a permission grant or worklet completion arriving after cancellation cannot attach to a later conversation. The existing conversation-level startup timer and Bluetooth recovery remain in place.
 
 Validation: 148 automated checks, including exact-PCM cache reuse, language/personality isolation, memory eviction, interrupted stream exclusion, protocol completion without EOF, failed startup/retry and late-grant cleanup. The new checks use controlled browser/audio primitives, not physical microphone/headset hardware. Existing artwork, recordings, styles, QR destinations and downloads are unchanged.
+
+## Local photo capture (20261019-capture1)
+
+The manual shutter has no application-level photo count limit. Each tap requests a JPEG download synchronously during user activation (up to 2560 pixels on the longest edge, without upscaling). Files include the soul, timestamp and sequence number. Browsers control the save destination and may ask to allow downloads; a website cannot silently write to the phone's Photos library or confirm that the file was saved.
+
+The camera thumbnail retries the latest download. Each journey photo also has an individual download link. Journey photos use a 720-pixel preview of the same frozen frame to reduce memory/storage use; the latest full-size photo is retained for retry until another capture or encounter replaces it. Older journey re-downloads use those previews. Download failures do not discard journey photos. Save the journey at its end to persist previews in IndexedDB. Device memory, storage and browser download limits still apply. The exported journey card remains a four-photo highlight collage; all captured photos remain available individually. No new photo uploads or API requests are made by the shutter.
+
+Verified with unit and simulated DOM tests including more than four captures, retry, denied downloads and journey retention. Real phone download destination/album behavior still requires device validation. Existing QR images and entry URLs are unchanged.
