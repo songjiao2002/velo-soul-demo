@@ -1,6 +1,8 @@
 // Korean is the source language. Translation only touches presentation nodes,
 // so changing language never remounts a camera, ride, or editable note.
 const rows = `
+이 친구의 이야기|About this soul|它的故事
+QR 코드 · PNG 저장|QR code · Save PNG|二维码 · 下载 PNG
 우리의 길은 여기서 시작돼요.|Our path starts here.|我们的路，从这里开始。
 GPS를 켜면 함께 간 길이 그려져요.|Turn on GPS to trace our journey.|开启 GPS，画下我们一起走过的路。
 작은 여정이 남길 선을 기다려요.|A little journey, waiting to unfold.|等一段小小的旅程，留下线条。

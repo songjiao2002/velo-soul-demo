@@ -7,7 +7,7 @@ import {BUILD} from './public/build-version.mjs';
 const root=new URL('./public/',import.meta.url);
 for(const file of ['index.html','boot.js']){
  const content=await readFile(new URL(file,root),'utf8');
- await writeFile(new URL(file,root),content.replace(/2026\d{4}-[a-z]+\d+/g,BUILD));
+ await writeFile(new URL(file,root),content.replace(/2026\d{4}-[a-z]+\d+[a-z]*/g,BUILD));
 }
 const textFiles=['index.html','boot.js','app.bundle.js','app.css','mic-worklet.js','vendor/jsQR.js','vendor/maplibre/maplibre-gl.mjs','vendor/maplibre/maplibre-gl-worker.mjs','vendor/maplibre/maplibre-gl.css'];
 const images=['soul-blue.webp','soul-mint.webp','soul-orange.webp',...['lumi','mori','bori'].flatMap(s=>[`assets/${s}-puppet.webp`,`assets/${s}-cover-rig.webp`])];

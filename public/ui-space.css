@@ -1,0 +1,142 @@
+/* Progressive disclosure keeps the map and companion as the primary content.
+   All selectors are scoped so voice, camera and device behavior stay intact. */
+.home-arrival{padding-inline:40px}
+.home-arrival .hero{gap:64px;padding-block:64px 48px}
+.home-arrival .hero h1{line-height:1.2;margin-block:20px 24px}
+.home-arrival .hero>div:first-child>p{font-size:14px;line-height:1.9;max-width:340px}
+.home-arrival .section-line{padding-block:30px 22px}
+.home-arrival .soul-grid{gap:24px}
+.home-arrival .soul-card{border-radius:26px}
+.home-arrival .card-copy{padding:0 26px 26px}
+.home-arrival .card-copy blockquote{font-size:14px;font-weight:500;line-height:1.85;margin-block:12px 18px}
+.home-arrival .name-line{gap:12px;flex-wrap:wrap}
+.home-arrival .soul-story{margin-block:8px 22px;color:var(--muted)}
+.soul-story summary{font-size:12px;cursor:pointer;min-height:32px}
+.home-arrival .soul-story p{font-size:12px;line-height:1.9;margin-top:8px}
+.home-arrival .card-actions{margin-top:18px;gap:10px;min-width:0}
+.home-arrival .card-actions .primary{min-height:46px}
+.home-arrival .voice-status:empty{display:none}
+.qr-disclosure{grid-column:1/-1;border-top:1px solid color-mix(in srgb,var(--accent),transparent 85%);background:#ffffff50}
+.qr-disclosure>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:14px 24px;font-size:12px;cursor:pointer;list-style:none}
+.qr-disclosure>summary::-webkit-details-marker{display:none}
+.qr-disclosure[open]>summary{padding-bottom:8px}
+.home-arrival .qr-disclosure .qr-mini{border-top:0;background:transparent;padding-top:8px;padding-bottom:22px}
+.home-arrival .qr-mini a{display:inline-flex;align-items:center;min-height:40px;font-size:12px}
+.home-arrival .home-bottom{margin-top:48px;padding-top:36px}
+
+.korea-map .map-title{padding:24px 24px 20px;align-items:start}
+.korea-map .map-title h2{font-size:20px;line-height:1.4;margin-top:8px;letter-spacing:-.025em}
+.korea-map .map-title>div>span{font-size:9px;letter-spacing:1.6px}
+.map-viewport{position:relative}
+.korea-map .korea-map-canvas{height:320px}
+.korea-map .map-viewport>.map-loading{inset:0;height:auto}
+.korea-map .map-caption{padding:14px 22px 8px;font-size:11px;line-height:1.6}
+.korea-map .map-key{display:none}
+.korea-map .map-tools{margin:0 16px 8px;padding:0;border:1px solid #d9dfd0;border-radius:16px;background:#fffcf5}
+.map-tools>summary{display:flex;gap:10px;align-items:center;min-height:48px;padding:12px 16px;cursor:pointer;list-style:none;font-size:12px;font-weight:500}
+.map-tools>summary::-webkit-details-marker{display:none}
+.map-tools-count{font-size:10px;color:#63765a;border:1px solid #d9e1d1;border-radius:20px;padding:2px 7px}
+.map-tools-chevron{margin-left:auto;transition:transform .15s}
+.map-tools[open] .map-tools-chevron{transform:rotate(180deg)}
+.map-tools-body{padding:4px 14px 14px}
+.map-tools .map-region-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.map-tools .map-region-row label{grid-column:1/-1;gap:7px;font-size:11px}
+.map-tools .map-region-row button,.map-tools .map-region-row select{min-height:44px;font-size:12px}
+.map-tools .map-directory{margin-top:16px}
+.map-tools .map-places{display:grid;grid-template-columns:1fr 1fr;max-height:190px;gap:6px;padding:0;overscroll-behavior:contain}
+.map-tools .map-places button{border:0;border-radius:10px;background:#f0f3e9;text-align:left;padding:10px;font-size:11px;gap:8px;min-width:0;overflow-wrap:anywhere}
+.map-tools .map-places svg{flex:none}
+.korea-map .map-privacy{padding:0 22px 14px;font-size:10px;line-height:1.8;color:#697760}
+.korea-map .map-privacy summary{min-height:36px;display:flex;align-items:center}
+.korea-map .map-privacy .map-data-note{padding:0;font-size:11px;line-height:1.8}
+.korea-map .map-privacy[open]{padding-bottom:20px}
+.korea-map .map-place-detail{margin:8px 16px 16px;padding:18px}
+.korea-map .map-place-heading h3{font-size:16px}
+.korea-map .map-place-detail p{font-size:11px}
+.korea-map .map-place-detail a{display:inline-flex;align-items:center;min-height:36px}
+.korea-map .map-place-heading button{min-width:40px;min-height:40px}
+.map-tools>summary:focus-visible,.qr-disclosure>summary:focus-visible,.soul-story>summary:focus-visible,.gps-details>summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:10px}
+
+.home-map-stack .gps-connect{margin:16px 0 0;padding:16px 8px 8px;border:0;border-top:1px solid #d8dfd0;border-radius:0;background:transparent}
+.gps-connect-head{gap:14px}
+.gps-connect-head b{font-size:13px;line-height:1.6}
+.gps-connect button{min-height:44px}
+.gps-connect p{font-size:12px;line-height:1.75}
+.gps-details{margin-top:10px}
+.gps-details>summary{font-size:11px;min-height:34px;cursor:pointer;color:#5e7158;line-height:1.7}
+.gps-details p{margin-block:6px}
+.meeting-copy .gps-connect{margin-block:24px;padding:18px;background:transparent;border-color:var(--line)}
+.meeting-copy .meeting-actions{gap:10px;margin-top:32px}
+.meeting-options{padding-block:12px 8px}
+.meeting-options>summary{font-size:12px;line-height:1.7;min-height:40px}
+.meeting-permission{font-size:11px;line-height:1.85;margin-block:12px 20px}
+.meeting-options-actions{gap:10px}
+
+/* In riding mode, secondary tools expand upwards from a single bottom row.
+   The map viewport remains separate from the live conversation panel. */
+.scene-map-layer .map-viewport{position:absolute;top:calc(176px + env(safe-area-inset-top,0px));bottom:var(--scene-map-bottom,330px);width:100%}
+.scene-map-layer .map-viewport>.korea-map-canvas,.scene-map-layer .map-viewport>.map-loading{position:absolute;inset:0;width:100%;height:auto;min-height:0}
+.scene-map-layer .map-caption{bottom:calc(var(--scene-map-bottom,330px) + 6px);left:12px;right:70px;padding:5px 9px;font-size:10px;background:#fffdf3eb;border-radius:8px;pointer-events:none;width:fit-content;max-width:calc(100% - 88px)}
+.scene-map-layer [data-map-controls]{position:absolute;bottom:calc(var(--scene-map-bottom,330px) - 48px);left:14px;right:14px;z-index:8}
+.scene-map-layer .map-tools{margin:0;box-shadow:0 4px 18px #24392e12}
+.scene-map-layer .map-tools>summary{min-height:44px;padding-block:10px}
+.scene-map-layer .map-tools-body{max-height:min(38dvh,260px);overflow:auto;overscroll-behavior:contain}
+.scene-map-layer .map-tools .map-places{display:grid;max-height:140px}
+.scene-map-layer .map-privacy{bottom:calc(var(--scene-map-bottom,330px) - 76px);font-size:9px;padding:0 18px;z-index:9}
+.scene-map-layer .map-privacy>summary{min-height:24px}
+.scene-map-layer .map-privacy[open]{padding:12px 18px;max-height:45dvh;overflow:auto}
+.scene-map-layer .map-privacy .map-data-note{display:block}
+.scene-map-layer .map-place-detail{position:absolute;left:14px;right:14px;bottom:calc(var(--scene-map-bottom,330px) + 10px);margin:0;max-height:35dvh;overflow:auto;z-index:10;box-shadow:0 8px 30px #24392e20}
+.scene-map-layer .map-title{display:none}
+
+@media(max-width:900px){
+ .home-arrival{padding-inline:24px}
+ .home-arrival .hero{gap:32px}
+ .home-arrival .soul-grid{gap:16px}
+ .home-arrival .card-copy{padding-inline:20px}
+}
+@media(max-width:760px){
+ .home-arrival{padding-inline:20px}
+ .home-arrival .hero{display:flex;flex-direction:column;align-items:stretch;gap:36px;padding-block:36px}
+ .home-arrival .hero>.home-map-stack{width:100%;margin-top:0}
+ .home-arrival .hero h1{font-size:38px;line-height:1.22}
+ .home-arrival .hero>div:first-child>p{font-size:13px}
+ .home-arrival .soul-grid{grid-template-columns:1fr;gap:24px}
+ .home-arrival .soul-card,html[lang=en-US] .home-arrival .soul-card{display:flex;flex-direction:column}
+ .home-arrival .card-top{padding:22px 24px 0}
+ .home-arrival .soul-portrait{height:180px;width:100%;align-self:center}
+ .home-arrival .soul-portrait img,html[lang=en-US] .home-arrival .soul-portrait img{width:210px;left:0;max-width:100%}
+ .home-arrival .soul-portrait:before{width:170px;height:170px}
+ .home-arrival .card-copy,html[lang=en-US] .home-arrival .card-copy{padding:0 24px 24px}
+ .home-arrival .card-copy blockquote,.home-arrival .card-copy p{max-width:none}
+ .home-arrival .card-copy blockquote{font-size:14px;margin-bottom:14px}
+ .home-arrival .name-line h2{font-size:30px}
+ .home-arrival .card-actions .primary{font-size:13px;min-height:48px}
+ .home-arrival .card-actions .icon-btn{min-width:48px;min-height:48px}
+ .korea-map .map-title{padding:20px 20px 16px}
+ .korea-map .map-title h2{font-size:18px}
+ .korea-map .korea-map-canvas{height:280px}
+ .scene-map-layer .map-viewport>.korea-map-canvas{height:auto}
+ .korea-map .map-caption{font-size:10px}
+ .meeting-copy .meeting-actions{margin-top:24px}
+ .meeting-copy .gps-connect{text-align:left;margin-block:22px}
+ .home-arrival .section-line h2{font-size:15px}
+}
+@media(max-width:360px){
+ .home-arrival{padding-inline:16px}
+ .map-tools .map-places{grid-template-columns:1fr}
+ .gps-connect-head{align-items:stretch;flex-direction:column}
+ .gps-connect-head button{width:100%}
+}
+@media(max-height:700px){
+ .scene-map-layer .map-viewport{top:160px;bottom:var(--scene-map-bottom,290px)}
+ .scene-map-layer .map-viewport>.map-loading{inset:0}
+}
+@media(max-height:510px) and (orientation:landscape){
+ .scene-map-layer .map-viewport{top:150px;bottom:100px;right:350px;left:0;width:auto}
+ .scene-map-layer [data-map-controls]{right:364px;bottom:46px}
+ .scene-map-layer .map-caption{right:420px;bottom:106px}
+ .scene-map-layer .map-privacy{right:350px;bottom:18px}
+ .scene-map-layer .map-place-detail{right:364px;bottom:104px;max-height:35dvh}
+}
+@media(prefers-reduced-motion:reduce){.map-tools-chevron{transition:none}}
