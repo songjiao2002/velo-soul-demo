@@ -1,124 +1,39 @@
 import {AUDIO_OUTPUT_COPY} from './audio-output-copy.mjs';
 import {AUDIO_COMPAT_COPY} from './audio-compat-copy.mjs';
 import {browserAudioContext,companionBrowserLinks} from './audio-browser.mjs';
-// Device IDs stay in this page only. A browser cannot pair/reconnect Bluetooth
-// or identify the OS output route when output-selection APIs are unavailable.
+// Output routing is owned entirely by the operating system. This helper
+// only shares the existing audio graph and refreshes microphone metadata.
 export class AudioDevices {
  constructor({session,mediaDevices=session.navigator?.mediaDevices,onChange=()=>{}}){
-  Object.assign(this,{session,mediaDevices,onChange});this.devices=[];this.selected=null;this.state='system';this.epoch=0;this.media=new Map();
-  session.devices=this;try{session.playbackMode=globalThis.localStorage?.getItem('velo-audio-playback')==='media'?'media':'stream';}catch{session.playbackMode='stream';}
-  // Each page starts on the device's current output; output choices are session-only.
-  this.protection=false;
-  this.changed=()=>{if(this.selected){this.gate(false);if(this.state!=='checking'){this.state='checking';this.notify();}}void this.refresh();};
-  this.sinkChanged=()=>{if(!this.settingSink)this.changed();};
-  this.visible=()=>{if(!session.document?.hidden)this.changed();};
-  mediaDevices?.addEventListener?.('devicechange',this.changed);
-  session.document?.addEventListener?.('visibilitychange',this.visible);
+  Object.assign(this,{session,mediaDevices,onChange});this.devices=[];this.state='system';this.media=new Map();session.devices=this;
+  try{session.playbackMode=globalThis.localStorage?.getItem('velo-audio-playback')==='media'?'media':'stream';}catch{session.playbackMode='stream';}
+  this.changed=()=>{void this.refresh();};this.visible=()=>{if(!session.document?.hidden)this.changed();};
+  mediaDevices?.addEventListener?.('devicechange',this.changed);session.document?.addEventListener?.('visibilitychange',this.visible);
  }
+ canPlay(){return true;}
+ notify(){if(!this.disposed)this.onChange(this);}
  destination(){
   const context=this.session.getContext();
-  if(this.context!==context){this.context?.removeEventListener?.('sinkchange',this.sinkChanged);this.context=context;this.gain=context.createGain();this.gain.gain.value=this.selected||this.protection||!this.canPlay()?0:1;this.gain.connect(context.destination);context.addEventListener?.('sinkchange',this.sinkChanged);}
+  if(this.context!==context){this.gain?.disconnect();this.context=context;this.gain=context.createGain();this.gain.gain.value=1;this.gain.connect(context.destination);}
   return this.gain;
  }
- gate(open){if(this.protection&&(!this.selected||this.state!=='selected'))open=false;if(this.gain)this.gain.gain.value=open?1:0;if(this.session.nativeSpeech?.audio)this.session.nativeSpeech.audio.muted=!open;}
- setProtection(enabled){this.protection=!!enabled;if(enabled&&!this.selected)this.state='protected';else if(!enabled&&this.state==='protected')this.state=this.selected?'selected':'system';this.gate(['system','selected'].includes(this.state));this.notify();}
- protectSelection(){this.epoch++;this.selected=null;this.protection=true;this.state='protected';this.gate(false);this.notify();}
- canPlay(){return ['system','selected'].includes(this.state);}
- async followSystem(){
-  // Reset the actual sink before unmuting. Failed resets stay muted.
-  if(this.canSelectOutput())await this.selectOutput(null);
-  else if(this.selected)throw Error('unsupported');
-  else this.state='protected';
-  this.setProtection(false);
- }
- notify(){this.onChange(this);}
- canSelectOutput(){return this.session.playbackMode==='media'?typeof this.session.nativeSpeech?.audio?.setSinkId==='function':typeof this.session.Context?.prototype?.setSinkId==='function'||typeof this.session.context?.setSinkId==='function';}
- outputTarget(){return this.session.playbackMode==='media'?this.session.nativeSpeech?.audio:this.session.getContext();}
- async setSink(target,id){
-  if(target.sinkId===id)return;
-  this.settingSink=(this.settingSink||0)+1;
-  try{await target.setSinkId(id);}finally{this.settingSink--;}
- }
- queueOutput(action){
-  const task=Promise.resolve(this.selecting).catch(()=>{}).then(action).finally(()=>{if(this.selecting===task)this.selecting=null;});this.selecting=task;return task;
- }
- setPlaybackMode(mode){return this.queueOutput(()=>this.applyPlaybackMode(mode));}
- async applyPlaybackMode(mode){
-  if(this.disposed)throw Error('cancelled');
-  if(!['media','stream'].includes(mode))throw Error('unsupported');
-  if(this.session.inputs.size)throw Error('busy');
-  const target=mode==='media'?this.session.nativeSpeech?.audio:this.session.getContext();
-  if(!target||(this.selected&&typeof target.setSinkId!=='function'))throw Error('unsupported');
-  const epoch=++this.epoch;this.gate(false);
-  try{if(typeof target.setSinkId==='function')await this.setSink(target,this.selected?.deviceId||'');if(epoch!==this.epoch)throw Error('cancelled');}
-  catch(error){this.state='unavailable';this.notify();throw error;}
-  this.session.playbackMode=mode;this.state=this.selected?'selected':this.protection?'protected':'system';
-  try{globalThis.localStorage?.setItem('velo-audio-playback',mode);}catch{}
-  this.gate(true);this.notify();
+ async setPlaybackMode(mode){
+  if(this.disposed)throw Error('cancelled');if(!['media','stream'].includes(mode))throw Error('unsupported');if(this.session.inputs.size)throw Error('busy');
+  if(mode==='media'&&!this.session.nativeSpeech?.audio)throw Error('unsupported');
+  this.session.playbackMode=mode;try{globalThis.localStorage?.setItem('velo-audio-playback',mode);}catch{}this.notify();
  }
  refresh(){
-  if(this.disposed)return Promise.resolve();
-  if(this.refreshing){this.refreshAgain=true;return this.refreshing;}
+  if(this.disposed)return Promise.resolve();if(this.refreshing){this.refreshAgain=true;return this.refreshing;}
   const task=Promise.resolve().then(async()=>{
-   do{this.refreshAgain=false;await this.refreshOnce();}while(this.refreshAgain&&!this.disposed);
-  }).finally(()=>{if(this.refreshing===task)this.refreshing=null;});
-  this.refreshing=task;return task;
- }
- async refreshOnce(){
-  if(this.disposed)return;
-  if(this.selecting){try{await this.selecting;}catch{}if(this.disposed)return;}
-  const epoch=++this.epoch;
-  try{
-   const devices=await this.mediaDevices?.enumerateDevices?.();if(epoch!==this.epoch)return;
-   this.devices=Array.isArray(devices)?devices:[];
-   if(this.selected){
-    const present=this.devices.some(d=>d.kind==='audiooutput'&&d.deviceId===this.selected.deviceId);
-    if(!present){this.gate(false);this.state='missing';}
-    else{
-     // Recovery shares the selection queue so a slow old sink change cannot
-     // finish after a newer user choice and silently overwrite it.
-     await this.queueOutput(async()=>{if(epoch===this.epoch)await this.setSink(this.outputTarget(),this.selected.deviceId);});if(epoch!==this.epoch)return;
-     const label=this.devices.find(d=>d.kind==='audiooutput'&&d.deviceId===this.selected.deviceId)?.label;if(label)this.selected.label=label;
-     this.state=this.refreshAgain?'checking':'selected';this.gate(!this.refreshAgain);
-    }
-   }
-  }catch{if(epoch!==this.epoch)return;if(this.selected){this.gate(false);this.state='unavailable';}}
-  if(epoch===this.epoch)this.notify();
- }
- selectOutput(device){
-  return this.queueOutput(()=>this.applyOutput(device));
- }
- async applyOutput(device){
-  if(this.disposed)throw Error('cancelled');
-  if(device&&(!device.deviceId||['default','communications'].includes(device.deviceId)))throw Error('specific-output-required');
-  if(!this.canSelectOutput())throw Error('unsupported');
-  const context=this.outputTarget(),epoch=++this.epoch;
-  if(this.session.playbackMode!=='media')this.destination();this.gate(false);this.state='checking';this.notify();
-  try{
-   await this.setSink(context,device?.deviceId||'');if(epoch!==this.epoch)return;
-   this.selected=device?.deviceId?{deviceId:device.deviceId,label:device.label||''}:null;
-   this.state=this.selected?'selected':this.protection?'protected':'system';this.gate(true);this.notify();
-  }catch(error){if(epoch===this.epoch){this.state='unavailable';this.gate(false);this.notify();}throw error;}
- }
- async chooseOutput(){
-  if(!this.mediaDevices?.selectAudioOutput||!this.canSelectOutput())throw Error('unsupported');
-  // Must run directly in a click: never prompt for a device on page load.
-  const device=await this.mediaDevices.selectAudioOutput();await this.selectOutput(device);await this.refresh();
- }
- async selectInput(deviceId){
-  this.session.inputDeviceId=deviceId||'';
-  // Changing a user-selected input is the only deliberate mid-conversation
-  // capture replacement. Normal reply turns keep the same stream alive.
-  const results=await Promise.all([...this.session.inputs.values()].map(c=>c.changeInput?.()));this.notify();if(results.includes(false))throw Error('audio-capture');
+   do{this.refreshAgain=false;try{const list=await this.mediaDevices?.enumerateDevices?.();if(this.disposed)return;this.devices=Array.isArray(list)?list.filter(d=>d.kind==='audioinput'):[];}catch{}this.notify();}while(this.refreshAgain&&!this.disposed);
+  }).finally(()=>{if(this.refreshing===task)this.refreshing=null;});this.refreshing=task;return task;
  }
  inputLabel(){return [...this.session.inputs.values()].map(c=>c.getInput?.()?.label).find(Boolean)||'';}
  routeMedia(audio){
   if(this.media.has(audio))return true;
-  try{const context=this.session.getContext();if(!context.createMediaElementSource)return false;
-   const node=context.createMediaElementSource(audio);node.connect(this.destination());this.media.set(audio,node);return true;
-  }catch{return false;}
+  try{const context=this.session.getContext();if(!context.createMediaElementSource)return false;const node=context.createMediaElementSource(audio);node.connect(this.destination());this.media.set(audio,node);return true;}catch{return false;}
  }
- dispose(){this.disposed=true;this.epoch++;this.gate(false);this.mediaDevices?.removeEventListener?.('devicechange',this.changed);this.session.document?.removeEventListener?.('visibilitychange',this.visible);this.context?.removeEventListener?.('sinkchange',this.sinkChanged);for(const node of this.media.values())node.disconnect();this.media.clear();this.gain?.disconnect();}
+ dispose(){this.disposed=true;this.mediaDevices?.removeEventListener?.('devicechange',this.changed);this.session.document?.removeEventListener?.('visibilitychange',this.visible);for(const node of this.media.values())node.disconnect();this.media.clear();this.gain?.disconnect();}
 }
 
 export const AUDIO_DEVICE_COPY={
@@ -130,6 +45,9 @@ Object.assign(AUDIO_DEVICE_COPY.zh,{missingDevice:'此前选择的设备暂不�
 Object.assign(AUDIO_DEVICE_COPY.en,{missingDevice:'Previously selected device is unavailable',busy:'Wait for the current reply to finish before testing.'});
 Object.assign(AUDIO_DEVICE_COPY.ko,{missingDevice:'선택했던 기기를 사용할 수 없어요',busy:'현재 답변이 끝난 뒤 소리를 테스트해주세요.'});
 for(const lang of ['zh','en','ko']){AUDIO_DEVICE_COPY[lang].protected=AUDIO_OUTPUT_COPY[lang].protected;AUDIO_DEVICE_COPY[lang].system=AUDIO_OUTPUT_COPY[lang].system;}
+Object.assign(AUDIO_DEVICE_COPY.zh,{button:'声音设置',title:'声音设置',systemStatus:'声音跟随手机或电脑当前的输出设置',privacy:'网页不选择蓝牙或扬声器，也不会因为设备检查自动静音。请在系统中设置播放设备。'});
+Object.assign(AUDIO_DEVICE_COPY.en,{button:'Sound settings',title:'Sound settings',systemStatus:'Sound follows your phone or computer’s current output',privacy:'The website does not choose Bluetooth or speakers, or mute output after device checks. Choose playback devices in system settings.'});
+Object.assign(AUDIO_DEVICE_COPY.ko,{button:'소리 설정',title:'소리 설정',systemStatus:'휴대폰 또는 컴퓨터의 현재 출력 설정을 따라요',privacy:'웹사이트가 블루투스나 스피커를 선택하거나 기기 확인 후 자동 음소거하지 않아요. 시스템에서 재생 기기를 선택해주세요.'});
 export const audioDeviceButton=lang=>`<div class="audio-device-entry" data-no-translate><button class="audio-device-button" type="button" data-audio-devices>${AUDIO_DEVICE_COPY[lang]?.button||AUDIO_DEVICE_COPY.en.button}</button><span class="audio-device-alert" data-audio-route-status role="status"></span></div>`;
 
 export function createAudioDeviceUI({devices,getLanguage,prepare,onTest,onModeChange=()=>{},document=globalThis.document}){
@@ -139,34 +57,26 @@ export function createAudioDeviceUI({devices,getLanguage,prepare,onTest,onModeCh
  const compat=()=>AUDIO_COMPAT_COPY[getLanguage()]||AUDIO_COMPAT_COPY.en;
  const environment=browserAudioContext(devices.session.navigator?.userAgent||'');
  const links=()=>companionBrowserLinks(document.location.href);
- let result='',outputIntent='',pickerPending=false,refreshPending=false;
+ let result='',refreshPending=false;
  const outputCopy=()=>AUDIO_OUTPUT_COPY[getLanguage()]||AUDIO_OUTPUT_COPY.en;
  function compatibilityMarkup(){const c=compat(),url=links(),active=devices.session.inputs.size>0,mode=devices.session.playbackMode||'stream';return `<section class="audio-compatibility">${environment.embedded?`<div class="audio-app-warning"><b>${c.inside.replace('{app}',esc(environment.host))}</b><p>${c.embedded}</p><p>${c.outside}</p></div>`:''}<label>${c.mode}<select data-playback-mode ${active?'disabled':''}><option value="stream" ${mode==='stream'?'selected':''}>${c.stream}</option><option value="media" ${mode==='media'?'selected':''}>${c.media}</option></select></label><p class="small">${active?c.pause:c.modeHint}</p><button type="button" class="secondary" data-media-test ${active?'disabled':''}>${c.sample}</button><p class="small">${c.sampleHint}</p><details class="audio-external" ${environment.embedded?'open':''}><summary>${c.links}</summary>${environment.android?`<div class="audio-browser-links"><a class="secondary" href="${esc(url.chrome)}">${c.chrome}</a><a class="secondary" href="${esc(url.samsung)}">${c.samsung}</a></div>`:''}<p class="small">${c.fallback}</p><button type="button" class="secondary" data-copy-browser-link>${c.copy}</button><input class="audio-copy-link" aria-label="${c.copy}" readonly value="${esc(url.link)}"><p class="small">${c.handoff}</p></details><p class="small">${c.unverified}</p></section>`;}
 
- const options=(kind,selected)=>`<option value="">${copy().system}</option>`+(selected&&!devices.devices.some(d=>d.kind===kind&&d.deviceId===selected)?`<option value="${esc(selected)}" selected disabled>${copy().missingDevice}</option>`:'')+devices.devices.filter(d=>d.kind===kind&&d.deviceId&&d.deviceId!=='default'&&d.deviceId!=='communications').map(d=>`<option value="${esc(d.deviceId)}" ${d.deviceId===selected?'selected':''}>${esc(d.label||copy()[kind==='audioinput'?'input':'output'])}</option>`).join('');
- function outputMarkup(){const c=outputCopy(),selectable=devices.canSelectOutput(),busy=pickerPending||devices.state==='checking',outputs=devices.devices.filter(d=>d.kind==='audiooutput'&&d.deviceId&&d.deviceId!=='default'&&d.deviceId!=='communications');return `<section class="audio-output-section"><button class="audio-system-output" type="button" aria-pressed="${devices.state==='system'}" data-output-system ${busy?'disabled':''}>${devices.protection?c.release:c.system}</button><div class="audio-output-actions"><button type="button" data-output-intent="bluetooth" ${busy?'disabled':''}>♬ <span>${c.bluetooth}</span></button><button type="button" data-output-intent="speaker" ${busy?'disabled':''}>◖ <span>${c.speaker}</span></button></div><p class="audio-output-guidance" data-output-guidance role="status">${pickerPending?c.pending:outputIntent==='system'?c.systemHelp:outputIntent?(selectable?c[outputIntent==='bluetooth'?'pickBluetooth':'pickSpeaker']:c.manual+' '+c[outputIntent==='bluetooth'?'bluetoothHelp':outputIntent==='speaker'?'speakerHelp':'systemHelp']):''}</p>${selectable?`<div class="audio-output-list" role="group" aria-label="${c.list}">${outputs.map(d=>`<button type="button" data-output-device="${esc(d.deviceId)}" aria-pressed="${devices.state==='selected'&&devices.selected?.deviceId===d.deviceId}" ${busy?'disabled':''}><span>${esc(d.label||copy().output)}</span>${devices.state==='selected'&&devices.selected?.deviceId===d.deviceId?`<small>✓ ${c.chosen}</small>`:''}</button>`).join('')}</div>${!outputs.length?`<p class="small">${c.empty}</p>`:''}<label class="audio-output-select">${copy().output}<select data-device-output ${busy?'disabled':''}>${options('audiooutput',devices.selected?.deviceId)}</select></label>${devices.mediaDevices?.selectAudioOutput?`<button class="secondary" type="button" data-device-picker ${busy?'disabled':''}>${copy().choose}</button>`:''}`:`<p class="audio-device-limited">${copy().limited}</p>`}<label class="audio-output-protection"><input type="checkbox" data-output-protection ${devices.protection?'checked':''} ${busy?'disabled':''}><span>${c.guard}</span></label><p class="small">${c.guardHint}</p><p class="small">${c.note}</p></section>`;}
- function paint(){const c=copy(),o=outputCopy();document.querySelectorAll('[data-audio-devices]').forEach(el=>{if(el.textContent!==c.button)el.textContent=c.button;});document.querySelectorAll('[data-audio-route-status]').forEach(el=>{el.textContent=['missing','unavailable','checking','protected'].includes(devices.state)?c[devices.state]:'';});if(!dialog.open)return;
+ function paint(){const c=copy(),o=outputCopy();document.querySelectorAll('[data-audio-devices]').forEach(el=>{if(el.textContent!==c.button)el.textContent=c.button;});document.querySelectorAll('[data-audio-route-status]').forEach(el=>{el.textContent='';});if(!dialog.open)return;
  const expanded=[...dialog.querySelectorAll('details')].map(el=>({name:el.className,open:el.open})),scroll=dialog.scrollTop,active=document.activeElement;
  const focus=dialog.contains(active)?[...active.attributes].find(a=>a.name.startsWith('data-')):null;
- dialog.innerHTML=`<div class="audio-device-heading"><h2 id="audioDeviceTitle">${o.title}</h2><button type="button" data-device-close aria-label="${c.close}">×</button></div><p class="audio-route-status" role="status">${c[devices.state==='system'?'systemStatus':devices.state]}${devices.state==='selected'&&devices.selected.label?' · '+esc(devices.selected.label):''}</p>${outputMarkup()}<div class="audio-device-actions"><button class="secondary" type="button" data-device-refresh ${refreshPending?'disabled':''}>${refreshPending?o.refreshing:c.refresh}</button><button class="primary" type="button" data-device-test>${c.test}</button></div><p class="small" data-device-result role="status">${esc(result)}</p><details class="audio-advanced"><summary>${o.advanced}</summary><p>${c.hint}</p>${compatibilityMarkup()}</details><details class="audio-microphone"><summary>${o.mic}</summary><label>${c.input}<select data-device-input>${options('audioinput',devices.session.inputDeviceId)}</select></label><p class="small">${c.current}${esc(devices.inputLabel()||c.unknown)}</p><p class="small">${c.inputHint}</p></details><p class="small">${c.privacy}</p>`;for(const item of expanded){const el=[...dialog.querySelectorAll('details')].find(el=>el.className===item.name);if(el)el.open=item.open;}if(focus){const el=[...dialog.querySelectorAll('button,select,input')].find(el=>el.getAttribute(focus.name)===focus.value);el?.focus({preventScroll:true});}dialog.scrollTop=scroll;}
+ dialog.innerHTML=`<div class="audio-device-heading"><h2 id="audioDeviceTitle">${c.title}</h2><button type="button" data-device-close aria-label="${c.close}">×</button></div><p class="audio-route-status" role="status">${c.systemStatus}</p><div class="audio-device-actions"><button class="secondary" type="button" data-device-refresh ${refreshPending?'disabled':''}>${refreshPending?o.refreshing:c.refresh}</button><button class="primary" type="button" data-device-test>${c.test}</button></div><p class="small" data-device-result role="status">${esc(result)}</p><details class="audio-advanced"><summary>${o.advanced}</summary><p>${c.hint}</p>${compatibilityMarkup()}</details><details class="audio-microphone"><summary>${o.mic}</summary><p class="small">${c.current}${esc(devices.inputLabel()||c.unknown)}</p><p class="small">${c.inputHint}</p></details><p class="small">${c.privacy}</p>`;for(const item of expanded){const el=[...dialog.querySelectorAll('details')].find(el=>el.className===item.name);if(el)el.open=item.open;}if(focus){const el=[...dialog.querySelectorAll('button,select,input')].find(el=>el.getAttribute(focus.name)===focus.value);el?.focus({preventScroll:true});}dialog.scrollTop=scroll;}
  devices.onChange=paint;
  document.addEventListener('change',e=>{if(e.target.id==='languageSelect')queueMicrotask(paint);});
  async function refreshList(){if(refreshPending)return;refreshPending=true;paint();try{await devices.refresh();}finally{refreshPending=false;paint();}}
- async function pickOutput(){if(pickerPending)return;pickerPending=true;paint();try{await devices.chooseOutput();result='';}catch(error){result=error.name==='NotAllowedError'?outputCopy().notChosen:copy().error;}finally{pickerPending=false;paint();}}
- async function selectNamedOutput(id){const device=devices.devices.find(d=>d.kind==='audiooutput'&&d.deviceId===id);if(!device)throw Error('missing-device');await devices.selectOutput(device);result='';}
  const error=()=>{result=copy().error;const el=dialog.querySelector('[data-device-result]');if(el)el.textContent=result;};
  document.addEventListener('click',e=>{if(e.target.closest('[data-audio-devices]')){if(!dialog.open)dialog.showModal();paint();void refreshList();}});
  dialog.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;
   if(b.hasAttribute('data-device-close'))dialog.close();
-  if(b.dataset.outputIntent){outputIntent=b.dataset.outputIntent;result='';if(outputIntent==='bluetooth')devices.protectSelection();paint();if(devices.canSelectOutput()){if(devices.mediaDevices?.selectAudioOutput)void pickOutput();else dialog.querySelector('[data-device-output]')?.focus();}return;}
-  if(b.hasAttribute('data-output-device')){try{await selectNamedOutput(b.dataset.outputDevice);}catch{error();}return;}
-  if(b.hasAttribute('data-output-system')){try{await devices.followSystem();outputIntent='system';result='';paint();}catch{error();}return;}
   if(b.hasAttribute('data-copy-browser-link')){try{await devices.session.navigator?.clipboard?.writeText(links().link);if(!devices.session.navigator?.clipboard?.writeText)throw Error('clipboard');result=compat().copied;}catch{result=compat().copyFailed;}paint();}
-  if(b.hasAttribute('data-media-test')){if(!devices.canPlay()){result=copy()[devices.state];paint();return;}if(devices.session.inputs.size){result=compat().pause;paint();return;}try{onModeChange();devices.session.nativeSpeech?.prepare();await devices.setPlaybackMode('media');result=compat().sampleHint;paint();prepare();onTest(copy().testLine,getLanguage()==='ko'?'ko':'en',{sample:true});}catch{error();}}
+  if(b.hasAttribute('data-media-test')){if(devices.session.inputs.size){result=compat().pause;paint();return;}try{onModeChange();devices.session.nativeSpeech?.prepare();await devices.setPlaybackMode('media');result=compat().sampleHint;paint();prepare();onTest(copy().testLine,getLanguage()==='ko'?'ko':'en',{sample:true});}catch{error();}}
   if(b.hasAttribute('data-device-refresh'))void refreshList();
-  if(b.hasAttribute('data-device-picker'))void pickOutput();
-  if(b.hasAttribute('data-device-test')){if(!devices.canPlay()){result=copy()[devices.state];paint();return;}prepare();if(onTest(copy().testLine,getLanguage()==='ko'?'ko':'en')===false)dialog.querySelector('[data-device-result]').textContent=copy().busy;}
+  if(b.hasAttribute('data-device-test')){prepare();if(onTest(copy().testLine,getLanguage()==='ko'?'ko':'en')===false)dialog.querySelector('[data-device-result]').textContent=copy().busy;}
  });
- dialog.addEventListener('change',async e=>{const el=e.target;try{if(el.matches('[data-output-protection]')){if(el.checked)devices.setProtection(true);else if(!devices.selected)await devices.followSystem();else devices.setProtection(false);paint();}if(el.matches('[data-playback-mode]')){if(devices.session.inputs.size)throw Error('busy');onModeChange();if(el.value==='media')devices.session.nativeSpeech?.prepare();await devices.setPlaybackMode(el.value);paint();}if(el.matches('[data-device-output]')){if(el.value)await selectNamedOutput(el.value);else await devices.followSystem();}if(el.matches('[data-device-input]')){el.disabled=true;await devices.selectInput(el.value);paint();}}catch{paint();error();}});
+ dialog.addEventListener('change',async e=>{const el=e.target;if(!el.matches('[data-playback-mode]'))return;try{if(devices.session.inputs.size)throw Error('busy');onModeChange();if(el.value==='media')devices.session.nativeSpeech?.prepare();await devices.setPlaybackMode(el.value);paint();}catch{paint();error();}});
  return {dialog,paint};
 }

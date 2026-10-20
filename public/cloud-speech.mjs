@@ -88,9 +88,8 @@ export class CloudSpeechPlayer {
   this.stop();const serial=this.serial,valid=()=>serial===this.serial,report=state=>{if(valid())onState(state);};
   const parts=speechChunks(text);if(!parts.length){report('ended');return;}
   report('loading');
-  if(this.audioSession?.playbackMode==='media')return this.native.speak(parts,{language,soul,source,report,allowed:()=>!['missing','unavailable','checking','protected'].includes(this.audioSession.devices?.state)});
+  if(this.audioSession?.playbackMode==='media')return this.native.speak(parts,{language,soul,source,report});
   if(!this.context){report('blocked');return;}
-  if(this.audioSession?.devices&&['missing','unavailable','checking','protected'].includes(this.audioSession.devices.state)){report('blocked');return;}
   if(this.context.state!=='running'){
    let resumeTimer;
    try{await Promise.race([this.audioSession?.inputs.size?this.audioSession.recover():this.context.resume(),new Promise(resolve=>{resumeTimer=this.setTimer(resolve,this.audioSession?.inputs.size?10000:1500);})]);}catch{}finally{this.clearTimer(resumeTimer);}

@@ -1,45 +1,45 @@
 {
-  "version": "20261020-devices6",
+  "version": "20261020-systemaudio7",
   "files": {
     "/index.html": {
-      "size": 7735,
-      "sha256": "17455ef258e054aedc1189456703998150f452eeb32cfd57a03229b9e0440bed",
+      "size": 7763,
+      "sha256": "8741407516f72f3e2e50f451e07ee81e1b10ed0ed02eceb81aecf171b0c60ea2",
       "br": {
-        "size": 2840,
-        "sha256": "7d882379062329e7c4616c0d55971fc11dd68c7a5c5bc3d9a7a9e5ec73195d38",
+        "size": 2843,
+        "sha256": "783f334ffd17a941711cb6ae4e06a7101a8d54b1ac76874d6d38fad7159cd488",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 3426,
-        "sha256": "54730f6d300ad1860ff477798c9d4b4397cffd7bb523e2003b50965d90b7fa36",
+        "size": 3427,
+        "sha256": "317a224a9f21b8b1c85ff704a05cbf463d13b34c704993e0728cd5d3fef137b5",
         "suffix": ".gz"
       }
     },
     "/boot.js": {
-      "size": 2269,
-      "sha256": "1d42278d3ba03692df4e87f46b1cf14d0ebf3005c1996a0ae85115ce822e08c0",
+      "size": 2273,
+      "sha256": "4752edb792bf05d5b080138d651a4d60755a63fb46f9da37a30cca055ee4cccb",
       "br": {
-        "size": 852,
-        "sha256": "e9089ef084f47eca555ec0985873560686d0c345c35f14a5a8614ea42bc8ff17",
+        "size": 854,
+        "sha256": "387dce8b1d5112b47fa7be24b48f717b1858435658092acf4c58f0a59d159d0d",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 1031,
-        "sha256": "1d8dd6dbac20580c24561c89674926948771c4f0b090b1851b07debf99beb5e9",
+        "size": 1034,
+        "sha256": "9bac713c7e0b6c171173359d1d10ad0380b4bd6ce530ee4584c0e71c3a8bcb63",
         "suffix": ".gz"
       }
     },
     "/app.bundle.js": {
-      "size": 278792,
-      "sha256": "2d76967ad3d4866be0bd0db21875ba20ef9102f167038ec5834f9670f74e632a",
+      "size": 271352,
+      "sha256": "6c0d1fff00a67fe02ca75fc63076cc191d6e72c1ce481e517a6b4340672f4127",
       "br": {
-        "size": 83778,
-        "sha256": "f7830259d3c0664ac031fe6a84a0b2f2de3e7e064a6c7bf25af1cdee4ae7c127",
+        "size": 82146,
+        "sha256": "53732088a5fd6ff397da083311116fcec539ca55109340a32be0e13ec6e9151f",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 100035,
-        "sha256": "e1160edb9bb861e46c6dbdeece1cf8ac5ccf89835fe291ae8d5cf5c131f584a3",
+        "size": 98199,
+        "sha256": "e7ebf90ac88e0961ee2dff1460f0ce0826099576f17a8da1096922e3d749f739",
         "suffix": ".gz"
       }
     },

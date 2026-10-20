@@ -1,5 +1,11 @@
 # Audio routes and Bluetooth recovery
 
+## Current behavior: system output only (20261020-systemaudio7)
+
+At the user's request, manual Bluetooth/speaker selection and automatic output protection have been removed. The app no longer calls `setSinkId` or `selectAudioOutput`, or mutes playback based on device inventory. Missing/hidden device entries therefore cannot block replies. The Sound settings panel retains a sound test, optional playback compatibility mode and microphone information; device choice is handled in the OS. Existing output protection flags are not restored. Reopen an already loaded older page to replace its audio session.
+
+Continuous microphone capture, shared audio playback, interruption recovery and QR links remain. This removes app-imposed routing and mute behavior; it does not establish that a Samsung or embedded browser is physically playing through the headset. The earlier sections below describe historical implementations which are now superseded for output selection.
+
 The webpage cannot pair a Bluetooth headset, reconnect its radio, or force a route in a browser that does not expose output selection. A live microphone is not evidence that replies are playing through the headset. No physical Samsung device has been used to validate this release.
 
 ## Changes
