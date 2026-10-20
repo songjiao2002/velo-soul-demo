@@ -1,4 +1,5 @@
 import {BUILD} from './build-version.mjs';
+import {MapFullscreen,MAP_FULLSCREEN_COPY} from './map-fullscreen.mjs';
 import {koreaMapStyle,mapName,routeFeature} from './korea-map-style.mjs';
 import {KOREA_LANDMARKS,MAP_REGIONS,MAP_KINDS,LANDMARK_COPY,landmarkIcon,groupLandmarks} from './korea-landmarks.mjs';
 const COPY={ko:{title:'오늘, 우리가 만날 풍경',subtitle:'서울에서 시작하는 작은 지도',loading:'서울의 길을 펼치고 있어요…',preview:'서울 미리보기 · 내 위치 아님',live:'실제 GPS 위치 · 기록된 여정',failed:'지도를 불러오지 못했어요. 다시 시도하거나 소울과 먼저 만나세요.',retry:'지도 다시 열기',note:'OpenStreetMap의 한국 도로·공원·명소. 경로 안내나 자전거 통행 가능 여부를 뜻하지 않아요.',privacy:'지도 타일은 OpenFreeMap에서 불러와요. 공급자는 표시 지역과 IP를 알 수 있지만, 전체 GPS 경로를 업로드하지 않아요.'},en:{title:'A little world to share',subtitle:'A small map, beginning in Seoul',loading:'Unfolding the streets of Seoul…',preview:'Seoul preview · not your location',live:'Live GPS position · recorded journey',failed:'The map could not load. Retry, or meet your soul first.',retry:'Retry map',note:'Korean roads, parks and places from OpenStreetMap. This is not routing or confirmation that cycling is permitted.',privacy:'Tiles load from OpenFreeMap, which receives the viewed area and your IP. Your full GPS trail is not uploaded.'},zh:{title:'今天，会遇见怎样的风景',subtitle:'从首尔展开的一张小地图',loading:'正在展开首尔的街道…',preview:'首尔预览 · 不是你的定位',live:'真实 GPS 位置 · 已记录的旅程',failed:'地图暂时未能加载。可以重试，也可以先认识灵魂。',retry:'重新加载地图',note:'使用 OpenStreetMap 的韩国道路、公园与名胜数据；不提供导航或确认自行车通行权限。',privacy:'地图瓦片来自 OpenFreeMap，供应方会接收显示区域和 IP，不会收到完整 GPS 轨迹。'}};
@@ -13,23 +14,37 @@ const controls=(lang,region='all')=>{
 };
 export function mapMarkup(language='ko',compact=false){
  const lang=COPY[language]?language:'ko',c=COPY[lang],l=LANDMARK_COPY[lang];
- return `<section class="korea-map ${compact?'compact-map':'discovery-map'}" data-korea-map data-no-translate><div class="map-title"><div><span>KOREA / A LITTLE WORLD</span><h2 data-map-title>${c.title}</h2></div><span class="map-north" aria-hidden="true">N ↑</span></div><div class="map-viewport"><div class="korea-map-canvas" data-map-canvas role="region" aria-label="${l.explore}"></div><div class="map-loading" data-map-loading role="status"><span class="map-loading-orbit" aria-hidden="true">✧</span><p>${c.loading}</p><button data-map-retry hidden>${c.retry}</button></div><div class="map-quick-actions"><button type="button" data-map-all aria-label="${l.all}" title="${l.all}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6ZM9 3v15M15 6v15"/></svg></button><button type="button" data-map-location aria-label="${l.near}" title="${l.near}" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg></button></div></div><div class="map-caption"><span data-map-caption>${c.preview}</span><span class="map-key" data-map-place-word>${l.key}</span></div><div data-map-controls>${controls(lang)}</div><div data-map-detail class="map-place-detail" aria-live="polite" hidden></div><details class="map-privacy"><summary>${lang==='zh'?'地图数据与隐私':lang==='en'?'Map data & privacy':'지도 데이터와 개인정보'}</summary><p class="map-data-note" data-map-note>${c.note}</p><p data-map-privacy>${c.privacy}</p><a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> · <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">© OpenMapTiles</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors · ODbL</a><p>Landmarks: UNESCO · Visit Seoul · Wikimedia. <a href="/landmark-sources.html" target="_blank" rel="noopener">${l.source}</a></p></details></section>`;
+ return `<section class="korea-map ${compact?'compact-map':'discovery-map'}" data-korea-map data-no-translate><div class="map-title"><div><span>KOREA / A LITTLE WORLD</span><h2 data-map-title>${c.title}</h2></div><span class="map-north" aria-hidden="true">N ↑</span></div><div class="map-viewport"><button type="button" class="map-expand-button" data-map-fullscreen aria-label="${MAP_FULLSCREEN_COPY[lang].enter}" title="${MAP_FULLSCREEN_COPY[lang].enter}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/></svg><span>${MAP_FULLSCREEN_COPY[lang].enter}</span></button><div class="korea-map-canvas" data-map-canvas role="region" aria-label="${l.explore}"></div><div class="map-loading" data-map-loading role="status"><span class="map-loading-orbit" aria-hidden="true">✧</span><p>${c.loading}</p><button data-map-retry hidden>${c.retry}</button></div><div class="map-quick-actions"><button type="button" data-map-all aria-label="${l.all}" title="${l.all}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6ZM9 3v15M15 6v15"/></svg></button><button type="button" data-map-location aria-label="${l.near}" title="${l.near}" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg></button></div></div><div class="map-caption"><span data-map-caption>${c.preview}</span><span class="map-key" data-map-place-word>${l.key}</span></div><div data-map-controls>${controls(lang)}</div><div data-map-detail class="map-place-detail" aria-live="polite" hidden></div><details class="map-privacy"><summary>${lang==='zh'?'地图数据与隐私':lang==='en'?'Map data & privacy':'지도 데이터와 개인정보'}</summary><p class="map-data-note" data-map-note>${c.note}</p><p data-map-privacy>${c.privacy}</p><a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> · <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">© OpenMapTiles</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors · ODbL</a><p>Landmarks: UNESCO · Visit Seoul · Wikimedia. <a href="/landmark-sources.html" target="_blank" rel="noopener">${l.source}</a></p></details></section>`;
 }
 export class KoreaMap{
- constructor({getLanguage=()=> 'ko'}={}){this.getLanguage=getLanguage;this.epoch=0;this.markers=[];this.region='all';}
+ constructor({getLanguage=()=> 'ko'}={}){
+  this.getLanguage=getLanguage;this.epoch=0;this.markers=[];this.region='all';
+  this.fullscreen=new MapFullscreen({getRoot:()=>this.root,getLanguage:()=>this.lang,onResize:()=>{
+   const gestures=this.map?.cooperativeGestures;
+   if(this.fullscreen.active)gestures?.disable();else gestures?.enable();
+   this.map?.resize?.();
+  }});
+ }
  get lang(){return COPY[this.getLanguage()]?this.getLanguage():'ko';}
  get places(){return KOREA_LANDMARKS.filter(p=>this.region==='all'||p.region===this.region);}
  attach(root,points=[]){
   this.destroy();if(!root)return;this.root=root;this.points=points;this.region='all';this.manualBrowse=false;this.state='loading';
   this.onClick=e=>{
+   const expand=e.target.closest('[data-map-fullscreen]');
+   if(expand)this.fullscreen.open(expand);
    const b=e.target.closest('[data-map-place]');
    if(b)this.selectPlace(b.dataset.mapPlace);
    if(e.target.closest('[data-map-all]'))this.setRegion('all');
    if(e.target.closest('[data-map-location]')&&this.points?.length){this.manualBrowse=false;this.region='all';this.selected=null;this.renderControls();this.update(this.points,true);this.addPlaces();}
    if(e.target.closest('[data-map-close]')){this.selected=null;this.renderDetail();}
-   if(e.target.closest('[data-map-retry]'))this.attach(root,this.points);
+   if(e.target.closest('[data-map-retry]')){
+    const expanded=this.fullscreen.active;this.attach(root,this.points);
+    if(expanded)this.fullscreen.open(root.querySelector('[data-map-fullscreen]'));
+   }
   };
   this.onChange=e=>{if(e.target.matches('[data-map-region]'))this.setRegion(e.target.value);};
+  this.onToggle=e=>{if(this.fullscreen.active&&e.target.matches('.map-tools')&&e.target.open){this.selected=null;this.renderDetail();}};
+  root.addEventListener('toggle',this.onToggle,true);
   root.addEventListener('click',this.onClick);root.addEventListener('change',this.onChange);this.renderControls();
   if(typeof ResizeObserver!=='undefined'){
    this.mapResize=new ResizeObserver(entries=>{const size=entries[0]?.contentRect;if(size?.width>0&&size?.height>0)this.map?.resize();});
@@ -45,7 +60,7 @@ export class KoreaMap{
    const lib=await loadLibrary();if(serial!==this.epoch||!root.isConnected)return;this.lib=lib;
    lib.setWorkerUrl(`/vendor/maplibre/maplibre-gl-worker.mjs?v=${BUILD}`);
    const accent=getComputedStyle(root).getPropertyValue('--accent').trim()||'#187962';
-   this.map=new lib.Map({container:root.querySelector('[data-map-canvas]'),style:koreaMapStyle(this.lang,accent),center:[126.997,37.557],zoom:11.4,minZoom:4,maxZoom:18,attributionControl:{compact:true},cooperativeGestures:true,localIdeographFontFamily:'sans-serif',canvasContextAttributes:{antialias:false},fadeDuration:0});
+   this.map=new lib.Map({container:root.querySelector('[data-map-canvas]'),style:koreaMapStyle(this.lang,accent),center:[126.997,37.557],zoom:11.4,minZoom:4,maxZoom:18,attributionControl:{compact:true},cooperativeGestures:!this.fullscreen.active,localIdeographFontFamily:'sans-serif',canvasContextAttributes:{antialias:false},fadeDuration:0});
    this.map.addControl(new lib.NavigationControl({showCompass:false}),'top-right');
    this.map.addControl(new lib.ScaleControl({maxWidth:88,unit:'metric'}),'bottom-left');
    this.map.on('resize',()=>this.addPlaces());
@@ -85,6 +100,10 @@ export class KoreaMap{
  selectPlace(id){
   const p=KOREA_LANDMARKS.find(p=>p.id===id);if(!p)return;
   this.selected=p;this.manualBrowse=true;this.renderDetail();
+  if(this.fullscreen.active){
+   const tools=this.root.querySelector('.map-tools');if(tools)tools.open=false;
+   this.root.querySelector('[data-map-close]')?.focus({preventScroll:true});
+  }
   if(this.state==='ready')this.map.flyTo({center:[p.lon,p.lat],zoom:p.kind==='nature'?12:15,duration:600});
   this.root.querySelector('[data-map-caption]').textContent=localized(p.name,this.lang);
  }
@@ -134,6 +153,7 @@ export class KoreaMap{
  }
  language(){
   if(!this.root)return;const lang=this.lang,c=COPY[lang],l=LANDMARK_COPY[lang];
+  this.fullscreen.language();
   this.root.querySelector('[data-map-canvas]').setAttribute('aria-label',l.explore);
   this.root.querySelector('.map-privacy summary').textContent=lang==='zh'?'地图数据与隐私':lang==='en'?'Map data & privacy':'지도 데이터와 개인정보';
   this.root.querySelector('.map-privacy a[href="/landmark-sources.html"]').textContent=l.source;
@@ -150,8 +170,9 @@ export class KoreaMap{
   else if(this.state==='failed')this.fail(this.epoch);
  }
  destroy(){
+  this.fullscreen.destroy();
   this.epoch++;clearTimeout(this.timer);this.observer?.disconnect();this.mapResize?.disconnect();this.mapResize=null;
-  if(this.root){this.root.removeEventListener('click',this.onClick);this.root.removeEventListener('change',this.onChange);}
+  if(this.root){this.root.removeEventListener('click',this.onClick);this.root.removeEventListener('change',this.onChange);this.root.removeEventListener('toggle',this.onToggle,true);}
   for(const m of this.markers)m.marker.remove();this.markers=[];this.selected=null;
   this.position?.remove();this.position=null;this.map?.remove();this.map=null;this.root=null;
  }

@@ -1,1 +1,1 @@
-export const BUILD = '20261020-maproom11';
+export const BUILD = '20261020-fullmap12';
