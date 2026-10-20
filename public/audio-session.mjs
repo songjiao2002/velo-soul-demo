@@ -26,10 +26,13 @@ export class ConversationAudioSession {
  captureReady(owner){
   if(!this.inputs.has(owner))return;
   try{const session=this.navigator?.audioSession;if(session)session.type='play-and-record';}catch{/* Optional API. */}
+  // Permission can reveal device names; refresh metadata without new capture.
+  void this.devices?.refresh();
  }
  getOutput(){return this.devices?.destination()||this.getContext().destination;}
  release(owner){
   if(!this.inputs.delete(owner)||this.inputs.size)return;
+  this.devices?.notify();
   this.epoch++;this.cancelWaits();this.pending=null;
   try{const session=this.navigator?.audioSession;if(session?.type==='play-and-record')session.type=this.previousType||'auto';}catch{}
  }

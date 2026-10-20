@@ -7,3 +7,7 @@ export const AUDIO_OUTPUT_COPY={
 Object.assign(AUDIO_OUTPUT_COPY.zh,{system:'跟随设备（默认）',guard:'防止意外外放',guardHint:'选择蓝牙后开启。未指定可用设备时静音；每次重新打开默认跟随设备。',release:'关闭保护并跟随设备',protected:'防外放保护已开启，声音已暂停。请选择具体播放设备，或明确切回跟随设备。'});
 Object.assign(AUDIO_OUTPUT_COPY.en,{system:'Follow device (default)',guard:'Prevent unintended speaker playback',guardHint:'Enabled when choosing Bluetooth. Muted until an available output is selected. Reopening starts with the device default.',release:'Disable protection & follow device',protected:'Output protection is on. Sound is paused. Choose an available output or explicitly follow the device default.'});
 Object.assign(AUDIO_OUTPUT_COPY.ko,{system:'기기 설정 따르기 (기본)',guard:'의도하지 않은 스피커 재생 방지',guardHint:'블루투스 선택 시 켜져요. 사용할 기기를 지정할 때까지 음소거해요. 다시 열면 기기 기본 출력을 따라요.',release:'보호 해제 후 기기 설정 따르기',protected:'출력 보호가 켜져 소리를 멈췄어요. 사용 가능한 재생 기기를 선택하거나 기기 기본 출력으로 변경해주세요.'});
+
+Object.assign(AUDIO_OUTPUT_COPY.zh,{refreshing:'正在更新设备…',notChosen:'未选择新设备，或浏览器未允许选择。当前输出与保护设置保持不变。'});
+Object.assign(AUDIO_OUTPUT_COPY.en,{refreshing:'Updating devices…',notChosen:'No new device was chosen, or permission was not granted. Output and protection settings are unchanged.'});
+Object.assign(AUDIO_OUTPUT_COPY.ko,{refreshing:'기기를 새로 확인하고 있어요…',notChosen:'새 기기를 선택하지 않았거나 권한이 허용되지 않았어요. 현재 출력과 보호 설정은 유지돼요.'});

@@ -9,12 +9,15 @@ export class AudioDevices {
   session.devices=this;try{session.playbackMode=globalThis.localStorage?.getItem('velo-audio-playback')==='media'?'media':'stream';}catch{session.playbackMode='stream';}
   // Each page starts on the device's current output; output choices are session-only.
   this.protection=false;
-  this.changed=()=>{if(this.selected){this.gate(false);this.state='checking';this.notify();}void this.refresh();};
+  this.changed=()=>{if(this.selected){this.gate(false);if(this.state!=='checking'){this.state='checking';this.notify();}}void this.refresh();};
+  this.sinkChanged=()=>{if(!this.settingSink)this.changed();};
+  this.visible=()=>{if(!session.document?.hidden)this.changed();};
   mediaDevices?.addEventListener?.('devicechange',this.changed);
+  session.document?.addEventListener?.('visibilitychange',this.visible);
  }
  destination(){
   const context=this.session.getContext();
-  if(this.context!==context){this.context?.removeEventListener?.('sinkchange',this.changed);this.context=context;this.gain=context.createGain();this.gain.gain.value=this.selected||this.protection?0:1;this.gain.connect(context.destination);context.addEventListener?.('sinkchange',this.changed);}
+  if(this.context!==context){this.context?.removeEventListener?.('sinkchange',this.sinkChanged);this.context=context;this.gain=context.createGain();this.gain.gain.value=this.selected||this.protection||!this.canPlay()?0:1;this.gain.connect(context.destination);context.addEventListener?.('sinkchange',this.sinkChanged);}
   return this.gain;
  }
  gate(open){if(this.protection&&(!this.selected||this.state!=='selected'))open=false;if(this.gain)this.gain.gain.value=open?1:0;if(this.session.nativeSpeech?.audio)this.session.nativeSpeech.audio.muted=!open;}
@@ -31,19 +34,37 @@ export class AudioDevices {
  notify(){this.onChange(this);}
  canSelectOutput(){return this.session.playbackMode==='media'?typeof this.session.nativeSpeech?.audio?.setSinkId==='function':typeof this.session.Context?.prototype?.setSinkId==='function'||typeof this.session.context?.setSinkId==='function';}
  outputTarget(){return this.session.playbackMode==='media'?this.session.nativeSpeech?.audio:this.session.getContext();}
- async setPlaybackMode(mode){
+ async setSink(target,id){
+  if(target.sinkId===id)return;
+  this.settingSink=(this.settingSink||0)+1;
+  try{await target.setSinkId(id);}finally{this.settingSink--;}
+ }
+ queueOutput(action){
+  const task=Promise.resolve(this.selecting).catch(()=>{}).then(action).finally(()=>{if(this.selecting===task)this.selecting=null;});this.selecting=task;return task;
+ }
+ setPlaybackMode(mode){return this.queueOutput(()=>this.applyPlaybackMode(mode));}
+ async applyPlaybackMode(mode){
+  if(this.disposed)throw Error('cancelled');
   if(!['media','stream'].includes(mode))throw Error('unsupported');
   if(this.session.inputs.size)throw Error('busy');
   const target=mode==='media'?this.session.nativeSpeech?.audio:this.session.getContext();
   if(!target||(this.selected&&typeof target.setSinkId!=='function'))throw Error('unsupported');
-  this.epoch++;this.gate(false);
-  try{if(typeof target.setSinkId==='function')await target.setSinkId(this.selected?.deviceId||'');}
+  const epoch=++this.epoch;this.gate(false);
+  try{if(typeof target.setSinkId==='function')await this.setSink(target,this.selected?.deviceId||'');if(epoch!==this.epoch)throw Error('cancelled');}
   catch(error){this.state='unavailable';this.notify();throw error;}
   this.session.playbackMode=mode;this.state=this.selected?'selected':this.protection?'protected':'system';
   try{globalThis.localStorage?.setItem('velo-audio-playback',mode);}catch{}
   this.gate(true);this.notify();
  }
- async refresh(){
+ refresh(){
+  if(this.disposed)return Promise.resolve();
+  if(this.refreshing){this.refreshAgain=true;return this.refreshing;}
+  const task=Promise.resolve().then(async()=>{
+   do{this.refreshAgain=false;await this.refreshOnce();}while(this.refreshAgain&&!this.disposed);
+  }).finally(()=>{if(this.refreshing===task)this.refreshing=null;});
+  this.refreshing=task;return task;
+ }
+ async refreshOnce(){
   if(this.disposed)return;
   if(this.selecting){try{await this.selecting;}catch{}if(this.disposed)return;}
   const epoch=++this.epoch;
@@ -54,16 +75,18 @@ export class AudioDevices {
     const present=this.devices.some(d=>d.kind==='audiooutput'&&d.deviceId===this.selected.deviceId);
     if(!present){this.gate(false);this.state='missing';}
     else{
-     const context=this.outputTarget();
-     await context.setSinkId(this.selected.deviceId);if(epoch!==this.epoch)return;
-     this.state='selected';this.gate(true);
+     // Recovery shares the selection queue so a slow old sink change cannot
+     // finish after a newer user choice and silently overwrite it.
+     await this.queueOutput(async()=>{if(epoch===this.epoch)await this.setSink(this.outputTarget(),this.selected.deviceId);});if(epoch!==this.epoch)return;
+     const label=this.devices.find(d=>d.kind==='audiooutput'&&d.deviceId===this.selected.deviceId)?.label;if(label)this.selected.label=label;
+     this.state=this.refreshAgain?'checking':'selected';this.gate(!this.refreshAgain);
     }
    }
   }catch{if(epoch!==this.epoch)return;if(this.selected){this.gate(false);this.state='unavailable';}}
   if(epoch===this.epoch)this.notify();
  }
  selectOutput(device){
-  const task=Promise.resolve(this.selecting).catch(()=>{}).then(()=>this.applyOutput(device)).finally(()=>{if(this.selecting===task)this.selecting=null;});this.selecting=task;return task;
+  return this.queueOutput(()=>this.applyOutput(device));
  }
  async applyOutput(device){
   if(this.disposed)throw Error('cancelled');
@@ -72,7 +95,7 @@ export class AudioDevices {
   const context=this.outputTarget(),epoch=++this.epoch;
   if(this.session.playbackMode!=='media')this.destination();this.gate(false);this.state='checking';this.notify();
   try{
-   await context.setSinkId(device?.deviceId||'');if(epoch!==this.epoch)return;
+   await this.setSink(context,device?.deviceId||'');if(epoch!==this.epoch)return;
    this.selected=device?.deviceId?{deviceId:device.deviceId,label:device.label||''}:null;
    this.state=this.selected?'selected':this.protection?'protected':'system';this.gate(true);this.notify();
   }catch(error){if(epoch===this.epoch){this.state='unavailable';this.gate(false);this.notify();}throw error;}
@@ -95,7 +118,7 @@ export class AudioDevices {
    const node=context.createMediaElementSource(audio);node.connect(this.destination());this.media.set(audio,node);return true;
   }catch{return false;}
  }
- dispose(){this.disposed=true;this.epoch++;this.mediaDevices?.removeEventListener?.('devicechange',this.changed);this.context?.removeEventListener?.('sinkchange',this.changed);for(const node of this.media.values())node.disconnect();this.media.clear();this.gain?.disconnect();}
+ dispose(){this.disposed=true;this.epoch++;this.gate(false);this.mediaDevices?.removeEventListener?.('devicechange',this.changed);this.session.document?.removeEventListener?.('visibilitychange',this.visible);this.context?.removeEventListener?.('sinkchange',this.sinkChanged);for(const node of this.media.values())node.disconnect();this.media.clear();this.gain?.disconnect();}
 }
 
 export const AUDIO_DEVICE_COPY={
@@ -116,18 +139,23 @@ export function createAudioDeviceUI({devices,getLanguage,prepare,onTest,onModeCh
  const compat=()=>AUDIO_COMPAT_COPY[getLanguage()]||AUDIO_COMPAT_COPY.en;
  const environment=browserAudioContext(devices.session.navigator?.userAgent||'');
  const links=()=>companionBrowserLinks(document.location.href);
- let result='',outputIntent='',pickerPending=false;
+ let result='',outputIntent='',pickerPending=false,refreshPending=false;
  const outputCopy=()=>AUDIO_OUTPUT_COPY[getLanguage()]||AUDIO_OUTPUT_COPY.en;
  function compatibilityMarkup(){const c=compat(),url=links(),active=devices.session.inputs.size>0,mode=devices.session.playbackMode||'stream';return `<section class="audio-compatibility">${environment.embedded?`<div class="audio-app-warning"><b>${c.inside.replace('{app}',esc(environment.host))}</b><p>${c.embedded}</p><p>${c.outside}</p></div>`:''}<label>${c.mode}<select data-playback-mode ${active?'disabled':''}><option value="stream" ${mode==='stream'?'selected':''}>${c.stream}</option><option value="media" ${mode==='media'?'selected':''}>${c.media}</option></select></label><p class="small">${active?c.pause:c.modeHint}</p><button type="button" class="secondary" data-media-test ${active?'disabled':''}>${c.sample}</button><p class="small">${c.sampleHint}</p><details class="audio-external" ${environment.embedded?'open':''}><summary>${c.links}</summary>${environment.android?`<div class="audio-browser-links"><a class="secondary" href="${esc(url.chrome)}">${c.chrome}</a><a class="secondary" href="${esc(url.samsung)}">${c.samsung}</a></div>`:''}<p class="small">${c.fallback}</p><button type="button" class="secondary" data-copy-browser-link>${c.copy}</button><input class="audio-copy-link" aria-label="${c.copy}" readonly value="${esc(url.link)}"><p class="small">${c.handoff}</p></details><p class="small">${c.unverified}</p></section>`;}
 
  const options=(kind,selected)=>`<option value="">${copy().system}</option>`+(selected&&!devices.devices.some(d=>d.kind===kind&&d.deviceId===selected)?`<option value="${esc(selected)}" selected disabled>${copy().missingDevice}</option>`:'')+devices.devices.filter(d=>d.kind===kind&&d.deviceId&&d.deviceId!=='default'&&d.deviceId!=='communications').map(d=>`<option value="${esc(d.deviceId)}" ${d.deviceId===selected?'selected':''}>${esc(d.label||copy()[kind==='audioinput'?'input':'output'])}</option>`).join('');
- function outputMarkup(){const c=outputCopy(),selectable=devices.canSelectOutput(),busy=pickerPending||devices.state==='checking',outputs=devices.devices.filter(d=>d.kind==='audiooutput'&&d.deviceId&&d.deviceId!=='default'&&d.deviceId!=='communications');return `<section class="audio-output-section"><div class="audio-output-actions"><button type="button" data-output-intent="bluetooth" ${busy?'disabled':''}>♬ <span>${c.bluetooth}</span></button><button type="button" data-output-intent="speaker" ${busy?'disabled':''}>◖ <span>${c.speaker}</span></button></div><p class="audio-output-guidance" data-output-guidance role="status">${pickerPending?c.pending:outputIntent==='system'?c.systemHelp:outputIntent?(selectable?c[outputIntent==='bluetooth'?'pickBluetooth':'pickSpeaker']:c.manual+' '+c[outputIntent==='bluetooth'?'bluetoothHelp':outputIntent==='speaker'?'speakerHelp':'systemHelp']):''}</p>${selectable?`<div class="audio-output-list" role="group" aria-label="${c.list}">${outputs.map(d=>`<button type="button" data-output-device="${esc(d.deviceId)}" aria-pressed="${devices.state==='selected'&&devices.selected?.deviceId===d.deviceId}" ${busy?'disabled':''}><span>${esc(d.label||copy().output)}</span>${devices.state==='selected'&&devices.selected?.deviceId===d.deviceId?`<small>✓ ${c.chosen}</small>`:''}</button>`).join('')}</div>${!outputs.length?`<p class="small">${c.empty}</p>`:''}<label class="audio-output-select">${copy().output}<select data-device-output ${busy?'disabled':''}>${options('audiooutput',devices.selected?.deviceId)}</select></label>${devices.mediaDevices?.selectAudioOutput?`<button class="secondary" type="button" data-device-picker ${busy?'disabled':''}>${copy().choose}</button>`:''}`:`<p class="audio-device-limited">${copy().limited}</p>`}<button class="audio-system-output" type="button" data-output-system ${busy?'disabled':''}>${devices.protection?c.release:c.system}</button><label class="audio-output-protection"><input type="checkbox" data-output-protection ${devices.protection?'checked':''} ${busy?'disabled':''}><span>${c.guard}</span></label><p class="small">${c.guardHint}</p><p class="small">${c.note}</p></section>`;}
- function paint(){const c=copy(),o=outputCopy();document.querySelectorAll('[data-audio-route-status]').forEach(el=>{el.textContent=['missing','unavailable','checking','protected'].includes(devices.state)?c[devices.state]:'';});if(!dialog.open)return;dialog.innerHTML=`<div class="audio-device-heading"><h2 id="audioDeviceTitle">${o.title}</h2><button type="button" data-device-close aria-label="${c.close}">×</button></div><p class="audio-route-status" role="status">${c[devices.state==='system'?'systemStatus':devices.state]}${devices.state==='selected'&&devices.selected.label?' · '+esc(devices.selected.label):''}</p>${outputMarkup()}<div class="audio-device-actions"><button class="secondary" type="button" data-device-refresh>${c.refresh}</button><button class="primary" type="button" data-device-test>${c.test}</button></div><p class="small" data-device-result role="status">${esc(result)}</p><details class="audio-advanced"><summary>${o.advanced}</summary><p>${c.hint}</p>${compatibilityMarkup()}</details><details class="audio-microphone"><summary>${o.mic}</summary><label>${c.input}<select data-device-input>${options('audioinput',devices.session.inputDeviceId)}</select></label><p class="small">${c.current}${esc(devices.inputLabel()||c.unknown)}</p><p class="small">${c.inputHint}</p></details><p class="small">${c.privacy}</p>`;}
+ function outputMarkup(){const c=outputCopy(),selectable=devices.canSelectOutput(),busy=pickerPending||devices.state==='checking',outputs=devices.devices.filter(d=>d.kind==='audiooutput'&&d.deviceId&&d.deviceId!=='default'&&d.deviceId!=='communications');return `<section class="audio-output-section"><button class="audio-system-output" type="button" aria-pressed="${devices.state==='system'}" data-output-system ${busy?'disabled':''}>${devices.protection?c.release:c.system}</button><div class="audio-output-actions"><button type="button" data-output-intent="bluetooth" ${busy?'disabled':''}>♬ <span>${c.bluetooth}</span></button><button type="button" data-output-intent="speaker" ${busy?'disabled':''}>◖ <span>${c.speaker}</span></button></div><p class="audio-output-guidance" data-output-guidance role="status">${pickerPending?c.pending:outputIntent==='system'?c.systemHelp:outputIntent?(selectable?c[outputIntent==='bluetooth'?'pickBluetooth':'pickSpeaker']:c.manual+' '+c[outputIntent==='bluetooth'?'bluetoothHelp':outputIntent==='speaker'?'speakerHelp':'systemHelp']):''}</p>${selectable?`<div class="audio-output-list" role="group" aria-label="${c.list}">${outputs.map(d=>`<button type="button" data-output-device="${esc(d.deviceId)}" aria-pressed="${devices.state==='selected'&&devices.selected?.deviceId===d.deviceId}" ${busy?'disabled':''}><span>${esc(d.label||copy().output)}</span>${devices.state==='selected'&&devices.selected?.deviceId===d.deviceId?`<small>✓ ${c.chosen}</small>`:''}</button>`).join('')}</div>${!outputs.length?`<p class="small">${c.empty}</p>`:''}<label class="audio-output-select">${copy().output}<select data-device-output ${busy?'disabled':''}>${options('audiooutput',devices.selected?.deviceId)}</select></label>${devices.mediaDevices?.selectAudioOutput?`<button class="secondary" type="button" data-device-picker ${busy?'disabled':''}>${copy().choose}</button>`:''}`:`<p class="audio-device-limited">${copy().limited}</p>`}<label class="audio-output-protection"><input type="checkbox" data-output-protection ${devices.protection?'checked':''} ${busy?'disabled':''}><span>${c.guard}</span></label><p class="small">${c.guardHint}</p><p class="small">${c.note}</p></section>`;}
+ function paint(){const c=copy(),o=outputCopy();document.querySelectorAll('[data-audio-devices]').forEach(el=>{if(el.textContent!==c.button)el.textContent=c.button;});document.querySelectorAll('[data-audio-route-status]').forEach(el=>{el.textContent=['missing','unavailable','checking','protected'].includes(devices.state)?c[devices.state]:'';});if(!dialog.open)return;
+ const expanded=[...dialog.querySelectorAll('details')].map(el=>({name:el.className,open:el.open})),scroll=dialog.scrollTop,active=document.activeElement;
+ const focus=dialog.contains(active)?[...active.attributes].find(a=>a.name.startsWith('data-')):null;
+ dialog.innerHTML=`<div class="audio-device-heading"><h2 id="audioDeviceTitle">${o.title}</h2><button type="button" data-device-close aria-label="${c.close}">×</button></div><p class="audio-route-status" role="status">${c[devices.state==='system'?'systemStatus':devices.state]}${devices.state==='selected'&&devices.selected.label?' · '+esc(devices.selected.label):''}</p>${outputMarkup()}<div class="audio-device-actions"><button class="secondary" type="button" data-device-refresh ${refreshPending?'disabled':''}>${refreshPending?o.refreshing:c.refresh}</button><button class="primary" type="button" data-device-test>${c.test}</button></div><p class="small" data-device-result role="status">${esc(result)}</p><details class="audio-advanced"><summary>${o.advanced}</summary><p>${c.hint}</p>${compatibilityMarkup()}</details><details class="audio-microphone"><summary>${o.mic}</summary><label>${c.input}<select data-device-input>${options('audioinput',devices.session.inputDeviceId)}</select></label><p class="small">${c.current}${esc(devices.inputLabel()||c.unknown)}</p><p class="small">${c.inputHint}</p></details><p class="small">${c.privacy}</p>`;for(const item of expanded){const el=[...dialog.querySelectorAll('details')].find(el=>el.className===item.name);if(el)el.open=item.open;}if(focus){const el=[...dialog.querySelectorAll('button,select,input')].find(el=>el.getAttribute(focus.name)===focus.value);el?.focus({preventScroll:true});}dialog.scrollTop=scroll;}
  devices.onChange=paint;
- async function pickOutput(){if(pickerPending)return;pickerPending=true;paint();try{await devices.chooseOutput();result='';}catch(error){result=copy().error;}finally{pickerPending=false;paint();}}
+ document.addEventListener('change',e=>{if(e.target.id==='languageSelect')queueMicrotask(paint);});
+ async function refreshList(){if(refreshPending)return;refreshPending=true;paint();try{await devices.refresh();}finally{refreshPending=false;paint();}}
+ async function pickOutput(){if(pickerPending)return;pickerPending=true;paint();try{await devices.chooseOutput();result='';}catch(error){result=error.name==='NotAllowedError'?outputCopy().notChosen:copy().error;}finally{pickerPending=false;paint();}}
  async function selectNamedOutput(id){const device=devices.devices.find(d=>d.kind==='audiooutput'&&d.deviceId===id);if(!device)throw Error('missing-device');await devices.selectOutput(device);result='';}
  const error=()=>{result=copy().error;const el=dialog.querySelector('[data-device-result]');if(el)el.textContent=result;};
- document.addEventListener('click',e=>{if(e.target.closest('[data-audio-devices]')){if(!dialog.open)dialog.showModal();paint();void devices.refresh();}});
+ document.addEventListener('click',e=>{if(e.target.closest('[data-audio-devices]')){if(!dialog.open)dialog.showModal();paint();void refreshList();}});
  dialog.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;
   if(b.hasAttribute('data-device-close'))dialog.close();
   if(b.dataset.outputIntent){outputIntent=b.dataset.outputIntent;result='';if(outputIntent==='bluetooth')devices.protectSelection();paint();if(devices.canSelectOutput()){if(devices.mediaDevices?.selectAudioOutput)void pickOutput();else dialog.querySelector('[data-device-output]')?.focus();}return;}
@@ -135,7 +163,7 @@ export function createAudioDeviceUI({devices,getLanguage,prepare,onTest,onModeCh
   if(b.hasAttribute('data-output-system')){try{await devices.followSystem();outputIntent='system';result='';paint();}catch{error();}return;}
   if(b.hasAttribute('data-copy-browser-link')){try{await devices.session.navigator?.clipboard?.writeText(links().link);if(!devices.session.navigator?.clipboard?.writeText)throw Error('clipboard');result=compat().copied;}catch{result=compat().copyFailed;}paint();}
   if(b.hasAttribute('data-media-test')){if(!devices.canPlay()){result=copy()[devices.state];paint();return;}if(devices.session.inputs.size){result=compat().pause;paint();return;}try{onModeChange();devices.session.nativeSpeech?.prepare();await devices.setPlaybackMode('media');result=compat().sampleHint;paint();prepare();onTest(copy().testLine,getLanguage()==='ko'?'ko':'en',{sample:true});}catch{error();}}
-  if(b.hasAttribute('data-device-refresh'))void devices.refresh();
+  if(b.hasAttribute('data-device-refresh'))void refreshList();
   if(b.hasAttribute('data-device-picker'))void pickOutput();
   if(b.hasAttribute('data-device-test')){if(!devices.canPlay()){result=copy()[devices.state];paint();return;}prepare();if(onTest(copy().testLine,getLanguage()==='ko'?'ko':'en')===false)dialog.querySelector('[data-device-result]').textContent=copy().busy;}
  });

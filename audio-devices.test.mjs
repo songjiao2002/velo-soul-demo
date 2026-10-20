@@ -29,7 +29,7 @@ test('denied selection never silently falls back to speaker, while system defaul
  context.setSinkId=original;await a.devices.selectOutput(null);assert.equal(a.devices.state,'system');assert.equal(a.devices.gain.gain.value,1);a.session.dispose();
 });
 test('an old device enumeration cannot overwrite a newer output selection',async()=>{
- const a=setup();let resolve;a.media.enumerateDevices=()=>new Promise(r=>resolve=r);const old=a.devices.refresh();
+ const a=setup();let resolve;a.media.enumerateDevices=()=>new Promise(r=>resolve=r);const old=a.devices.refresh();await flush();
  await a.devices.selectOutput({deviceId:'headphones'});resolve([]);await old;
  assert.equal(a.devices.selected.deviceId,'headphones');assert.equal(a.devices.state,'selected');a.session.dispose();
 });
@@ -79,4 +79,35 @@ test('switching playback mode after returning to device default clears an inacti
  const a=setup();const audio={muted:false,sinkId:'',async setSinkId(id){this.sinkId=id;}};a.session.nativeSpeech={audio};
  await a.devices.setPlaybackMode('media');await a.devices.selectOutput({deviceId:'headphones'});await a.devices.setPlaybackMode('stream');await a.devices.followSystem();
  assert.equal(audio.sinkId,'headphones');await a.devices.setPlaybackMode('media');assert.equal(audio.sinkId,'');assert.equal(a.devices.state,'system');assert.equal(audio.muted,false);a.session.dispose();
+});
+test('device event bursts share one inventory request and do not reset a healthy output',async()=>{
+ const a=setup();await a.devices.selectOutput({deviceId:'headphones'});let reads=0,binds=0,finish;
+ a.media.enumerateDevices=()=>{reads++;return new Promise(r=>finish=r);};a.session.context.setSinkId=async()=>{binds++;};
+ for(let i=0;i<20;i++)a.media.dispatchEvent(new Event('devicechange'));await flush();assert.equal(reads,1);assert.equal(a.devices.gain.gain.value,0);
+ const task=a.devices.refreshing;finish([{kind:'audiooutput',deviceId:'headphones',label:'Headset'}]);await task;
+ assert.equal(reads,1);assert.equal(binds,0);assert.equal(a.devices.state,'selected');assert.equal(a.devices.selected.label,'Headset');assert.equal(a.devices.gain.gain.value,1);a.session.dispose();
+});
+test('events arriving during an inventory read trigger one final check for a new disconnect',async()=>{
+ const a=setup();await a.devices.selectOutput({deviceId:'headphones'});let reads=0,finish,finishLast;
+ a.media.enumerateDevices=()=>{reads++;return reads===1?new Promise(r=>finish=r):new Promise(r=>finishLast=r);};const pending=a.devices.refresh();await flush();
+ for(let i=0;i<20;i++)a.media.dispatchEvent(new Event('devicechange'));finish([{kind:'audiooutput',deviceId:'headphones'}]);await flush();assert.equal(a.devices.gain.gain.value,0);finishLast([]);await pending;
+ assert.equal(reads,2);assert.equal(a.devices.state,'missing');assert.equal(a.devices.gain.gain.value,0);a.session.dispose();
+});
+test('a slow recovery sink cannot finish after and overwrite a newer explicit output choice',async()=>{
+ const a=setup();await a.devices.selectOutput({deviceId:'headphones'});const context=a.session.context;context.sinkId='';let finish;
+ context.setSinkId=id=>id==='headphones'?new Promise(r=>finish=()=>{context.sinkId=id;r();}):Promise.resolve(context.sinkId=id);
+ const recovery=a.devices.refresh();await flush();assert.equal(typeof finish,'function');const selection=a.devices.selectOutput({deviceId:'speaker'});finish();await recovery;await selection;
+ assert.equal(context.sinkId,'speaker');assert.equal(a.devices.selected.deviceId,'speaker');assert.equal(a.devices.state,'selected');a.session.dispose();
+});
+test('returning from phone settings rechecks only the selected output and disposal removes the listener',async()=>{
+ const doc=new EventTarget();doc.hidden=false;const context={sinkId:'headphones',setSinkId:async()=>{throw Error('unneeded');}};let reads=0;
+ const session={inputs:new Map(),navigator:{mediaDevices:{enumerateDevices:async()=>{reads++;return [];}}},document:doc,getContext:()=>context};const devices=new AudioDevices({session});
+ devices.selected={deviceId:'headphones'};devices.state='selected';session.nativeSpeech={audio:{muted:false}};
+ doc.hidden=true;doc.dispatchEvent(new Event('visibilitychange'));await flush();assert.equal(reads,0);
+ doc.hidden=false;doc.dispatchEvent(new Event('visibilitychange'));assert.equal(session.nativeSpeech.audio.muted,true);await flush();assert.equal(devices.state,'missing');assert.equal(reads,1);
+ devices.dispose();doc.dispatchEvent(new Event('visibilitychange'));await flush();assert.equal(reads,1);
+});
+test('granting microphone permission refreshes device names without reacquiring capture',async()=>{
+ const a=setup();let reads=0;const owner={};a.media.enumerateDevices=async()=>{reads++;return [{kind:'audioinput',deviceId:'mic',label:'Headset microphone'}];};
+ a.session.acquire(owner,{getInput:()=>({label:'Headset microphone'})});a.session.captureReady(owner);await flush();assert.equal(reads,1);assert.equal(a.devices.inputLabel(),'Headset microphone');assert.equal(a.session.inputs.size,1);a.session.release(owner);assert.equal(a.devices.inputLabel(),'');a.session.dispose();
 });
