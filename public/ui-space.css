@@ -140,3 +140,65 @@
  .scene-map-layer .map-place-detail{right:364px;bottom:104px;max-height:35dvh}
 }
 @media(prefers-reduced-motion:reduce){.map-tools-chevron{transition:none}}
+
+/* Give geography the largest surface; keep secondary controls at its edges. */
+.home-arrival{max-width:1440px}
+.home-arrival .hero{gap:44px;align-items:center}
+.home-arrival .hero>.home-map-stack{width:65%}
+.home-arrival .hero h1{font-size:clamp(32px,3.7vw,52px)}
+.korea-map.discovery-map .korea-map-canvas{height:480px}
+.korea-map .map-title{padding:18px 22px 16px}
+.korea-map .map-title h2{font-size:18px;margin-top:5px}
+.korea-map .map-title>div>span{font-size:8px;letter-spacing:1.5px}
+.korea-map .map-caption{padding-top:12px}
+.korea-map .maplibregl-ctrl-top-right{top:8px;right:6px}
+.korea-map .maplibregl-ctrl-group{border:1px solid #d1d9c9;border-radius:14px;overflow:hidden;box-shadow:0 3px 14px #3b4a331c!important}
+.korea-map .maplibregl-ctrl-group button{width:44px;height:44px}
+.korea-map .maplibregl-ctrl-scale{font:10px/1.4 system-ui,sans-serif;background:#fffdf3d9;border-color:#65745d;color:#4c5c45;padding:2px 5px;box-sizing:border-box}
+.map-quick-actions{position:absolute;bottom:40px;left:14px;z-index:1;display:flex;gap:8px}
+.map-quick-actions button{display:grid;place-items:center;width:44px;height:44px;border:1px solid #cbd5c2;border-radius:14px;background:#fffdf7f5;color:#49633e;box-shadow:0 3px 14px #3b4a331c}
+.map-quick-actions button:disabled{opacity:.5;box-shadow:none}
+.map-quick-actions svg{width:21px;height:21px}
+.map-quick-actions button:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+
+/* Let the live map extend behind the floating header and to the voice panel.
+   Its existing bottom toolbar still reserves room for conversation controls. */
+.scene-map-layer .map-viewport{top:0;bottom:calc(var(--scene-map-bottom,330px) - 78px)}
+.scene-map-layer .map-quick-actions{display:none}
+.scene-map-layer .maplibregl-ctrl-top-right{top:calc(182px + env(safe-area-inset-top,0px));bottom:auto;right:6px}
+.scene-map-layer .maplibregl-ctrl-bottom-left{bottom:84px}
+.scene-map-layer .maplibregl-ctrl-bottom-right{bottom:84px}
+.camera-fullscreen[data-scene-mode=map] .camera-view{width:64px;height:76px;right:16px;top:calc(292px + env(safe-area-inset-top,0px));border-width:2px;border-radius:12px}
+.camera-fullscreen[data-scene-mode=map] .scene-camera-note{top:calc(373px + env(safe-area-inset-top,0px));width:90px;right:4px;font-size:8px}
+.scene-recenter{min-height:44px;max-width:calc(100% - 88px);font-size:12px;box-shadow:0 3px 14px #3b4a331c}
+
+@media(max-width:900px){
+ .home-arrival .hero{flex-direction:column;align-items:stretch;gap:30px}
+ .home-arrival .hero>.home-map-stack{width:100%}
+ .home-arrival .hero>div:first-child{max-width:620px}
+ .korea-map.discovery-map .korea-map-canvas{height:460px}
+}
+@media(max-width:760px){
+ .home-arrival .hero{gap:30px}
+ .home-arrival .hero h1{font-size:36px}
+ .home-map-stack>.korea-map{width:calc(100% + 16px);margin-left:-8px;border-radius:22px}
+ .korea-map.discovery-map .korea-map-canvas{height:420px;height:clamp(360px,55svh,520px)}
+ .korea-map .map-title{padding:16px 18px 14px}
+ .korea-map .map-title>div>span{display:none}
+ .korea-map .map-title h2{font-size:17px;margin:0}
+ .korea-map .map-tools{margin-inline:12px}
+ .korea-map .map-privacy{padding-inline:18px}
+ .korea-map .map-caption{padding-inline:18px}
+}
+@media(max-height:700px){
+ .scene-map-layer .map-viewport{top:0;bottom:calc(var(--scene-map-bottom,290px) - 78px)}
+ .scene-map-layer .maplibregl-ctrl-top-right{top:165px}
+ .camera-fullscreen[data-scene-mode=map] .camera-view{top:270px;width:54px;height:62px}
+ .camera-fullscreen[data-scene-mode=map] .scene-camera-note{top:336px;font-size:8px;width:76px}
+}
+@media(max-height:510px) and (orientation:landscape){
+ .scene-map-layer .map-viewport{top:0;bottom:24px;left:0;right:350px;width:auto}
+ .scene-map-layer .maplibregl-ctrl-top-right{top:150px;right:6px}
+ .scene-map-layer .maplibregl-ctrl-bottom-left,.scene-map-layer .maplibregl-ctrl-bottom-right{bottom:80px}
+ .camera-fullscreen[data-scene-mode=map] .camera-view,.camera-fullscreen[data-scene-mode=map] .scene-camera-note{display:none}
+}

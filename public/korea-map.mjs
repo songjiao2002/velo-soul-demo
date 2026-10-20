@@ -13,7 +13,7 @@ const controls=(lang,region='all')=>{
 };
 export function mapMarkup(language='ko',compact=false){
  const lang=COPY[language]?language:'ko',c=COPY[lang],l=LANDMARK_COPY[lang];
- return `<section class="korea-map ${compact?'compact-map':'discovery-map'}" data-korea-map data-no-translate><div class="map-title"><div><span>KOREA / A LITTLE WORLD</span><h2 data-map-title>${c.title}</h2></div><span class="map-north" aria-hidden="true">N ↑</span></div><div class="map-viewport"><div class="korea-map-canvas" data-map-canvas role="region" aria-label="${l.explore}"></div><div class="map-loading" data-map-loading role="status"><span class="map-loading-orbit" aria-hidden="true">✧</span><p>${c.loading}</p><button data-map-retry hidden>${c.retry}</button></div></div><div class="map-caption"><span data-map-caption>${c.preview}</span><span class="map-key" data-map-place-word>${l.key}</span></div><div data-map-controls>${controls(lang)}</div><div data-map-detail class="map-place-detail" aria-live="polite" hidden></div><details class="map-privacy"><summary>${lang==='zh'?'地图数据与隐私':lang==='en'?'Map data & privacy':'지도 데이터와 개인정보'}</summary><p class="map-data-note" data-map-note>${c.note}</p><p data-map-privacy>${c.privacy}</p><a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> · <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">© OpenMapTiles</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors · ODbL</a><p>Landmarks: UNESCO · Visit Seoul · Wikimedia. <a href="/landmark-sources.html" target="_blank" rel="noopener">${l.source}</a></p></details></section>`;
+ return `<section class="korea-map ${compact?'compact-map':'discovery-map'}" data-korea-map data-no-translate><div class="map-title"><div><span>KOREA / A LITTLE WORLD</span><h2 data-map-title>${c.title}</h2></div><span class="map-north" aria-hidden="true">N ↑</span></div><div class="map-viewport"><div class="korea-map-canvas" data-map-canvas role="region" aria-label="${l.explore}"></div><div class="map-loading" data-map-loading role="status"><span class="map-loading-orbit" aria-hidden="true">✧</span><p>${c.loading}</p><button data-map-retry hidden>${c.retry}</button></div><div class="map-quick-actions"><button type="button" data-map-all aria-label="${l.all}" title="${l.all}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6ZM9 3v15M15 6v15"/></svg></button><button type="button" data-map-location aria-label="${l.near}" title="${l.near}" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg></button></div></div><div class="map-caption"><span data-map-caption>${c.preview}</span><span class="map-key" data-map-place-word>${l.key}</span></div><div data-map-controls>${controls(lang)}</div><div data-map-detail class="map-place-detail" aria-live="polite" hidden></div><details class="map-privacy"><summary>${lang==='zh'?'地图数据与隐私':lang==='en'?'Map data & privacy':'지도 데이터와 개인정보'}</summary><p class="map-data-note" data-map-note>${c.note}</p><p data-map-privacy>${c.privacy}</p><a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> · <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">© OpenMapTiles</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors · ODbL</a><p>Landmarks: UNESCO · Visit Seoul · Wikimedia. <a href="/landmark-sources.html" target="_blank" rel="noopener">${l.source}</a></p></details></section>`;
 }
 export class KoreaMap{
  constructor({getLanguage=()=> 'ko'}={}){this.getLanguage=getLanguage;this.epoch=0;this.markers=[];this.region='all';}
@@ -31,6 +31,10 @@ export class KoreaMap{
   };
   this.onChange=e=>{if(e.target.matches('[data-map-region]'))this.setRegion(e.target.value);};
   root.addEventListener('click',this.onClick);root.addEventListener('change',this.onChange);this.renderControls();
+  if(typeof ResizeObserver!=='undefined'){
+   this.mapResize=new ResizeObserver(entries=>{const size=entries[0]?.contentRect;if(size?.width>0&&size?.height>0)this.map?.resize();});
+   this.mapResize.observe(root.querySelector('[data-map-canvas]'));
+  }
   if(typeof IntersectionObserver==='undefined')return;
   this.observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)){this.observer.disconnect();void this.open();}},{rootMargin:'120px'});
   this.observer.observe(root);
@@ -41,8 +45,10 @@ export class KoreaMap{
    const lib=await loadLibrary();if(serial!==this.epoch||!root.isConnected)return;this.lib=lib;
    lib.setWorkerUrl(`/vendor/maplibre/maplibre-gl-worker.mjs?v=${BUILD}`);
    const accent=getComputedStyle(root).getPropertyValue('--accent').trim()||'#187962';
-   this.map=new lib.Map({container:root.querySelector('[data-map-canvas]'),style:koreaMapStyle(this.lang,accent),center:[126.997,37.557],zoom:11.4,minZoom:4,maxZoom:18,attributionControl:{compact:false},cooperativeGestures:true,localIdeographFontFamily:'sans-serif',canvasContextAttributes:{antialias:false},fadeDuration:0});
+   this.map=new lib.Map({container:root.querySelector('[data-map-canvas]'),style:koreaMapStyle(this.lang,accent),center:[126.997,37.557],zoom:11.4,minZoom:4,maxZoom:18,attributionControl:{compact:true},cooperativeGestures:true,localIdeographFontFamily:'sans-serif',canvasContextAttributes:{antialias:false},fadeDuration:0});
    this.map.addControl(new lib.NavigationControl({showCompass:false}),'top-right');
+   this.map.addControl(new lib.ScaleControl({maxWidth:88,unit:'metric'}),'bottom-left');
+   this.map.on('resize',()=>this.addPlaces());
    this.map.on('load',()=>{
     if(serial!==this.epoch)return;clearTimeout(this.timer);this.state='ready';
     root.querySelector('[data-map-loading]').hidden=true;root.classList.add('map-ready');
@@ -61,7 +67,7 @@ export class KoreaMap{
   if(!this.root)return;const target=this.root.querySelector('[data-map-controls]');
   const opened=target.querySelector('details')?.open;
   target.innerHTML=controls(this.lang,this.region);target.querySelector('details').open=!!opened;
-  target.querySelector('[data-map-location]').disabled=!this.points?.length;
+  for(const b of this.root.querySelectorAll('[data-map-location]'))b.disabled=!this.points?.length;
   this.renderDetail();
  }
  setRegion(region){
@@ -111,7 +117,7 @@ export class KoreaMap{
  }
  update(points=[],fit=false){
   this.points=points;const data=routeFeature(points);
-  const btn=this.root?.querySelector('[data-map-location]');if(btn)btn.disabled=!points.length;
+  for(const btn of this.root?.querySelectorAll('[data-map-location]')||[])btn.disabled=!points.length;
   if(!this.map||this.state!=='ready')return;this.map.getSource('journey')?.setData(data);
   const last=points.at(-1);
   if(!last){this.position?.remove();this.position=null;if(!this.manualBrowse)this.root.querySelector('[data-map-caption]').textContent=COPY[this.lang].preview;}
@@ -138,12 +144,13 @@ export class KoreaMap{
   this.root.querySelector('[data-map-privacy]').textContent=c.privacy;
   this.root.querySelector('[data-map-caption]').textContent=this.selected?localized(this.selected.name,lang):this.manualBrowse?localized(MAP_REGIONS[this.region],lang):this.points?.length?c.live:c.preview;
   this.root.querySelector('[data-map-place-word]').textContent=l.key;
+  for(const b of this.root.querySelectorAll('.map-quick-actions button')){const label=b.hasAttribute('data-map-all')?l.all:l.near;b.title=label;b.setAttribute('aria-label',label);}
   this.renderControls();
   if(this.state==='ready'){this.addPlaces();for(const layer of this.map.getStyle().layers.filter(x=>x.type==='symbol'))this.map.setLayoutProperty(layer.id,'text-field',mapName(lang));}
   else if(this.state==='failed')this.fail(this.epoch);
  }
  destroy(){
-  this.epoch++;clearTimeout(this.timer);this.observer?.disconnect();
+  this.epoch++;clearTimeout(this.timer);this.observer?.disconnect();this.mapResize?.disconnect();this.mapResize=null;
   if(this.root){this.root.removeEventListener('click',this.onClick);this.root.removeEventListener('change',this.onChange);}
   for(const m of this.markers)m.marker.remove();this.markers=[];this.selected=null;
   this.position?.remove();this.position=null;this.map?.remove();this.map=null;this.root=null;

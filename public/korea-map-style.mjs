@@ -20,10 +20,10 @@ export function koreaMapStyle(language='ko',accent='#187962'){
   {id:'our-path',type:'line',source:'journey',paint:{'line-color':accent,'line-width':4},layout:{'line-cap':'round','line-join':'round'}},
   vector('water-names','symbol','water_name',{'text-color':'#56878c','text-halo-color':'#d4e7e5','text-halo-width':1},{layout:{...label(12),'text-letter-spacing':.12}}),
   vector('park-names','symbol','park',{'text-color':'#657f55','text-halo-color':'#edf3e4','text-halo-width':1.5},{minzoom:12,layout:label(11)}),
-  vector('street-names','symbol','transportation_name',{'text-color':'#a39780','text-halo-color':'#fffdf6','text-halo-width':2},{minzoom:13,layout:{...label(10),'symbol-placement':'line','text-letter-spacing':.02}}),
+  vector('street-names','symbol','transportation_name',{'text-color':'#727562','text-halo-color':'#fffdf6','text-halo-width':2},{minzoom:13,layout:{...label(12),'symbol-placement':'line','text-letter-spacing':.02}}),
   vector('town-names','symbol','place',{'text-color':'#6d7463','text-halo-color':'#faf8ef','text-halo-width':2},{filter:['match',['get','class'],['country','state','province','city','town','suburb','quarter','neighbourhood'],true,false],layout:{...label(['interpolate',['linear'],['zoom'],5,11,11,14,16,16]),'text-letter-spacing':.04}}),
   vector('landmarks','circle','poi',{'circle-radius':3,'circle-color':'#b48c5e','circle-stroke-color':'#fffaf0','circle-stroke-width':1.5},{minzoom:13,filter:['match',['get','class'],['attraction','museum','monument','castle','art_gallery','park'],true,false]}),
-  vector('landmark-names','symbol','poi',{'text-color':'#8c7456','text-halo-color':'#fffaf0','text-halo-width':2},{minzoom:13,filter:['match',['get','class'],['attraction','museum','monument','castle','art_gallery','park'],true,false],layout:{...label(11),'text-anchor':'top','text-offset':[0,.6]}}),
+  vector('landmark-names','symbol','poi',{'text-color':'#80613f','text-halo-color':'#fffaf0','text-halo-width':2},{minzoom:13,filter:['match',['get','class'],['attraction','museum','monument','castle','art_gallery','park'],true,false],layout:{...label(11),'text-anchor':'top','text-offset':[0,.6]}}),
   vector('cafes','symbol','poi',{'text-color':'#ad8a6d','text-halo-color':'#fffaf0','text-halo-width':1.5},{minzoom:16,filter:['match',['get','class'],['cafe','bakery','restaurant'],true,false],layout:{...label(10),'text-padding':5}})
  ]};
 }
