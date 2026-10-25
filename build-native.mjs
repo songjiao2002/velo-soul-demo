@@ -10,7 +10,7 @@ await rm(destination,{recursive:true,force:true});await mkdir(destination,{recur
 const entries=[];
 async function copy(name){const bytes=await readFile(path.join(source,name));const target=path.join(destination,name);await mkdir(path.dirname(target),{recursive:true});await copyFile(path.join(source,name),target);entries.push({name,size:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')});}
 async function walk(folder){for(const item of await readdir(path.join(source,folder),{withFileTypes:true})){const name=path.posix.join(folder,item.name);if(item.isDirectory())await walk(name);else if(/\.(png|jpg|webp|svg|wav|mp3|mjs|js|css|json|txt|woff2?)$/.test(item.name))await copy(name);}}
-for(const file of ['index.html','boot.js','app.bundle.js','app.css','character-toon.bundle.mjs','mic-worklet.js','landmark-sources.html','privacy.html','download.css'])await copy(file);
+for(const file of ['index.html','manifest.webmanifest','boot.js','app.bundle.js','app.css','character-toon.bundle.mjs','mic-worklet.js','landmark-sources.html','privacy.html','download.css'])await copy(file);
 for(const folder of ['audio','assets','vendor'])await walk(folder);
 for(const name of ['soul-blue.webp','soul-mint.webp','soul-orange.webp'])await copy(name);
 for(const id of ['lumi','mori','bori'])for(const ext of ['svg','png'])await writeFile(path.join(destination,`qr-${id}.${ext}`),ext==='png'?makeQrPng(id,PUBLIC_ORIGIN):makeQr(id,PUBLIC_ORIGIN));

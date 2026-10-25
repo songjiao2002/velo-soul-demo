@@ -1,8 +1,8 @@
 # VELO SOUL mobile preview
 
-App ID: `com.velosoul.companion` · Version: `0.1.0` · Android 7+ / iOS 15+.
+App ID: `com.velosoul.companion` · Version: `0.1.3` · Android 7+ / iOS 15+.
 
-The Android APK is a **test-signed preview**, not a Google Play release. The iOS target is a real Xcode project with a simulator build workflow. It is not a signed IPA or a published TestFlight app. The owner does not yet have Apple Developer membership.
+The Android APK is a **preview signed with a fixed owner-controlled release key** from 0.1.3 onward, not a Google Play release. The iOS target is a real Xcode project with a simulator build workflow. It is not a signed IPA or a published TestFlight app. The owner does not yet have Apple Developer membership.
 
 ## What is included
 
@@ -12,7 +12,7 @@ The Android APK is a **test-signed preview**, not a Google Play release. The iOS
 - Original character appearance and automatic riding/rest animation. Live ride activity follows GPS. The manual character editor was retired in 0.1.3.
 - Native foreground GPS, WebView camera/microphone, streamed Qwen recognition, cloud speech, and local journey records. First camera and microphone prompts are serialized on native Android.
 - Native image storage on the device and the system share sheet for exports. Journey thumbnails stay in IndexedDB. No cloud account is required.
-- `/download.html`: Android APK download and an iPhone/iPad installation entry. Apple shows the honest pending-signing state until a real TestFlight invitation is configured.
+- `/download.html`: Android APK download and an iPhone/iPad installation entry. The Apple button opens the original website. Safari → Share → Add to Home Screen provides the current iPhone installation path, using the owner-provided icon and a standalone web manifest. No service worker caches an old app shell; reopening online loads website updates. It is not an offline or background-audio app.
 
 ## Build
 
@@ -49,11 +49,15 @@ The old QR codes continue opening the website in a system camera/browser. The **
 3. Review the existing permission descriptions, privacy manifest, privacy page and App Store Connect privacy answers against actual provider retention. Cloud voice, selected camera frames, chat content, approximate weather location and map-provider network requests must be considered. Never mark all data as “not collected” without reviewing these flows.
 4. Test camera, QR scanning, GPS, Korean/English conversation, background/resume, system share, permission denial and Bluetooth on physical iPhones. The simulator cannot establish microphone/headset behavior.
 5. Archive a **Release** build for Any iOS Device; distribute through App Store Connect. Complete export-compliance questions, screenshots, age rating, support/privacy URLs and review notes. Public store approval is not guaranteed.
-6. After TestFlight approval, place the genuine `https://testflight.apple.com/join/...` invitation in `public/app-release.json` under `ios.testflight`. The Apple button then exposes that invitation. Until then it shows preparation status and a browser fallback.
+6. The current Apple entry intentionally uses the website/Home Screen flow. Add a separate, verified TestFlight entry only when the owner is ready to distribute a signed iOS build.
 
 ## Before a production Android release
 
-Replace the test/debug signature with an owner-controlled release/upload key kept outside Git, prepare an AAB and complete Play Console disclosures. A new debug key may require uninstalling an earlier preview, which deletes local data; export journeys before changing signing identity. Do not distribute a debug APK as a production release.
+The fixed PKCS12 release key is backed up outside the project and stored in GitHub Actions secrets `ANDROID_KEYSTORE_BASE64` and `ANDROID_KEYSTORE_PASSWORD`. CI assembles Release, verifies the certificate against `android/release-certificate.sha256`, and refuses missing keys. Never regenerate this key for subsequent updates. Increase Android versionCode for every published APK. Prepare an AAB and complete Play Console disclosures before a store release.
+
+The original download page always points to the latest verified APK. Android decides whether to install or update; confirmation is still required. Native App.getInfo supplies a version hint to that page using a public HTTPS link. Browsers cannot reliably detect installed APKs. Previews 0.1.1 and 0.1.2 used different temporary debug keys, so export local journeys before a one-time uninstall/reinstall; uninstalling deletes app data. From 0.1.3, same-package, same-key updates preserve app data.
+
+For manual release builds, set ANDROID_KEYSTORE_PATH and ANDROID_KEYSTORE_PASSWORD, then run `./gradlew assembleRelease`. Keep the PKCS12 file and password out of Git and APK contents. `assembleDebug` is for local development/instrumentation only.
 
 ## Verification
 
@@ -75,4 +79,8 @@ Validation: 225 local tests passed. Simulated English/Korean continuous-conversa
 
 Build `20261025-simple21` removes manual character size/rotation/pose editing, simulated place/scenario triggers, repeated sound tests, and manual playback-mode controls. Existing records and QR codes are preserved. Navigation has three destinations: Home, Scan QR, Journeys. Character selection happens on Home. An explicit screen event replaces the editor’s page-wide mutation observer. Sound help retains native permission settings and same-link browser handoff but cannot change playback state. Output mode is selected once from the platform; obsolete local playback preferences are ignored. Camera/map, GPS/weather, continuous voice, text-chat fallback, capture/export and bicycle memories remain. Starting a ride no longer starts a competing prerecorded clip before the conversational introduction.
 
-0.1.3 validation: 222 automated tests and English/Korean primary-flow DOM integration passed. Main bundle shrank from 353,255 to 325,554 bytes (about 8%); CSS shrank by about 4 KB. [Android/iOS builds](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40203273242) passed. APK publication also requires [Android camera/QR verification](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40203338605) to succeed. These checks do not validate a physical Samsung headset.
+0.1.3 validation: 222 automated tests and English/Korean primary-flow DOM integration passed. Main bundle shrank from 353,255 to 325,554 bytes (about 8%); CSS shrank by about 4 KB. [Android/iOS builds](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40203273242) passed. The first device-check attempt lost its emulator before completing; the final update build must pass a fresh camera/QR check before APK publication. These checks do not validate a physical Samsung headset.
+
+## Preview 0.1.3 install/update entry
+
+Build `20261025-update22` adds fixed Android release signing, version-aware native update links, a direct iPhone web entry and English/Korean/Chinese Home Screen instructions. The provided green bicycle logo replaces app launcher icons and web icons; QR images and companion URLs are unchanged. iOS simulator builds remain available for development. Real iPhone Home Screen behavior and Samsung Bluetooth routing still require physical-device checks.

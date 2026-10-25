@@ -1,0 +1,15 @@
+{
+  "id": "/",
+  "name": "VELO SOUL",
+  "short_name": "VELO SOUL",
+  "description": "Mori, Popo and Lulu — a little companion for your ride.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fffdf8",
+  "theme_color": "#fffdf8",
+  "icons": [
+    {"src": "/assets/app-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/assets/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}
+  ]
+}

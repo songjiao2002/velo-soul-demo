@@ -1,2 +1,1 @@
-export const BUILD='20261025-simple21';
-
+export const BUILD='20261025-update22';

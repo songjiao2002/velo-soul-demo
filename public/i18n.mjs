@@ -4,7 +4,7 @@ const rows = `
 카메라 권한 요청이 지연돼요. 권한 안내를 확인한 뒤 다시 눌러주세요.|The camera permission request is taking longer. Check the permission prompt, then try again.|相机权限请求超时，请检查权限提示后重试。
 카메라 화면을 시작하지 못했어요. 다시 켜기를 눌러주세요.|Could not start the camera preview. Tap to try again.|相机预览未能启动，请点击重试。
 소울 꾸미기|Adjust your Soul|调整角色
-앱 다운로드|Get the app|下载 App
+앱 설치 / 업데이트|Install / Update|安装／更新
 
 호기심 많은 탐험가|A curious explorer|好奇的探险家
 오늘은 어떤 재밌는걸 보러갈까?|What fun things shall we go and see today?|今天去看点什么有趣的东西呢？

@@ -3,6 +3,7 @@ import {Geolocation} from '@capacitor/geolocation';
 import {Filesystem,Directory} from '@capacitor/filesystem';
 import {Share} from '@capacitor/share';
 import {isNative} from './app-network.mjs';
+import {appUpdateURL} from './app-update.mjs';
 
 export function createNativeGPS(plugin){
  let sequence=0;const watchers=new Map();
@@ -34,6 +35,11 @@ export async function saveNativeImage(data,filename,{share=false}={}){
 export function initNativeDevice({onBack,onURL,onPause}){
  if(!isNative())return;
  document.documentElement.classList.add('native-app');
+ const updateLink=document.querySelector('[data-app-download]');
+ if(updateLink){
+  updateLink.href=appUpdateURL();updateLink.target='_blank';updateLink.rel='noopener';
+  void App.getInfo().then(info=>{updateLink.href=appUpdateURL(info,document.documentElement.lang.slice(0,2));}).catch(()=>{});
+ }
  void App.addListener('backButton',()=>{if(onBack()===false)void App.exitApp();});
  void App.addListener('appUrlOpen',event=>onURL(event.url));
  // iOS resigns active while asking permission. Only a real background event

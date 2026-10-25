@@ -1,0 +1,109 @@
+name: Publish verified mobile preview
+on:
+  workflow_dispatch:
+    inputs:
+      build_run:
+        description: Successful Mobile preview run ID
+        required: true
+        type: string
+      device_run:
+        description: Successful Android device check run ID
+        required: true
+        type: string
+      source_commit:
+        description: Source commit shared by both runs
+        required: true
+        type: string
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BUILD_RUN: ${{ inputs.build_run }}
+      DEVICE_RUN: ${{ inputs.device_run }}
+      BUILD_COMMIT: ${{ inputs.source_commit }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit }}
+      - name: Check successful source runs
+        run: |
+          [[ "$BUILD_RUN" =~ ^[0-9]+$ && "$DEVICE_RUN" =~ ^[0-9]+$ && "$BUILD_COMMIT" =~ ^[a-f0-9]{40}$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" > /tmp/build-run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$DEVICE_RUN" > /tmp/device-run.json
+          python3 - <<'PY'
+          import json, os
+          for file, name in [('build-run','Mobile preview'),('device-run','Android device check')]:
+            r=json.load(open('/tmp/'+file+'.json'))
+            assert r['conclusion']=='success' and r['head_sha']==os.environ['BUILD_COMMIT'] and r['name']==name
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: VELO-SOUL-Android
+          path: release/android
+          run-id: ${{ inputs.build_run }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: VELO-SOUL-iOS-Simulator
+          path: release/ios
+          run-id: ${{ inputs.build_run }}
+          github-token: ${{ github.token }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund && node build-native.mjs
+      - name: Verify downloaded packages
+        run: |
+          TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$TOOLS/apksigner" verify --print-certs release/android/VELO-SOUL-Android.apk > /tmp/apk-cert.txt
+          grep -F "Signer #1 certificate SHA-256 digest: $(cat android/release-certificate.sha256)" /tmp/apk-cert.txt
+          "$TOOLS/aapt" dump badging release/android/VELO-SOUL-Android.apk > /tmp/apk-package.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, os, plistlib, re, zipfile
+          apk=Path('release/android/VELO-SOUL-Android.apk')
+          digest=hashlib.sha256(apk.read_bytes()).hexdigest()
+          assert digest==Path('release/android/SHA256SUMS.txt').read_text().split()[0]
+          certificate=Path('android/release-certificate.sha256').read_text().strip()
+          assert certificate==Path('release/android/SIGNING-CERTIFICATE-SHA256.txt').read_text().strip()
+          gradle=Path('android/app/build.gradle').read_text()
+          version=re.search(r'versionName "([\d.]+)"',gradle)[1]
+          code=re.search(r'versionCode (\d+)',gradle)[1]
+          badging=Path('/tmp/apk-package.txt').read_text()
+          assert "name='com.velosoul.companion'" in badging and f"versionCode='{code}'" in badging and f"versionName='{version}'" in badging
+          assert 'application-debuggable' not in badging
+          build=json.loads(Path('public/.asset-manifest.json').read_text())['version'].encode()
+          with zipfile.ZipFile(apk) as z:
+            assert build in z.read('assets/public/index.html')
+            assert not any(n.endswith(('/.env','.p12','.jks','.keystore')) for n in z.namelist())
+            assert z.read('assets/public/assets/app-icon.png')==Path('public/assets/app-icon.png').read_bytes()
+            for soul in ('lumi','mori','bori'):
+              for ext in ('png','svg'):
+                name=f'qr-{soul}.{ext}'
+                assert z.read('assets/public/'+name)==Path('native-www',name).read_bytes()
+          with zipfile.ZipFile('release/ios/VELO-SOUL-iOS-Simulator.zip') as z:
+            info=plistlib.loads(z.read('App.app/Info.plist'))
+            assert info['CFBundleShortVersionString']==version and info['CFBundleIdentifier']=='com.velosoul.companion'
+            for k in ('NSCameraUsageDescription','NSMicrophoneUsageDescription','NSLocationWhenInUseUsageDescription'): assert info[k]
+            assert build in z.read('App.app/public/index.html')
+          with open(os.environ['GITHUB_ENV'],'a') as f: f.write('RELEASE_VERSION='+version+'\n')
+          print(json.dumps({'sha256':digest,'bytes':apk.stat().st_size,'originalQRsUnchanged':True,'certificateSHA256':certificate,'version':version,'versionCode':int(code)}))
+          PY
+      - name: Publish verified release without replacing earlier versions
+        run: |
+          cat > /tmp/notes.md <<'NOTES'
+          VELO SOUL now uses the provided green bicycle icon. The original download page offers Android download/update and a direct iPhone web entry with Safari Home Screen instructions in English, Korean and Chinese. Original website and QR codes remain unchanged.
+
+          Navigation is Home / Scan QR / Journeys. Manual character editing, scenario simulation, repeated sound tests and playback-mode controls have been removed. Camera/map switching, continuous voice, GPS/weather, text fallback, photos and records remain, including the camera/permission/audio fixes.
+
+          Android 0.1.3 starts a fixed release signing identity. Future same-package, same-key versions can update in place after system confirmation. Early 0.1.1/0.1.2 debug previews used different keys: export journeys before a one-time uninstall/reinstall. This is not silent installation or a Google Play release. iPhone currently uses the live website/Home Screen version; the iOS archive is simulator-only.
+
+          Validated: 224 automated tests, English/Korean simulated conversation, download/version flows, Android/iOS compilation and Android emulator camera/QR checks. Physical Samsung headset and iPhone Home Screen behavior remain unverified.
+          NOTES
+          gh release create "v${RELEASE_VERSION}-mobile-preview" release/android/VELO-SOUL-Android.apk release/android/SHA256SUMS.txt release/android/SIGNING-CERTIFICATE-SHA256.txt release/ios/VELO-SOUL-iOS-Simulator.zip --target "$BUILD_COMMIT" --title "VELO SOUL ${RELEASE_VERSION} — install and update" --notes-file /tmp/notes.md --prerelease
