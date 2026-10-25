@@ -54,7 +54,7 @@ public class ExampleInstrumentedTest {
         assertEquals("com.velosoul.companion",InstrumentationRegistry.getInstrumentation().getTargetContext().getPackageName());
         awaitTrue("document.body.dataset.screen === 'home' && document.querySelector('#startupNotice').hidden");
         assertEquals("true",js("window.isSecureContext && Capacitor.isNativePlatform() && !!navigator.mediaDevices?.getUserMedia"));
-        assertEquals("4",js("document.querySelectorAll('.app-tabbar button').length"));
+        assertEquals("3",js("document.querySelectorAll('.app-tabbar button').length"));
         js("document.querySelector('.app-tabbar [data-action=scan]').click()");
         awaitTrue("document.body.dataset.screen === 'scan' && !!window.jsQR && !!document.querySelector('#cameraStart')");
         assertEquals("true",js("Capacitor.isPluginAvailable('VeloMedia')"));
@@ -67,9 +67,9 @@ public class ExampleInstrumentedTest {
         awaitTrue("window.__cameraTrack.readyState === 'ended' && !document.querySelector('#cameraVideo').srcObject");
         js("window.__qrCheck=null;(async()=>{try{const answers=[];for(const id of ['lumi','bori','mori']){const image=new Image();image.src='/qr-'+id+'.png';await image.decode();const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);const code=jsQR(pixels.data,canvas.width,canvas.height);answers.push(code?.data==='https://velo-soul-demo-production.up.railway.app/?bike='+id);}window.__qrCheck=answers.every(Boolean);}catch(e){window.__qrCheck=String(e);}})()");
         awaitTrue("window.__qrCheck === true");
-        js("document.querySelector('.app-tabbar [data-studio-open]').click()");
-        awaitTrue("document.querySelector('.companion-studio')?.open");
-        js("document.querySelector('[data-studio-soul=mori]').click();document.querySelector('[data-studio-use]').click()");
+        js("document.querySelector('.app-tabbar [data-nav=home]').click()");
+        awaitTrue("document.body.dataset.screen === 'home'");
+        js("document.querySelector('[data-meet=mori]').click()");
         awaitTrue("document.body.dataset.screen === 'welcome' && location.search === '?bike=mori'");
         js("window.__nativeApi=null;fetch('https://velo-soul-demo-production.up.railway.app/api/chat/status',{cache:'no-store'}).then(r=>window.__nativeApi=r.ok).catch(e=>window.__nativeApi=String(e))");
         awaitTrue("window.__nativeApi === true");

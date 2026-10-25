@@ -1,6 +1,6 @@
 # Camera and system audio recovery
 
-Build: `20261025-media20`, Android preview 0.1.2. Website, download page, legacy companion IDs and all six QR files retain their existing addresses and content.
+Build: `20261025-simple21`, Android preview 0.1.3 (includes the media20 camera/audio fixes). Website, download page, legacy companion IDs and all six QR files retain their existing addresses and content.
 
 ## Reported failures and changes
 
@@ -11,7 +11,7 @@ The user reported camera startup failures and Samsung headphone playback falling
 - Android explicitly requests camera/microphone permissions before WebView capture. Android 12+ requests `BLUETOOTH_CONNECT` once for an already paired headset when voice first starts. Denying it does not disable the phone microphone. App settings can restore a denied permission. No scanning, pairing, speaker override or explicit communication-device selection is added.
 - iOS stops capture on actual background entry, not `willResignActive` while its own permission prompt is showing.
 - The app does not force `navigator.audioSession.type`, set an output sink, or mute replies because an output device is absent from browser enumeration. The operating system controls the selected output. Microphone capture remains continuous between conversation turns.
-- Packaged greetings use the HTML media element directly instead of being redirected into Web Audio. Android native/embedded browsers default to system media playback; normal browsers retain streaming, and an explicitly saved mode is respected. Complete audio clips can start later than streaming. This is a compatibility choice, not a promise of zero latency or forced Bluetooth output.
+- Packaged greetings use the HTML media element directly instead of being redirected into Web Audio. Android native/embedded browsers default to system media playback; normal browsers retain streaming, and the obsolete saved mode preference is ignored in 0.1.3. Complete audio clips can start later than streaming. This is a compatibility choice, not a promise of zero latency or forced Bluetooth output.
 - Device/visibility changes resume interrupted active playback, including playback without an active microphone. Stopped conversations do not restart. Existing bounded microphone recovery still avoids opening a new stream after every reply.
 - WeChat/Kakao and other embedded browser guidance preserves the original companion URL. Native fallback links use the public website, never `localhost`. The host app may still restrict media; Chrome or Samsung Internet is an available handoff, not a guaranteed route fix.
 
@@ -30,3 +30,5 @@ These implementations informed the diagnosis. No third-party source was copied a
 Regression tests cover constraints, permission denial, startup/play timeouts, late grants, cancellation during native preflight, interrupted playback without a mic, and default playback selection. Native CI compiles both platforms. Android instrumented tests exercise first camera permission, real emulator video frames, capture release, QR decoding and companion selection.
 
 Emulator results cannot establish physical Bluetooth routing. On the user's Samsung device, confirm a saved introduction before opening the microphone, then several Korean/English conversation turns, switching to/from the system-selected headset, background/resume, and a denied-then-restored camera permission. If the system itself disconnects the headset, a webpage cannot reconnect its radio.
+
+The 0.1.3 Sound help panel contains permission/system-routing guidance only. Device refresh, sound-test and playback-mode controls were removed to avoid competing playback and stale local mode overrides.

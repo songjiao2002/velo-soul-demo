@@ -34,11 +34,8 @@ test('denied native autoplay reports blocked without falling back to Web Audio o
 test('an empty device inventory does not mute or block a native reply',async()=>{
  const a=setup();await a.devices.refresh();await a.player.speak(['hello'],a.options);assert.equal(a.audio.muted,false);assert.deepEqual(a.states,['playing','ended']);assert.equal(a.requests.length,1);a.player.dispose();a.devices.dispose();
 });
-test('switching playback preserves an active microphone and uses system output',async()=>{
- const a=setup();a.session.playbackMode='stream';a.session.inputs.set('mic',{});await assert.rejects(a.devices.setPlaybackMode('media'),/busy/);assert.equal(a.session.inputs.size,1);a.session.inputs.clear();await a.devices.setPlaybackMode('media');assert.equal(a.session.playbackMode,'media');a.player.dispose();a.devices.dispose();
-});
-test('native output is not forced or muted during device refresh and playback-mode changes',async()=>{
- const a=setup();let routed=0;a.audio.setSinkId=async()=>{routed++;};await a.devices.setPlaybackMode('media');await a.devices.refresh();assert.equal(routed,0);assert.equal(a.audio.muted,false);assert.equal(a.devices.state,'system');a.player.dispose();a.devices.dispose();
+test('native output is not forced or muted during device refresh',async()=>{
+ const a=setup();let routed=0;a.audio.setSinkId=async()=>{routed++;};await a.devices.refresh();assert.equal(routed,0);assert.equal(a.audio.muted,false);assert.equal(a.devices.state,'system');a.player.dispose();a.devices.dispose();
 });
 test('KakaoTalk, WeChat and Korean embedded browsers are recognized without mislabelling normal Samsung/Chrome',()=>{
  for(const [token,host]of [['MicroMessenger/8','WeChat'],['KAKAOTALK/10.8.3 (INAPP)','KakaoTalk'],['NAVER(inapp; search; 1200)','Naver'],['DaumApps/6','Daum'],['Instagram 280','Instagram'],['Line/14','LINE'],['FBAV/2','Facebook'],['; wv)','WebView']]){const result=browserAudioContext('Mozilla/5.0 (Linux; Android 14; SM-S908N) '+token);assert.equal(result.host,host);assert.equal(result.embedded,true);assert.equal(result.android,true);}

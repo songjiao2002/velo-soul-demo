@@ -1,2 +1,2 @@
-export const BUILD='20261025-media20';
+export const BUILD='20261025-simple21';
 

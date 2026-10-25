@@ -32,7 +32,7 @@ test('a device interruption can resume active playback without an active microph
  let resumes=0;class Context{constructor(){this.state='suspended';}async resume(){resumes++;this.state='running';}async close(){}}
  const session=new ConversationAudioSession({Context,navigator:{},document:{hidden:false}});session.getContext();session.setPlayback('reply',true);session.changed();await flush();assert.equal(resumes,1);session.setPlayback('reply',false);session.context.state='suspended';session.changed();await flush();assert.equal(resumes,1,'stopped playback stays stopped');session.dispose();
 });
-test('Android in-app playback defaults to the media route while normal browsers retain streaming',()=>{
- const descriptor=Object.getOwnPropertyDescriptor(globalThis,'localStorage');Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:()=>null}});
+test('Android in-app playback uses media despite a stale streaming preference; normal browsers retain streaming',()=>{
+ const descriptor=Object.getOwnPropertyDescriptor(globalThis,'localStorage');Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:()=>'stream'}});
  try{for(const [ua,expected]of [['Android MicroMessenger/8','media'],['Android KAKAOTALK/10','media'],['Android; wv','media'],['Android Chrome/130','stream']]){const session={inputs:new Map(),navigator:{userAgent:ua}};const devices=new AudioDevices({session});assert.equal(session.playbackMode,expected);devices.dispose();}}finally{if(descriptor)Object.defineProperty(globalThis,'localStorage',descriptor);else delete globalThis.localStorage;}
 });

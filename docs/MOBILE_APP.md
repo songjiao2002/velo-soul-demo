@@ -7,9 +7,9 @@ The Android APK is a **test-signed preview**, not a Google Play release. The iOS
 ## What is included
 
 - Local bundled startup, all three cel-shaded companions, voice introductions, and original QR images.
-- Home / Scan QR / My Soul / Journeys bottom navigation, English default with Korean and Chinese interface options.
+- Home / Scan QR / Journeys bottom navigation, English default with Korean and Chinese interface options.
 - Rear-camera scanner decodes original `?bike=lumi`, `?bike=bori`, `?bike=mori` QR URLs without replacing the printed codes. Unknown QR URLs are rejected rather than opened.
-- Per-character size and facing controls, slow turn, and idle/riding/rest preview. Settings persist on this installation. Live ride activity still follows GPS.
+- Original character appearance and automatic riding/rest animation. Live ride activity follows GPS. The manual character editor was retired in 0.1.3.
 - Native foreground GPS, WebView camera/microphone, streamed Qwen recognition, cloud speech, and local journey records. First camera and microphone prompts are serialized on native Android.
 - Native image storage on the device and the system share sheet for exports. Journey thumbnails stay in IndexedDB. No cloud account is required.
 - `/download.html`: Android APK download and an iPhone/iPad installation entry. Apple shows the honest pending-signing state until a real TestFlight invitation is configured.
@@ -70,3 +70,7 @@ Build `20261025-app19` adds a companion-first phone home, clearer UI/voice selec
 Build `20261025-media20` adds bounded camera startup and permission recovery, a native Android permission bridge including paired-headset permission, corrected iOS permission-dialog lifecycle handling, and system media playback for Android embedded/native environments. See [camera and audio changes](BLUETOOTH_AUDIO.md) for references, latency tradeoff and physical-device limits. Use the existing `/download.html` page; original QR files and public URLs are preserved.
 
 Validation: 225 local tests passed. Simulated English/Korean continuous-conversation and camera/map integration checks passed. [Mobile preview](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40200880858) compiled Android and iOS. [Android device check](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40200896849) passed first-use camera permission, actual emulator video dimensions, release on stop, all three QR decodes and native API access. Production English/Korean WAV synthesis returned valid audio. Physical Samsung Bluetooth output remains unverified.
+
+## Preview 0.1.3 simplification
+
+Build `20261025-simple21` removes manual character size/rotation/pose editing, simulated place/scenario triggers, repeated sound tests, and manual playback-mode controls. Existing records and QR codes are preserved. Navigation has three destinations: Home, Scan QR, Journeys. Character selection happens on Home. An explicit screen event replaces the editor’s page-wide mutation observer. Sound help retains native permission settings and same-link browser handoff but cannot change playback state. Output mode is selected once from the platform; obsolete local playback preferences are ignored. Camera/map, GPS/weather, continuous voice, text-chat fallback, capture/export and bicycle memories remain. Starting a ride no longer starts a competing prerecorded clip before the conversational introduction.

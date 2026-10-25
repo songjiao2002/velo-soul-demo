@@ -4,7 +4,6 @@ import {readFileSync} from 'node:fs';
 import {apiURL,speechSocketURL,getDeviceMedia,PUBLIC_ORIGIN} from './public/app-network.mjs';
 import {allowedRequestOrigin,nativeCors} from './native-origin.mjs';
 import {createNativeGPS} from './public/native-device.mjs';
-import {normalizeLook} from './public/companion-studio.mjs';
 import {parseSoulQR} from './public/soul-core.mjs';
 const req=(origin,site='cross-site')=>({url:'/api/chat',method:'POST',headers:{origin,host:'velo-soul-demo-production.up.railway.app','sec-fetch-site':site}});
 test('native API and streaming speech use production; bundled assets and web requests stay local',()=>{
@@ -33,7 +32,6 @@ test('native camera and microphone permission requests are serialized',async()=>
  const old=globalThis.Capacitor;globalThis.Capacitor={isNativePlatform:()=>true};let release;const calls=[];const devices={getUserMedia(c){calls.push(c);return calls.length===1?new Promise(r=>release=r):Promise.resolve('mic');}};
  try{const camera=getDeviceMedia({video:true},devices);const mic=getDeviceMedia({audio:true},devices);await new Promise(r=>setImmediate(r));assert.equal(calls.length,1);release('camera');assert.equal(await camera,'camera');assert.equal(await mic,'mic');assert.equal(calls.length,2);}finally{globalThis.Capacitor=old;}
 });
-test('character look validates persisted values',()=>{assert.deepEqual(normalizeLook({size:999,facing:-999,turn:'true'}),{size:125,facing:-180,turn:false});assert.deepEqual(normalizeLook(),{size:100,facing:32,turn:false});});
 test('native platform config bundles local screens and declares only foreground permissions',()=>{
  const read=p=>readFileSync(new URL(p,import.meta.url),'utf8');const config=JSON.parse(read('capacitor.config.json'));assert.equal(config.webDir,'native-www');assert.equal(config.server.url,undefined);assert.equal(config.android.allowMixedContent,false);
  const android=read('android/app/src/main/AndroidManifest.xml');for(const key of ['CAMERA','RECORD_AUDIO','ACCESS_FINE_LOCATION','ACCESS_COARSE_LOCATION'])assert.ok(android.includes('android.permission.'+key));assert.ok(!android.includes('ACCESS_BACKGROUND_LOCATION'));assert.ok(android.includes('android:allowBackup="false"'));
