@@ -48,8 +48,8 @@ test('temporary recognition failures reconnect automatically with a bounded retr
 });
 
 test('introduction plays before any chat/GPS request, resumes listening and does not repeat on pause',async()=>{
- const shared=new Set(),a=setup(null,{introduced:shared,getOpening:()=>({text:'안녕, 나는 보리야.',language:'ko'})});
- a.session.start('bori','ko');assert.equal(a.calls.length,0);assert.equal(a.voices[0].text,'안녕, 나는 보리야.');assert.equal(a.session.state,'synthesizing');
+ const shared=new Set(),a=setup(null,{introduced:shared,getOpening:()=>({text:'안녕, 나는 포포야.',language:'ko'})});
+ a.session.start('bori','ko');assert.equal(a.calls.length,0);assert.equal(a.voices[0].text,'안녕, 나는 포포야.');assert.equal(a.session.state,'synthesizing');
  assert.equal(a.session.announce('Weather','ko'),false);a.voices[0].callback('playing');assert.ok(shared.has('bori'));a.voices[0].callback('ended');a.run(250);assert.equal(a.session.state,'listening');
  a.recognizers.at(-1).hear('안녕');await flush();assert.equal(a.calls.length,1);a.voices.at(-1).callback('ended');a.session.stop();a.session.start('bori','ko');assert.equal(a.session.state,'listening');assert.equal(a.voices.length,2);a.session.stop();
  const b=setup(null,{introduced:shared,getOpening:()=>({text:'No repeated introduction',language:'ko'})});b.session.start('bori','ko');assert.equal(b.voices.length,0);b.session.stop();

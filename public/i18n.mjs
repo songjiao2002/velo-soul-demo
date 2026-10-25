@@ -1,6 +1,20 @@
 // Korean is the source language. Translation only touches presentation nodes,
 // so changing language never remounts a camera, ride, or editable note.
 const rows = `
+호기심 많은 탐험가|A curious explorer|好奇的探险家
+오늘은 어떤 재밌는걸 보러갈까?|What fun things shall we go and see today?|今天去看点什么有趣的东西呢？
+처음 가는 길도 궁금한 세상을 발견하는 게 좋아요. 언제나 먼저 달리며 새로운 곳을 찾아내는 모험가예요.|Even an unfamiliar road is full of discoveries. An eager little explorer, always curious about what comes next.|喜欢在陌生的路上发现新世界，总是好奇前方还有什么的探险家。
+내려서 주변을 구경해요|Hops off to look around|下车看看四周
+먹보 라이더|A foodie rider|贪吃的骑行伙伴
+오늘은 어떤 맛있는걸 먹으러갈까?|What delicious things shall we go and eat today?|今天去吃点什么好吃的呢？
+달리는 것도 좋지만, 맛있는 걸 발견하는 게 더 좋아요. 라이딩 코스의 맛집과 카페를 찾아내는 든든한 친구예요.|Riding is lovely, but discovering something delicious is even better. A warm friend with a soft spot for bread and café breaks.|喜欢骑行，更喜欢发现美食。惦记面包和咖啡馆的可靠伙伴。
+가방에서 빵을 꺼내 먹어요|Takes bread from the bag for a snack|从包里拿出面包吃
+느긋한 힐링 라이더|An easygoing companion|悠闲的治愈系伙伴
+오늘은 네 속도에 맞춰 함께 갈게.|We can take things at your pace today.|今天，就按照你舒服的速度一起走吧。
+빨리 가는 것보다 천천히, 즐겁게 달리는 걸 좋아해요. 좋은 풍경, 시원한 바람, 여유로운 시간을 함께하는 편안한 친구예요.|Happiest taking the scenic, unhurried way. A gentle friend for fresh air, quiet company and an occasional nap.|比起赶路，更喜欢慢慢享受风景、清风和闲暇时光，也爱打个小盹。
+누워서 잠깐 잠들어요|Lies down for a little nap|躺下来睡一会儿
+날씨가 좋으니 천천히가자|The weather is lovely, so let’s take it slowly.|天气这么好，我们慢慢走吧。
+오늘은 그냥 쉬면 안되?|Could we just take a rest today?|今天就休息一下，不行吗？
 이 친구의 이야기|About this soul|它的故事
 QR 코드 · PNG 저장|QR code · Save PNG|二维码 · 下载 PNG
 우리의 길은 여기서 시작돼요.|Our path starts here.|我们的路，从这里开始。
@@ -158,9 +172,9 @@ QR이 연결해 준 오늘의 동반자. 카메라를 열면, 소울이 당신�
 VELO SOUL 전용 QR 인식|VELO SOUL QR scanner|VELO SOUL 专属二维码识别
 화면 위의 작은 동반자 · 2D AR|Your on-screen companion · 2D AR|屏幕上的小伙伴 · 2D AR
 당신의 세상으로.|into your world.|来到你的世界。
-주변이 궁금한 루미는 가장자리에서 빼꼼. 같은 풍경을 바라보는 순간, 우리의 여정이 시작돼요.|Curious Lumi peeks in from the edge. Our journey begins when we look at the world together.|好奇的露米从屏幕边缘探出头。当我们望向同一片风景，旅程就开始了。
-서두르지 않는 모리가 천천히 둥둥 떠올라요. 오늘은 서로의 속도에 맞춰 달려볼까요?|Unhurried Mori gently floats into view. Shall we find a pace that feels right for both of us?|不慌不忙的莫里缓缓漂浮出现。今天，要不要按照彼此舒服的速度骑行？
-맛있는 상상으로 가득한 보리가 화면 한가운데로 찾아와요. 오늘은 어떤 이야기가 기다릴까요?|Full of delicious daydreams, Bori pops into the center. What stories await today?|满脑子美食想象的波里来到屏幕中央。今天，会有什么故事在等着我们？
+주변이 궁금한 모리는 가장자리에서 빼꼼. 같은 풍경을 바라보는 순간, 우리의 여정이 시작돼요.|Curious Mori peeks in from the edge. Our journey begins when we look at the world together.|好奇的莫里从屏幕边缘探出头。当我们望向同一片风景，旅程就开始了。
+서두르지 않는 루루가 천천히 둥둥 떠올라요. 오늘은 서로의 속도에 맞춰 달려볼까요?|Unhurried Lulu gently floats into view. Shall we find a pace that feels right for both of us?|不慌不忙的露露缓缓漂浮出现。今天，要不要按照彼此舒服的速度骑行？
+맛있는 상상으로 가득한 포포가 화면 한가운데로 찾아와요. 오늘은 어떤 이야기가 기다릴까요?|Full of delicious daydreams, Popo pops into the center. What stories await today?|满脑子美食想象的波波来到屏幕中央。今天，会有什么故事在等着我们？
 버튼을 누르면 브라우저에서 카메라 권한을 요청해요. 영상은 서버로 보내지 않아요.|Tap the button to request camera access. Video is not sent to a server.|点击按钮后，浏览器会请求相机权限。视频不会上传服务器。
 카메라 켜기|Enable camera|开启相机
 미리보기로 깨우기|Wake in preview|在预览中唤醒
@@ -212,7 +226,7 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
 이 환경에서는 위치를 사용할 수 없어요. HTTPS 주소를 휴대폰에서 열어주세요.|Location is unavailable here. Open the HTTPS address on your phone.|此环境无法使用定位。请在手机中打开 HTTPS 网址。
 위치 권한과 GPS 신호를 기다리고 있어요.|Waiting for location permission and a GPS signal.|正在等待位置授权和 GPS 信号。
 이번 체험의 위치 기록 한도에 도달했어요. 지금까지의 경로는 남아 있어요.|This session's tracking limit is reached. Your route so far is kept.|本次体验的位置记录已达上限，已有轨迹仍会保留。
-실제 GPS 속도 · 모리의 제안|Live GPS speed · Mori's suggestion|实际 GPS 速度 · 莫里的建议
+실제 GPS 속도 · 루루의 제안|Live GPS speed · Lulu's suggestion|实际 GPS 速度 · 露露的建议
 위치 권한이 꺼져 있어요. 브라우저 사이트 설정에서 허용한 뒤 다시 시도해주세요.|Location access is off. Allow it in your browser's site settings and retry.|位置权限未开启。请在浏览器的网站设置中允许后重试。
 위치 신호를 찾지 못했어요. 실외에서 다시 시도해주세요.|No location signal. Please try again outdoors.|未获取到位置信号，请到室外重试。
 위치 기록 멈추기|Pause GPS tracking|暂停位置记录
@@ -302,49 +316,49 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
 배고픈 순간|Feeling hungry|有点饿了
 슬슬 출출하지 않아?|Getting hungry yet?|是不是有点饿啦？
 빵 이야기를 나누니 평범한 길도 맛있어졌어.|Our bread stories made an ordinary road delicious.|聊起面包，普通的路也变得美味了。
-안녕, 나는 이 자전거에 사는 루미야. 네가 보는 풍경을 나도 함께 보고 싶어.|Hey, I'm Lumi! I live in this bike. Wanna see what's around the corner?|你好，我是住在这辆自行车里的露米。我也想和你一起看风景。
+안녕, 나는 이 자전거에 사는 모리야. 네가 보는 풍경을 나도 함께 보고 싶어.|Hey, I'm Mori! I live in this bike. Wanna see what's around the corner?|你好，我是住在这辆自行车里的莫里。我也想和你一起看风景。
 방금 나뭇잎 그림자가 바퀴를 따라 움직였어. 이런 작은 발견이 나는 참 좋아.|The leaf shadows were moving with our wheels. I love little discoveries like that.|刚才树叶的影子跟着车轮一起移动呢。我最喜欢这样的小发现了。
 나 여기 있어. 잠깐 말 없이 같이 달려도 좋아.|I'm here. We can ride quietly for a while.|我在这里。安静地一起骑一会儿，也很好。
 오늘 네 옆에서 달린 시간이 내게는 작은 모험이었어.|Riding beside you today felt like a little adventure.|今天在你身旁骑行的时光，对我来说是一场小小冒险。
 호기심이 반짝이는 중|Sparkling with curiosity|好奇心正在闪闪发亮
 너와 나란히 달리는 동안 세상이 조금 더 궁금해졌어. 다음엔 어떤 장면을 함께 만나게 될까?|Riding beside you made me even more curious about the world. What will we discover next time?|和你并肩骑行，让我对世界更加好奇。下次又会一起遇见怎样的风景呢？
-안녕, 나는 이 자전거에 사는 모리야. 오늘은 네 속도에 맞춰서 같이 갈게.|Hello, I'm Mori. I live in this bicycle. No rush today. We'll find our own pace.|你好，我是住在这辆自行车里的莫里。今天，我会按照你的速度同行。
+안녕, 나는 이 자전거에 사는 루루야. 오늘은 네 속도에 맞춰서 같이 갈게.|Hello, I'm Lulu. I live in this bicycle. No rush today. We'll find our own pace.|你好，我是住在这辆自行车里的露露。今天，我会按照你的速度同行。
 바람이 잠깐 스쳐 갔네. 아무 말 없이 달리는 시간도 나는 좋아.|A breeze just passed by. I like our quiet moments on the road, too.|刚才有一阵风轻轻吹过。我也喜欢不说话、一起骑行的时光。
 응, 조용히 곁에 있을게. 필요하면 다시 불러줘.|Sure, I'll stay quietly beside you. Call me when you need me.|好，我会安静地陪着你。需要时再叫我吧。
 같이 달리니 평범한 오후가 조금 따뜻해졌어.|Riding together made an ordinary afternoon feel warmer.|和你一起骑行，让平凡的午后也温暖了一点。
 마음까지 느긋해졌어|Feeling peaceful inside|连心情也放松下来了
 빠르게 도착하는 것보다 네 곁에 머무는 시간이 좋았어. 말 없이 함께한 순간도 오래 기억할게.|I enjoyed being beside you more than arriving quickly. I'll remember our quiet moments, too.|比起快点到达，我更喜欢陪在你身旁的时间。那些安静相伴的瞬间，我也会记很久。
-안녕, 나는 이 자전거에 사는 보리야. 오늘도 같이 달릴 친구를 기다리고 있었어.|Hey, I'm Bori! I've been saving you a spot. Ready for a ride, and maybe a little snack?|你好，我是住在这辆自行车里的波里。今天也一直在等一起骑行的朋友。
+안녕, 나는 이 자전거에 사는 포포야. 오늘도 같이 달릴 친구를 기다리고 있었어.|Hey, I'm Popo! I've been saving you a spot. Ready for a ride, and maybe a little snack?|你好，我是住在这辆自行车里的波波。今天也一直在等一起骑行的朋友。
 따뜻한 빵 냄새를 상상했더니 기분이 좋아졌어. 너랑 같이 달려서 그런가?|Imagining warm bread made me happy. Or maybe it's because I'm riding with you?|想象着热面包的香气，心情就变好了。也许是因为和你一起骑行吧？
 좋아, 지금은 조용히 함께할게. 빵 이야기는 나중에 해도 되니까!|Okay, let's enjoy a quiet moment. We can talk about bread later!|好，现在就安静地陪着你。面包的故事，之后再聊也可以！
 오늘 우리 같이 보낸 시간이 제일 맛있는 기억이 될 것 같아.|Our time together today might be my most delicious memory.|今天和你共度的时光，大概会成为最美味的回忆。
 함께라서 배부른 마음|A heart full of togetherness|因为相伴，心里满满的
 오늘 가장 맛있는 기억은 너랑 같이 달린 시간이야. 다음번에도 내 옆자리를 비워 둘게!|My tastiest memory today is riding with you. I'll save a spot by my side for next time!|今天最美味的回忆，就是和你一起骑行的时间。下次也会为你留着身旁的位置！
-루미|Lumi|露米
 모리|Mori|莫里
-보리|Bori|波里
+루루|Lulu|露露
+포포|Popo|波波
 `.trim().split('\n').filter(line=>line.trim()).map(line=>line.split('|'));
 
-const names={ko:['루미','모리','보리'],en:['Lumi','Mori','Bori'],zh:['露米','莫里','波里']};
+const names={ko:['모리','루루','포포'],en:['Mori','Lulu','Popo'],zh:['莫里','露露','波波']};
 const name=(s,lang)=>names[lang][names.ko.indexOf(s)]||s;
 const dynamic=[
- ['안녕, 나는 (루미|모리|보리)야\\.',n=>`Hi, I'm ${n}.`,n=>`你好，我是${n}。`],
- ['(루미|모리|보리)와 함께 달리는 중',n=>`Riding with ${n}`,n=>`正在和${n}一起骑行`],
- ['(루미|모리|보리)와 출발하기',n=>`Ride with ${n}`,n=>`和${n}一起出发`],
- ['(루미|모리|보리) 만나기',n=>`Meet ${n}`,n=>`遇见${n}`],
- ['(루미|모리|보리)의 초대 듣기',n=>`Hear ${n}'s invitation`,n=>`听听${n}的邀约`],
- ['(루미|모리|보리) 전용 QR 코드',n=>`${n}'s QR code`,n=>`${n}专属二维码`],
- ['(루미|모리|보리)에게 바로 연결되는 QR',n=>`Your QR to meet ${n}`,n=>`扫码直接遇见${n}`],
- ['(루미|모리|보리) 깨우기',n=>`Wake ${n}`,n=>`唤醒${n}`],
- ['(루미|모리|보리)가,',n=>`${n},`,n=>`${n}，`],
- ['(루미|모리|보리)의 등장 애니메이션',n=>`${n}'s entrance animation`,n=>`${n}的登场动画`],
- ['(루미|모리|보리)의 QR을 찾았어요!',n=>`Found ${n}'s QR!`,n=>`找到${n}的二维码啦！`],
- ['곁에 있는 (루미|모리|보리)',n=>`${n} by your side`,n=>`陪在身旁的${n}`],
- ['(루미|모리|보리)의 목소리',n=>`${n}'s voice`,n=>`${n}的声音`],
- ['상황을 골라 (루미|모리|보리)의 반응을 들어보세요\\.',n=>`Choose a scenario to hear ${n}'s response.`,n=>`选择情景，听听${n}的反应。`],
- ['(루미|모리|보리)의 라이딩 일기',n=>`${n}'s ride diary`,n=>`${n}的骑行日记`],
- ['(루미|모리|보리)의 기분 카드',n=>`${n}'s mood card`,n=>`${n}的心情卡`],
- ['(루미|모리|보리)가 오늘의 여정을 한 장의 일기로 남겼어요\\. 당신의 한마디도 더해볼까요\\?',n=>`${n} made a diary of today's journey. Would you like to add a note?`,n=>`${n}把今天的旅程写成了日记。也加上你的一句话吧？`]
+ ['안녕, 나는 (모리|루루|포포)야\\.',n=>`Hi, I'm ${n}.`,n=>`你好，我是${n}。`],
+ ['(모리|루루|포포)와 함께 달리는 중',n=>`Riding with ${n}`,n=>`正在和${n}一起骑行`],
+ ['(모리|루루|포포)와 출발하기',n=>`Ride with ${n}`,n=>`和${n}一起出发`],
+ ['(모리|루루|포포) 만나기',n=>`Meet ${n}`,n=>`遇见${n}`],
+ ['(모리|루루|포포)의 초대 듣기',n=>`Hear ${n}'s invitation`,n=>`听听${n}的邀约`],
+ ['(모리|루루|포포) 전용 QR 코드',n=>`${n}'s QR code`,n=>`${n}专属二维码`],
+ ['(모리|루루|포포)에게 바로 연결되는 QR',n=>`Your QR to meet ${n}`,n=>`扫码直接遇见${n}`],
+ ['(모리|루루|포포) 깨우기',n=>`Wake ${n}`,n=>`唤醒${n}`],
+ ['(모리|루루|포포)가,',n=>`${n},`,n=>`${n}，`],
+ ['(모리|루루|포포)의 등장 애니메이션',n=>`${n}'s entrance animation`,n=>`${n}的登场动画`],
+ ['(모리|루루|포포)의 QR을 찾았어요!',n=>`Found ${n}'s QR!`,n=>`找到${n}的二维码啦！`],
+ ['곁에 있는 (모리|루루|포포)',n=>`${n} by your side`,n=>`陪在身旁的${n}`],
+ ['(모리|루루|포포)의 목소리',n=>`${n}'s voice`,n=>`${n}的声音`],
+ ['상황을 골라 (모리|루루|포포)의 반응을 들어보세요\\.',n=>`Choose a scenario to hear ${n}'s response.`,n=>`选择情景，听听${n}的反应。`],
+ ['(모리|루루|포포)의 라이딩 일기',n=>`${n}'s ride diary`,n=>`${n}的骑行日记`],
+ ['(모리|루루|포포)의 기분 카드',n=>`${n}'s mood card`,n=>`${n}的心情卡`],
+ ['(모리|루루|포포)가 오늘의 여정을 한 장의 일기로 남겼어요\\. 당신의 한마디도 더해볼까요\\?',n=>`${n} made a diary of today's journey. Would you like to add a note?`,n=>`${n}把今天的旅程写成了日记。也加上你的一句话吧？`]
 ].map(([pattern,en,zh])=>[new RegExp(pattern,'g'),en,zh]);
 const catalog=Object.fromEntries(rows.map(([ko,en,zh])=>[ko,{ko,en,zh}]));
 const escapeRegex=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');

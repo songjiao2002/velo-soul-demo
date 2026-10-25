@@ -1,1 +1,1 @@
-export const BUILD = '20261020-fullmap12';
+export const BUILD='20261025-characters13b';

@@ -26,7 +26,7 @@ test('conversation validation excludes injected roles, unknown characters and ov
 });
 test('each character loads its real skill and forwards bounded history with server-only authorization',async()=>{
  const calls=[];const service=createChatService({env,fetchImpl:async(url,options)=>{calls.push({url,options,body:JSON.parse(options.body)});return success();}});
- for(const [soul,name] of [['lumi','Lumi'],['mori','Mori'],['bori','Bori']]){
+ for(const [soul,name] of [['lumi','Mori'],['mori','Lulu'],['bori','Popo']]){
   const request={...input(soul),messages:[{role:'user',content:'My name is Ji.'},{role:'assistant',content:'Hi Ji.'},{role:'user',content:'What is my name?'}]};
   const result=await service.reply(request),call=calls.at(-1);
   assert.equal(result.soul,soul);assert.equal(result.provider,'Qwen');assert.match(call.body.messages[0].content,new RegExp('You are '+name));

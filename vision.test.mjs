@@ -16,7 +16,7 @@ test('vision accepts only bounded inline JPEG data, never remote URLs or arbitra
 });
 test('vision uses Qwen VL with supplied frame and validated structured output',async()=>{
  let sent;const service=createChatService({env:{DASHSCOPE_API_KEY:'test-only'},fetchImpl:async(_,options)=>{sent=JSON.parse(options.body);return upstream(observed);}});
- const result=await service.reply(body,{vision:true});assert.equal(result.reply,observed.reply);assert.equal(result.scene,'purple_vehicle');assert.equal(sent.model,'qwen3-vl-plus');assert.equal(sent.response_format.type,'json_object');assert.equal(sent.messages[1].content[0].image_url.url,image);assert.match(sent.messages[0].content,/You are Lumi/);assert.match(sent.messages[0].content,/English/);assert.doesNotMatch(JSON.stringify(result),/base64|test-only/);
+ const result=await service.reply(body,{vision:true});assert.equal(result.reply,observed.reply);assert.equal(result.scene,'purple_vehicle');assert.equal(sent.model,'qwen3-vl-plus');assert.equal(sent.response_format.type,'json_object');assert.equal(sent.messages[1].content[0].image_url.url,image);assert.match(sent.messages[0].content,/You are Mori/);assert.match(sent.messages[0].content,/English/);assert.doesNotMatch(JSON.stringify(result),/base64|test-only/);
 });
 test('unclear or low-confidence observations stay quiet and malformed output is rejected',async()=>{
  for(const result of [{...observed,confidence:.3},{...observed,scene:'unclear'},{...observed,shouldSpeak:false}]){

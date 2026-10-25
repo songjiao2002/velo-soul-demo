@@ -1,3 +1,4 @@
+import {CHARACTERS} from './character-art.mjs';
 export const WEATHER_MAX_AGE=15*60*1000;
 export const WEATHER_CODES=new Set([0,1,2,3,45,48,51,53,55,56,57,61,63,65,66,67,71,73,75,77,80,81,82,85,86,95,96,99]);
 export function weatherArea(point,now=Date.now()){
@@ -58,7 +59,12 @@ export function weatherLine(w,soul,language='en',risk=weatherRisk(w)){
  return `Local weather data show ${c}, about ${temp} degrees Celsius. `+({lumi:'What little detail might catch your eye today?',mori:temp<8?'A chilly day. Let’s keep a comfortable pace together.':'How does the air feel to you? I’ll follow your pace.',bori:temp<12?'When we stop somewhere safe, shall we dream up a warm snack?':'What snack would you fancy when we take a break?'}[soul]);
 }
 export function weatherGreeting(w,soul,language='en',risk=weatherRisk(w)){
- return weatherLine(w,soul,language,risk);
+ const line=weatherLine(w,soul,language,risk);
+ if(soul!=='mori'||!weatherFresh(w)||!WEATHER_CODES.has(w.code)||!Number.isFinite(w.temperatureC))return line;
+ const current=condition(w.code),bad=['rain','snow','freezing_rain','storm','fog'].includes(current)||w.temperatureC<=2||w.temperatureC>=35;
+ const good=['clear','partly_cloudy'].includes(current)&&w.temperatureC>=8&&w.temperatureC<=30&&!(w.precipitationMm>.05);
+ const opening=bad?CHARACTERS.mori.badWeather:good?CHARACTERS.mori.goodWeather:null;
+ return opening?opening[language in opening?language:'en']+' '+line:line;
 }
 export class WeatherNoticeGate{
  constructor(){this.seen=new Map();this.lastAt=-Infinity;this.lastLevel=0;this.lastKind=null;this.greeted=false;}

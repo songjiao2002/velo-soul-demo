@@ -19,7 +19,7 @@ const COPY={
 COPY.ko.provider_not_activated='Alibaba Cloud Model Studio 서비스가 아직 활성화되지 않았어요. 관리자 계정에서 해당 지역 서비스를 활성화해주세요.';
 COPY.en.provider_not_activated='Model Studio is not activated for this account and region. The site owner needs to activate it in Alibaba Cloud.';
 COPY.zh.provider_not_activated='该账号对应地域的 Model Studio 服务尚未开通，请管理员到阿里云控制台完成开通。';
-const labels={ko:{lumi:'루미',mori:'모리',bori:'보리'},en:{lumi:'Lumi',mori:'Mori',bori:'Bori'},zh:{lumi:'露米',mori:'莫里',bori:'波里'}};
+const labels={ko:{lumi:'모리',mori:'루루',bori:'포포'},en:{lumi:'Mori',mori:'Lulu',bori:'Popo'},zh:{lumi:'莫里',mori:'露露',bori:'波波'}};
 
 const LIVE_COPY={ko:{auto:'답변 자동으로 듣기',share:'연결된 GPS·카메라 함께 사용',privacy:'대화는 Qwen으로 전송돼요. 함께 사용을 켜면 최근 위치의 등록 장소·거리·속도와 AI 관찰 중인 현재 화면 1장도 전달돼요. 날씨 요약도 함께 사용해요. 날씨 조회에는 약 2km 격자 위치를 서버와 Open-Meteo에 보내고, 정확한 GPS 좌표는 기기에 남아요. 대화는 탭을 닫으면 사라져요.'},en:{auto:'Read replies automatically',share:'Use connected GPS and camera',privacy:'Messages go to Qwen. With context enabled, a recent catalog place, distance and speed plus one current frame from AI observation may be included. Weather summaries are included. Weather lookup shares an approximate 2 km grid with our server and Open-Meteo; exact GPS coordinates stay on this device. Chat disappears when you close the tab.'},zh:{auto:'自动朗读回复',share:'结合已开启的 GPS 和相机',privacy:'对话会发送给千问。勾选结合传感器后，会附带最近定位匹配的目录地点、距离、速度，以及 AI 观察开启时的一张当前画面。也会附带天气摘要。天气查询会将约 2 公里网格位置发给本站与 Open-Meteo，精确 GPS 坐标留在本机。关闭标签页后对话消失。'}};
 for(const lang of ['ko','en','zh'])COPY[lang].privacy=LIVE_COPY[lang].privacy;

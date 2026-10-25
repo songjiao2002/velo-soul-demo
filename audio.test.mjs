@@ -12,7 +12,7 @@ test('every English line resolves to packaged, non-silent PCM audio',async()=>{
  }
  assert.equal(paths.size,19);assert.ok(!paths.has(null));
  for(const path of paths){
-  const b=await readFile(new URL('./public/'+path,import.meta.url));
+  const b=await readFile(new URL('./public/'+path.replace(/^\//,''),import.meta.url));
   assert.equal(b.toString('ascii',0,4),'RIFF',path);assert.equal(b.toString('ascii',8,12),'WAVE');
   assert.equal(b.readUInt16LE(20),1);assert.equal(b.readUInt16LE(22),1);assert.equal(b.readUInt16LE(34),16);
   const seconds=(b.length-44)/b.readUInt32LE(28);assert.ok(seconds>1&&seconds<15,path);
@@ -20,7 +20,7 @@ test('every English line resolves to packaged, non-silent PCM audio',async()=>{
   assert.ok(peak>1000&&peak<32767,path);
  }
  assert.equal(voiceFile('zh','lumi','hello'),null);
- assert.equal(voiceFile('ko','lumi','hello'),'audio/lumi-hello.mp3');
+ assert.match(voiceFile('ko','lumi','hello'),/^\/audio\/characters13\/lumi-ko\.wav\?v=/);
 });
 
 function fakeAudio(){return {pause(){},removeAttribute(){this.src='';},load(){},play(){return Promise.resolve();}};}
