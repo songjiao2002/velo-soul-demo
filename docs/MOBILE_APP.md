@@ -60,3 +60,7 @@ Replace the test/debug signature with an owner-controlled release/upload key kep
 Local tests cover origin restrictions, CORS preflight, native API/WS routing, QR ID compatibility, GPS permission cancellation, camera/mic permission serialization and settings validation. Existing voice, weather, camera, character, memory and QR tests are included in the full suite. CI separately compiles native targets. Physical-device checks remain necessary.
 
 References: [Capacitor setup](https://capacitorjs.com/docs/getting-started/environment-setup), [geolocation](https://capacitorjs.com/docs/apis/geolocation), [privacy manifest](https://capacitorjs.com/docs/ios/privacy-manifest), [App Store deployment](https://capacitorjs.com/docs/ios/deploying-to-app-store).
+
+## Preview 0.1.1 validation
+
+Build `20261025-app19` adds a companion-first phone home, clearer UI/voice selectors, a scanner that fits one phone screen and a consolidated character panel. The original six QR PNG/SVG files are unchanged. Android and iOS simulator builds passed in [Mobile preview](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40193928769). Android 15 WebView startup, three bundled QR decodes, choosing Lulu and native-origin API access passed in [Android device check](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40193947659). 215 local tests passed. Microphone, GPS and Bluetooth still require real phones.

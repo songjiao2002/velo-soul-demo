@@ -1,14 +1,14 @@
 {
   "android": {
-    "sha256": "db62e7b38df30b8d650f8de831c443b8ae3e554bd755a5328428aa8e5a6b9eb1",
-    "url": "https://github.com/songjiao2002/velo-soul-demo/releases/download/v0.1.0-mobile-preview/VELO-SOUL-Android.apk",
+    "sha256": "58c5d5692acd334ce150c0167d8a14a4e0cced5f02c041f2aaa148edbb7131d9",
+    "url": "https://github.com/songjiao2002/velo-soul-demo/releases/download/v0.1.1-mobile-preview/VELO-SOUL-Android.apk",
     "minAndroid": "7.0",
-    "size": 24384796,
+    "size": 24386308,
     "testSigned": true,
     "available": true
   },
   "ios": {
     "testflight": null
   },
-  "version": "0.1.0-preview"
+  "version": "0.1.1-preview"
 }
