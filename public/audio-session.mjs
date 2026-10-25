@@ -2,8 +2,8 @@
 // physical route; never force the phone speaker or claim to pair a headset.
 export class ConversationAudioSession {
  constructor({Context=globalThis.AudioContext||globalThis.webkitAudioContext,navigator=globalThis.navigator,document=globalThis.document,setTimer=(...a)=>globalThis.setTimeout(...a),clearTimer=(...a)=>globalThis.clearTimeout(...a)}={}){
-  Object.assign(this,{Context,navigator,document,setTimer,clearTimer});this.inputs=new Map();this.waits=new Map();this.epoch=0;
-  this.changed=()=>{if(this.inputs.size&&this.context?.state!=='running')this.recover();};
+  Object.assign(this,{Context,navigator,document,setTimer,clearTimer});this.inputs=new Map();this.playbacks=new Set();this.mediaPlayers=new Set();this.waits=new Map();this.epoch=0;
+  this.changed=()=>{if(this.document?.hidden)return;for(const player of this.mediaPlayers)player.recover?.();if((this.inputs.size||this.playbacks.size)&&this.context&&this.context.state!=='running')this.recover();};
  }
  getContext(){
   if(!this.context||this.context.state==='closed'){
@@ -19,22 +19,22 @@ export class ConversationAudioSession {
  acquire(owner,callbacks={}){
   // Reserve the graph in the user gesture, but activate duplex only once the
   // microphone has been granted. Pre-activating can select the handset route.
-  if(!this.inputs.size){try{this.previousType=this.navigator?.audioSession?.type;}catch{}}
   this.inputs.set(owner,callbacks);
   try{return this.getContext();}catch(error){this.release(owner);throw error;}
  }
  captureReady(owner){
   if(!this.inputs.has(owner))return;
-  try{const session=this.navigator?.audioSession;if(session)session.type='play-and-record';}catch{/* Optional API. */}
+  // Let the browser choose its session category and preserve the OS route.
+  // Forcing play-and-record can move playback away from media headphones.
   // Permission can reveal device names; refresh metadata without new capture.
   void this.devices?.refresh();
  }
  getOutput(){return this.devices?.destination()||this.getContext().destination;}
+ setPlayback(owner,active){if(active)this.playbacks.add(owner);else this.playbacks.delete(owner);}
  release(owner){
   if(!this.inputs.delete(owner)||this.inputs.size)return;
   this.devices?.notify();
   this.epoch++;this.cancelWaits();this.pending=null;
-  try{const session=this.navigator?.audioSession;if(session?.type==='play-and-record')session.type=this.previousType||'auto';}catch{}
  }
  wait(ms){return new Promise(resolve=>{const id=this.setTimer(()=>{this.waits.delete(id);resolve();},ms);this.waits.set(id,resolve);});}
  cancelWaits(){for(const [id,resolve]of this.waits){this.clearTimer(id);resolve();}this.waits.clear();}
@@ -46,8 +46,8 @@ export class ConversationAudioSession {
  recover(){
   if(this.context?.state==='running')return Promise.resolve(true);
   if(this.pending)return this.pending;
-  if(!this.inputs.size||this.document?.hidden)return Promise.resolve(false);
-  const epoch=this.epoch,context=this.context,valid=()=>epoch===this.epoch&&this.inputs.size&&!this.document?.hidden&&context===this.context;
+  if((!this.inputs.size&&!this.playbacks.size)||!this.context||this.document?.hidden)return Promise.resolve(false);
+  const epoch=this.epoch,context=this.context,valid=()=>epoch===this.epoch&&(this.inputs.size||this.playbacks.size)&&!this.document?.hidden&&context===this.context;
   const task=Promise.resolve().then(async()=>{
    for(const callbacks of this.inputs.values())callbacks.onInterrupt?.();
    // Let a short Bluetooth route switch settle. A hanging resume is bounded.
@@ -65,6 +65,7 @@ export class ConversationAudioSession {
  }
  dispose(){
   this.devices?.dispose();
+  this.playbacks.clear();this.mediaPlayers.clear();
   for(const owner of [...this.inputs.keys()])this.release(owner);
   this.navigator?.mediaDevices?.removeEventListener?.('devicechange',this.changed);
   this.navigator?.audioSession?.removeEventListener?.('statechange',this.changed);

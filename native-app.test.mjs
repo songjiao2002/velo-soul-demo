@@ -31,7 +31,7 @@ test('native GPS cancellation while permission is pending releases the eventual 
 });
 test('native camera and microphone permission requests are serialized',async()=>{
  const old=globalThis.Capacitor;globalThis.Capacitor={isNativePlatform:()=>true};let release;const calls=[];const devices={getUserMedia(c){calls.push(c);return calls.length===1?new Promise(r=>release=r):Promise.resolve('mic');}};
- try{const camera=getDeviceMedia({video:true},devices);const mic=getDeviceMedia({audio:true},devices);await Promise.resolve();assert.equal(calls.length,1);release('camera');assert.equal(await camera,'camera');assert.equal(await mic,'mic');assert.equal(calls.length,2);}finally{globalThis.Capacitor=old;}
+ try{const camera=getDeviceMedia({video:true},devices);const mic=getDeviceMedia({audio:true},devices);await new Promise(r=>setImmediate(r));assert.equal(calls.length,1);release('camera');assert.equal(await camera,'camera');assert.equal(await mic,'mic');assert.equal(calls.length,2);}finally{globalThis.Capacitor=old;}
 });
 test('character look validates persisted values',()=>{assert.deepEqual(normalizeLook({size:999,facing:-999,turn:'true'}),{size:125,facing:-180,turn:false});assert.deepEqual(normalizeLook(),{size:100,facing:32,turn:false});});
 test('native platform config bundles local screens and declares only foreground permissions',()=>{

@@ -36,7 +36,10 @@ export function initNativeDevice({onBack,onURL,onPause}){
  document.documentElement.classList.add('native-app');
  void App.addListener('backButton',()=>{if(onBack()===false)void App.exitApp();});
  void App.addListener('appUrlOpen',event=>onURL(event.url));
- void App.addListener('appStateChange',state=>{if(!state.isActive)onPause();});
+ // iOS resigns active while asking permission. Only a real background event
+ // should cancel a pending camera grant; Android stateChange uses onStop.
+ if(globalThis.Capacitor?.getPlatform?.()==='ios')void App.addListener('pause',onPause);
+ else void App.addListener('appStateChange',state=>{if(!state.isActive)onPause();});
  void App.getLaunchUrl().then(event=>{if(event?.url)onURL(event.url);}).catch(()=>{});
  document.addEventListener('click',async event=>{
   const link=event.target.closest('a[download]');if(!link)return;

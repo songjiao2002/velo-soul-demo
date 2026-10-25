@@ -22,9 +22,9 @@ test('microphone and reply player share one graph and keep the route stable betw
  const a=setup(),player=new CloudSpeechPlayer({Context:a.Context,audioSession:a.session});await player.prepare();
  const receiver={active:true,samples(){},fail(){assert.fail('unexpected failure');}};
  for(let turn=0;turn<12;turn++){await a.input.attach(receiver);a.input.detach(receiver);await player.prepare();}
- assert.equal(a.contexts.length,1);assert.equal(a.input.context,player.context);assert.equal(a.requests.length,1);assert.deepEqual(a.types,['play-and-record']);
+ assert.equal(a.contexts.length,1);assert.equal(a.input.context,player.context);assert.equal(a.requests.length,1);assert.deepEqual(a.types,[],'the OS selects the session category');
  a.devices.dispatchEvent(new Event('devicechange'));await flush();assert.equal(a.requests.length,1,'healthy device changes do not reopen capture');
- a.input.release();assert.deepEqual(a.types,['play-and-record','auto']);assert.equal(a.contexts[0].closed,undefined,'ending input does not destroy playback');player.dispose();assert.equal(a.contexts[0].closed,undefined);a.session.dispose();assert.equal(a.contexts[0].closed,true);
+ a.input.release();assert.deepEqual(a.types,[]);assert.equal(a.contexts[0].closed,undefined,'ending input does not destroy playback');player.dispose();assert.equal(a.contexts[0].closed,undefined);a.session.dispose();assert.equal(a.contexts[0].closed,true);
 });
 test('a short audio interruption resumes without releasing the mic or failing the conversation',async()=>{
  const a=setup();let resets=0,failed=0;const receiver={active:true,resetCapture(){resets++;},fail(){failed++;}};await a.input.attach(receiver);
@@ -63,7 +63,7 @@ test('unsupported Audio Session API still shares a graph without forcing output 
 
 test('a stalled initial audio resume times out, releases capture, and allows a clean retry',async()=>{
  const a=setup(),resume=a.Context.prototype.resume;a.Context.prototype.resume=()=>new Promise(()=>{});
- const rejected=assert.rejects(a.input.open(),/audio-capture/);await flush();await a.run(10000);await rejected;
+ const rejected=assert.rejects(a.input.open(),/audio-capture/);await flush();await a.run(45000);await rejected;
  assert.equal(a.tracks[0].stopped,true);assert.equal(a.input.stream,null);assert.equal(a.session.inputs.size,0);assert.equal(a.timers.size,0);
  a.Context.prototype.resume=resume;await a.input.attach({active:true});assert.equal(a.requests.length,2);assert.equal(a.contexts.length,1);
  a.input.release();a.session.dispose();
@@ -83,6 +83,15 @@ test('permission denial releases the audio session and a new attempt can succeed
  a.setGrant(null);await a.input.attach({active:true});assert.equal(a.requests.length,2);a.input.release();a.session.dispose();
 });
 
+test('first-use microphone permission is not cancelled by the former ten-second limit',async()=>{
+ const a=setup();let grant;a.setGrant(()=>new Promise(resolve=>grant=resolve));
+ const opening=a.input.open();await flush();
+ assert.ok(![...a.timers.values()].some(t=>t.ms===10000));
+ assert.ok([...a.timers.values()].some(t=>t.ms===45000));
+ const stream=a.stream();grant(stream);await opening;assert.equal(a.input.stream,stream);
+ assert.equal(a.timers.size,0);a.input.release();a.session.dispose();
+});
+
 test('stalled worklet loading cannot leave capture open or attach a late audio graph',async()=>{
  const a=setup();let loaded;const context=a.session.getContext();context.audioWorklet={addModule:()=>new Promise(resolve=>loaded=resolve)};
  a.input.WorkletNode=class{constructor(){assert.fail('late worklet must not attach');}};
@@ -90,10 +99,10 @@ test('stalled worklet loading cannot leave capture open or attach a late audio g
  assert.equal(a.tracks[0].stopped,true);loaded();await flush();assert.equal(a.input.node,null);assert.equal(a.timers.size,0);a.session.dispose();
 });
 
-test('duplex activation waits for microphone permission and never precedes capture',async()=>{
+test('microphone capture never forces a session category or output route',async()=>{
  const a=setup();let grant;a.setGrant(()=>new Promise(resolve=>grant=resolve));const opening=a.input.open();await flush();
  assert.deepEqual(a.types,[]);const stream=a.stream();grant(stream);await opening;
- assert.deepEqual(a.types,['play-and-record']);a.input.release();a.session.dispose();
+ assert.deepEqual(a.types,[],'the OS selects the session category');a.input.release();a.session.dispose();
 });
 
 test('Android route-change event bursts preserve a temporarily muted live microphone',async()=>{

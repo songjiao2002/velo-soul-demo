@@ -64,3 +64,7 @@ References: [Capacitor setup](https://capacitorjs.com/docs/getting-started/envir
 ## Preview 0.1.1 validation
 
 Build `20261025-app19` adds a companion-first phone home, clearer UI/voice selectors, a scanner that fits one phone screen and a consolidated character panel. The original six QR PNG/SVG files are unchanged. Android and iOS simulator builds passed in [Mobile preview](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40193928769). Android 15 WebView startup, three bundled QR decodes, choosing Lulu and native-origin API access passed in [Android device check](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40193947659). 215 local tests passed. Microphone, GPS and Bluetooth still require real phones.
+
+## Preview 0.1.2 media recovery
+
+Build `20261025-media20` adds bounded camera startup and permission recovery, a native Android permission bridge including paired-headset permission, corrected iOS permission-dialog lifecycle handling, and system media playback for Android embedded/native environments. See [camera and audio changes](BLUETOOTH_AUDIO.md) for references, latency tradeoff and physical-device limits. Use the existing `/download.html` page; original QR files and public URLs are preserved.

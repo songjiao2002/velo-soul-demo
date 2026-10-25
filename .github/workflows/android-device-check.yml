@@ -33,7 +33,7 @@ jobs:
           target: google_apis
           ram-size: 2048M
           cores: 2
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 2048
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back emulated -memory 2048
           disable-animations: true
           script: |
             adb logcat -c

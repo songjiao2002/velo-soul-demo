@@ -18,8 +18,8 @@ test('missing devices, device bursts and inventory failures never mute either pl
  const a=setup();a.devices.destination();for(let i=0;i<20;i++)a.media.dispatchEvent(new Event('devicechange'));await flush();a.media.enumerateDevices=async()=>{throw Error('denied');};await a.devices.refresh();
  assert.equal(a.devices.state,'system');assert.equal(a.devices.gain.gain.value,1);assert.equal(a.session.nativeSpeech.audio.muted,false);assert.equal(a.devices.canPlay(),true);assert.deepEqual(a.counts(),{captures:0,sinks:0});a.session.dispose();
 });
-test('packaged and cloud audio share the ordinary system output without repeated nodes',()=>{
- const a=setup(),audio={};a.devices.routeMedia(audio);a.devices.routeMedia(audio);assert.equal(a.session.context.nodes.length,1);assert.equal(a.session.context.nodes[0].dest,a.session.getOutput());assert.equal(a.devices.gain.gain.value,1);a.session.dispose();
+test('packaged media keeps the system route without a Web Audio redirect',()=>{
+ const a=setup(),audio={};a.devices.routeMedia(audio);a.devices.routeMedia(audio);assert.equal(a.session.context,undefined);assert.equal(a.devices.media.size,0);a.session.dispose();
 });
 test('refreshing device names does not reopen microphone and discards late results on disposal',async()=>{
  const a=setup();let finish,reads=0;a.media.enumerateDevices=()=>{reads++;return new Promise(r=>finish=r);};for(let i=0;i<20;i++)void a.devices.refresh();await flush();assert.equal(reads,1);a.devices.dispose();finish([{kind:'audioinput',deviceId:'mic',label:'Mic'}]);await flush();assert.deepEqual(a.devices.devices,[]);assert.deepEqual(a.counts(),{captures:0,sinks:0});a.session.dispose();

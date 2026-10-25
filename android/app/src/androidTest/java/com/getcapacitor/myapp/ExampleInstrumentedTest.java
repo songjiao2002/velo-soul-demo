@@ -8,6 +8,8 @@ import com.velosoul.companion.MainActivity;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.accessibilityservice.AccessibilityServiceInfo;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,6 +31,25 @@ public class ExampleInstrumentedTest {
         while(System.currentTimeMillis()<end){if("true".equals(js("Boolean("+expression+")")))return;Thread.sleep(200);}
         fail("Timed out: "+expression+"; startup="+js("document.querySelector('#startupError')?.textContent"));
     }
+    private void allowCameraPermission() throws Exception {
+        var automation=InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        var info=automation.getServiceInfo();
+        info.flags |= AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS;
+        automation.setServiceInfo(info);
+        long until = System.currentTimeMillis()+15000;
+        while(System.currentTimeMillis()<until) {
+            AccessibilityNodeInfo root=InstrumentationRegistry.getInstrumentation().getUiAutomation().getRootInActiveWindow();
+            if(root!=null) {
+                for(String controller:new String[]{"com.android.permissioncontroller","com.google.android.permissioncontroller"})
+                for(String id:new String[]{"permission_allow_foreground_only_button","permission_allow_one_time_button","permission_allow_button"}) {
+                    var matches=root.findAccessibilityNodeInfosByViewId(controller+":id/"+id);
+                    for(var node:matches)if(node.isClickable()){node.performAction(AccessibilityNodeInfo.ACTION_CLICK);return;}
+                }
+            }
+            Thread.sleep(200);
+        }
+        fail("Camera permission dialog did not appear");
+    }
     @Test public void bundledAppScannerAndCompanionWork() throws Exception {
         assertEquals("com.velosoul.companion",InstrumentationRegistry.getInstrumentation().getTargetContext().getPackageName());
         awaitTrue("document.body.dataset.screen === 'home' && document.querySelector('#startupNotice').hidden");
@@ -36,6 +57,14 @@ public class ExampleInstrumentedTest {
         assertEquals("4",js("document.querySelectorAll('.app-tabbar button').length"));
         js("document.querySelector('.app-tabbar [data-action=scan]').click()");
         awaitTrue("document.body.dataset.screen === 'scan' && !!window.jsQR && !!document.querySelector('#cameraStart')");
+        assertEquals("true",js("Capacitor.isPluginAvailable('VeloMedia')"));
+        // Exercise a real first-use runtime permission and the emulator camera.
+        js("document.querySelector('#cameraStart').click()");
+        allowCameraPermission();
+        awaitTrue("document.querySelector('#cameraView').classList.contains('live') && document.querySelector('#cameraVideo').videoWidth > 0");
+        assertEquals("true",js("document.querySelector('#cameraVideo').muted && document.querySelector('#cameraVideo').playsInline"));
+        js("window.__cameraTrack=document.querySelector('#cameraVideo').srcObject.getVideoTracks()[0];document.querySelector('#cameraStart').click()");
+        awaitTrue("window.__cameraTrack.readyState === 'ended' && !document.querySelector('#cameraVideo').srcObject");
         js("window.__qrCheck=null;(async()=>{try{const answers=[];for(const id of ['lumi','bori','mori']){const image=new Image();image.src='/qr-'+id+'.png';await image.decode();const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);const code=jsQR(pixels.data,canvas.width,canvas.height);answers.push(code?.data==='https://velo-soul-demo-production.up.railway.app/?bike='+id);}window.__qrCheck=answers.every(Boolean);}catch(e){window.__qrCheck=String(e);}})()");
         awaitTrue("window.__qrCheck === true");
         js("document.querySelector('.app-tabbar [data-studio-open]').click()");

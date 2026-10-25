@@ -20,6 +20,9 @@ body.studio-open{overflow:hidden}@media(max-width:700px){.companion-studio{paddi
 .studio-actions .primary{background:#3f5947;border-radius:16px}
 .studio-fields label{color:#445746}.studio-fields input[type=range]{cursor:ew-resize}
 .app-tabbar button:focus-visible{outline-color:#79976a;outline-offset:-3px}
+.camera-recovery{margin:14px;padding:18px;border:1px solid #d8e4cf;border-radius:20px;background:#fffef9;color:#344b3b;box-shadow:0 8px 30px #2a453519}
+.camera-recovery[hidden]{display:none}.camera-recovery p{font-size:12px;line-height:1.7;margin:8px 0 12px}.camera-recovery>div{display:flex;flex-wrap:wrap;gap:8px}.camera-recovery .primary,.camera-recovery .secondary{font-size:12px;min-height:44px;padding:10px 14px}.camera-recovery details{font-size:10px;margin-top:12px}
+.camera-fullscreen .camera-recovery{position:absolute;z-index:12;top:24%;left:12px;right:12px;margin:0 auto;max-width:420px;max-height:55dvh;overflow:auto}
 @media(max-width:700px){
   .topbar{height:auto;min-height:0!important;padding:12px 20px!important;gap:8px;flex-wrap:nowrap}
   .native-app .topbar{padding-top:max(12px,env(safe-area-inset-top))!important}

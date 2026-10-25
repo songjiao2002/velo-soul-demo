@@ -1,13 +1,16 @@
 import {AUDIO_OUTPUT_COPY} from './audio-output-copy.mjs';
 import {AUDIO_COMPAT_COPY} from './audio-compat-copy.mjs';
 import {browserAudioContext,companionBrowserLinks} from './audio-browser.mjs';
+import {isNative} from './app-network.mjs';
+import {hasNativeMedia,openMediaSettings} from './native-media.mjs';
 // Output routing is owned entirely by the operating system. This helper
 // only shares the existing audio graph and refreshes microphone metadata.
 export class AudioDevices {
  constructor({session,mediaDevices=session.navigator?.mediaDevices,onChange=()=>{}}){
   Object.assign(this,{session,mediaDevices,onChange});this.devices=[];this.state='system';this.media=new Map();session.devices=this;
-  try{session.playbackMode=globalThis.localStorage?.getItem('velo-audio-playback')==='media'?'media':'stream';}catch{session.playbackMode='stream';}
-  this.changed=()=>{void this.refresh();};this.visible=()=>{if(!session.document?.hidden)this.changed();};
+  const browser=browserAudioContext(session.navigator?.userAgent||''),preferred=browser.android&&(browser.embedded||isNative())?'media':'stream';
+  try{const saved=globalThis.localStorage?.getItem('velo-audio-playback');session.playbackMode=['media','stream'].includes(saved)?saved:preferred;}catch{session.playbackMode=preferred;}
+  this.changed=()=>{session.changed?.();void this.refresh();};this.visible=()=>{if(!session.document?.hidden)this.changed();};
   mediaDevices?.addEventListener?.('devicechange',this.changed);session.document?.addEventListener?.('visibilitychange',this.visible);
  }
  canPlay(){return true;}
@@ -30,8 +33,9 @@ export class AudioDevices {
  }
  inputLabel(){return [...this.session.inputs.values()].map(c=>c.getInput?.()?.label).find(Boolean)||'';}
  routeMedia(audio){
-  if(this.media.has(audio))return true;
-  try{const context=this.session.getContext();if(!context.createMediaElementSource)return false;const node=context.createMediaElementSource(audio);node.connect(this.destination());this.media.set(audio,node);return true;}catch{return false;}
+  // Leave prerecorded introductions on the system's media output. Routing an
+  // HTML player into Web Audio can strand it on a suspended/old headset route.
+  return !!audio;
  }
  dispose(){this.disposed=true;this.mediaDevices?.removeEventListener?.('devicechange',this.changed);this.session.document?.removeEventListener?.('visibilitychange',this.visible);for(const node of this.media.values())node.disconnect();this.media.clear();this.gain?.disconnect();}
 }
@@ -55,7 +59,7 @@ export function createAudioDeviceUI({devices,getLanguage,prepare,onTest,onModeCh
  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const copy=()=>AUDIO_DEVICE_COPY[getLanguage()]||AUDIO_DEVICE_COPY.en;
  const compat=()=>AUDIO_COMPAT_COPY[getLanguage()]||AUDIO_COMPAT_COPY.en;
- const environment=browserAudioContext(devices.session.navigator?.userAgent||'');
+ const environment=browserAudioContext(devices.session.navigator?.userAgent||'');if(isNative())environment.embedded=false;
  const links=()=>companionBrowserLinks(document.location.href);
  let result='',refreshPending=false;
  const outputCopy=()=>AUDIO_OUTPUT_COPY[getLanguage()]||AUDIO_OUTPUT_COPY.en;
@@ -64,7 +68,7 @@ export function createAudioDeviceUI({devices,getLanguage,prepare,onTest,onModeCh
  function paint(){const c=copy(),o=outputCopy();document.querySelectorAll('[data-audio-devices]').forEach(el=>{if(el.textContent!==c.button)el.textContent=c.button;});document.querySelectorAll('[data-audio-route-status]').forEach(el=>{el.textContent='';});if(!dialog.open)return;
  const expanded=[...dialog.querySelectorAll('details')].map(el=>({name:el.className,open:el.open})),scroll=dialog.scrollTop,active=document.activeElement;
  const focus=dialog.contains(active)?[...active.attributes].find(a=>a.name.startsWith('data-')):null;
- dialog.innerHTML=`<div class="audio-device-heading"><h2 id="audioDeviceTitle">${c.title}</h2><button type="button" data-device-close aria-label="${c.close}">×</button></div><p class="audio-route-status" role="status">${c.systemStatus}</p><div class="audio-device-actions"><button class="secondary" type="button" data-device-refresh ${refreshPending?'disabled':''}>${refreshPending?o.refreshing:c.refresh}</button><button class="primary" type="button" data-device-test>${c.test}</button></div><p class="small" data-device-result role="status">${esc(result)}</p><details class="audio-advanced"><summary>${o.advanced}</summary><p>${c.hint}</p>${compatibilityMarkup()}</details><details class="audio-microphone"><summary>${o.mic}</summary><p class="small">${c.current}${esc(devices.inputLabel()||c.unknown)}</p><p class="small">${c.inputHint}</p></details><p class="small">${c.privacy}</p>`;for(const item of expanded){const el=[...dialog.querySelectorAll('details')].find(el=>el.className===item.name);if(el)el.open=item.open;}if(focus){const el=[...dialog.querySelectorAll('button,select,input')].find(el=>el.getAttribute(focus.name)===focus.value);el?.focus({preventScroll:true});}dialog.scrollTop=scroll;}
+ dialog.innerHTML=`<div class="audio-device-heading"><h2 id="audioDeviceTitle">${c.title}</h2><button type="button" data-device-close aria-label="${c.close}">×</button></div><p class="audio-route-status" role="status">${c.systemStatus}</p><div class="audio-device-actions"><button class="secondary" type="button" data-device-refresh ${refreshPending?'disabled':''}>${refreshPending?o.refreshing:c.refresh}</button><button class="primary" type="button" data-device-test>${c.test}</button></div>${hasNativeMedia()?'<button class="secondary" type="button" data-native-permissions>'+({en:'App permissions · microphone & headphones',ko:'앱 권한 · 마이크와 이어폰',zh:'App 权限 · 麦克风与耳机'})[getLanguage()]+'</button>':''}<p class="small" data-device-result role="status">${esc(result)}</p><details class="audio-advanced"><summary>${o.advanced}</summary><p>${c.hint}</p>${compatibilityMarkup()}</details><details class="audio-microphone"><summary>${o.mic}</summary><p class="small">${c.current}${esc(devices.inputLabel()||c.unknown)}</p><p class="small">${c.inputHint}</p></details><p class="small">${c.privacy}</p>`;for(const item of expanded){const el=[...dialog.querySelectorAll('details')].find(el=>el.className===item.name);if(el)el.open=item.open;}if(focus){const el=[...dialog.querySelectorAll('button,select,input')].find(el=>el.getAttribute(focus.name)===focus.value);el?.focus({preventScroll:true});}dialog.scrollTop=scroll;}
  devices.onChange=paint;
  document.addEventListener('change',e=>{if(e.target.id==='languageSelect')queueMicrotask(paint);});
  async function refreshList(){if(refreshPending)return;refreshPending=true;paint();try{await devices.refresh();}finally{refreshPending=false;paint();}}
@@ -72,6 +76,7 @@ export function createAudioDeviceUI({devices,getLanguage,prepare,onTest,onModeCh
  document.addEventListener('click',e=>{if(e.target.closest('[data-audio-devices]')){if(!dialog.open)dialog.showModal();paint();void refreshList();}});
  dialog.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;
   if(b.hasAttribute('data-device-close'))dialog.close();
+  if(b.hasAttribute('data-native-permissions')){try{await openMediaSettings();}catch{error();}}
   if(b.hasAttribute('data-copy-browser-link')){try{await devices.session.navigator?.clipboard?.writeText(links().link);if(!devices.session.navigator?.clipboard?.writeText)throw Error('clipboard');result=compat().copied;}catch{result=compat().copyFailed;}paint();}
   if(b.hasAttribute('data-media-test')){if(devices.session.inputs.size){result=compat().pause;paint();return;}try{onModeChange();devices.session.nativeSpeech?.prepare();await devices.setPlaybackMode('media');result=compat().sampleHint;paint();prepare();onTest(copy().testLine,getLanguage()==='ko'?'ko':'en',{sample:true});}catch{error();}}
   if(b.hasAttribute('data-device-refresh'))void refreshList();

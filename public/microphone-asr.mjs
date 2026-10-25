@@ -1,4 +1,4 @@
-import {appFetch,speechSocketURL,getDeviceMedia} from './app-network.mjs';
+import {appFetch,speechSocketURL,getDeviceMedia,isNative} from './app-network.mjs';
 import {ConversationAudioSession} from './audio-session.mjs';
 import {BUILD} from './build-version.mjs';
 import {StreamingTranscriber} from './asr-stream.mjs';
@@ -41,11 +41,14 @@ export class MicrophoneInput {
       // Start resume and permission capture in the original user gesture. Both
       // waits must settle when stopped, even if the browser never resolves them.
       const resume=Promise.resolve(context.resume());resume.catch(()=>{});
-      const request=getDeviceMedia(this.constraints(),this.mediaDevices).then(stream=>{
+      const request=getDeviceMedia(this.constraints(),this.mediaDevices,{isCurrent:()=>serial===this.serial}).then(stream=>{
         if(serial!==this.serial){stream.getTracks().forEach(t=>t.stop());return;}
         this.stream=stream;this.audioSession.captureReady(this);return stream;
       });
-      const [stream]=await this.deadline(Promise.all([request,resume]),10000);
+      // First use may include a queued camera prompt, microphone and paired
+      // headset permission. Do not cancel a human permission choice after 10s.
+      // Already granted capture still proceeds immediately.
+      const [stream]=await this.deadline(Promise.all([request,resume]),isNative()?95000:45000);
       if(serial!==this.serial)return;
       if(context.state!=='running')await this.audioSession.recover();
       if(serial!==this.serial)return;if(context.state!=='running')throw Error('audio-capture');
@@ -95,7 +98,7 @@ export class MicrophoneInput {
       if(!force&&this.stream?.getTracks().every(t=>t.readyState!=='ended'&&!t.muted))return;
       this.dropGraph();this.stream?.getTracks().forEach(t=>t.stop());this.stream=null;
       let discard=false;
-      const request=getDeviceMedia(this.constraints(),this.mediaDevices).then(stream=>{
+      const request=getDeviceMedia(this.constraints(),this.mediaDevices,{isCurrent:()=>!discard&&valid()}).then(stream=>{
         if(discard||!valid()){stream.getTracks().forEach(t=>t.stop());throw Error('cancelled');}return stream;
       });
       try{

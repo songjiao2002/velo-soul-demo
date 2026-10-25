@@ -16,6 +16,11 @@ export class NativeSpeechPlayer {
   try{return Promise.resolve(this.audio.play()).then(()=>{this.prepared=true;return true;},()=>false);}catch{return Promise.resolve(false);}
  }
  clearSource(){if(this.objectURL){this.audio?.removeAttribute('src');this.URL.revokeObjectURL(this.objectURL);this.objectURL=null;}}
+ recover(){
+  if(!this.playing||!this.audio?.paused||this.recovering)return;
+  const serial=this.serial;this.recovering=true;
+  try{Promise.resolve(this.audio.play()).catch(error=>{if(serial===this.serial)this.finish?.(error);}).finally(()=>{this.recovering=false;});}catch(error){this.recovering=false;this.finish?.(error);}
+ }
  stop(){
   this.serial++;this.controller?.abort();this.controller=null;this.clearTimer(this.fetchTimer);this.fetchTimer=null;this.finish?.();this.finish=null;this.mouth?.stop();
   if(this.playing){this.audio.pause();this.playing=false;}this.clearSource();
