@@ -18,6 +18,9 @@ jobs:
           java-version: '21'
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run native:prepare
+      - name: Compile before starting emulator to keep memory available
+        working-directory: android
+        run: bash gradlew :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1536m
       - name: Enable emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -28,10 +31,19 @@ jobs:
           api-level: 35
           arch: x86_64
           target: google_apis
+          ram-size: 2048M
+          cores: 2
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 2048
           disable-animations: true
-          script: cd android && bash gradlew connectedDebugAndroidTest --no-daemon
+          script: |
+            adb logcat -c
+            adb logcat > android-device-logcat.txt &
+            cd android && bash gradlew :app:connectedDebugAndroidTest --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Android-device-test-report
-          path: android/app/build/reports/androidTests/
+          path: |
+            android/app/build/reports/androidTests/
+            android/app/build/outputs/androidTest-results/
+            android-device-logcat.txt

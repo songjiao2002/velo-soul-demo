@@ -1,7 +1,7 @@
 import {CHARACTERS,CHARACTER_ORDER,characterArtwork} from './character-art.mjs';
 const KEY='velo-soul-character-preferences-v1';
 const DEFAULT={size:100,facing:32,turn:false};
-export function normalizeLook(value={}){return {size:Number.isFinite(value.size)?Math.max(75,Math.min(125,value.size)):100,facing:Number.isFinite(value.facing)?Math.max(-180,Math.min(180,value.facing)):32,turn:value.turn===true};}
+export function normalizeLook(value={}){if(!value||typeof value!=='object')value={};return {size:Number.isFinite(value.size)?Math.max(75,Math.min(125,value.size)):100,facing:Number.isFinite(value.facing)?Math.max(-180,Math.min(180,value.facing)):32,turn:value.turn===true};}
 const COPY={
  en:{home:'Home',scan:'Scan QR',souls:'My Soul',journal:'Journeys',title:'Make room for your Soul.',intro:'Choose a companion. Make the view feel like you.',size:'Character size',angle:'Turn your companion',turn:'Slowly turn',pose:'Preview a moment',idle:'Say hello',riding:'On the road',rest:'Taking a break',use:'Meet this Soul',close:'Done',reset:'Reset view',saved:'Your view is saved on this device.',scanHint:'Works with the original Mori, Popo and Lulu bicycle QR codes.'},
  ko:{home:'홈',scan:'QR 스캔',souls:'나의 소울',journal:'여정',title:'내 곁에, 나의 소울.',intro:'동반자를 고르고 편안한 모습으로 조절해 보세요.',size:'캐릭터 크기',angle:'바라보는 방향',turn:'천천히 회전',pose:'순간 미리보기',idle:'인사하기',riding:'함께 달리기',rest:'쉬어 가기',use:'이 소울 만나기',close:'완료',reset:'기본 모습',saved:'이 기기에 설정을 저장했어요.',scanHint:'기존 모리·포포·루루 자전거 QR 코드를 그대로 사용해요.'},

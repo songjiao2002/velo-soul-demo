@@ -1,59 +1,59 @@
 {
-  "version": "20261025-app18",
+  "version": "20261025-app19",
   "files": {
     "/index.html": {
       "size": 7676,
-      "sha256": "ca5d7295ab44ed4a592ba9c70639f69fd6fb9321f4197f3eeb012b850b6b5779",
+      "sha256": "6e538f674deb494b818691403123253a1d8d61a68059c28fba8208fbe1d9dab3",
       "br": {
-        "size": 2902,
-        "sha256": "3b7f1789c7baa734f9b8fed2273c9f722ed4f865ccbdd37692f8407952dab121",
+        "size": 2903,
+        "sha256": "bfbe1e7783b4b2e4aee8c0fb2232a0e241ad50db5f0abfe7cb9fd460766f2cb5",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 3498,
-        "sha256": "258b0aca6ac40f2d4ea92b941e2e1530630cf09aad3bb7f757030adacbe64c96",
+        "size": 3500,
+        "sha256": "e8d9f8a8ab66c1eaf89a962f3b6c879f0fecc66cdc637eed80070477cc71dc1b",
         "suffix": ".gz"
       }
     },
     "/boot.js": {
       "size": 2483,
-      "sha256": "3844ba2bbd5eeca7e05ad6e06a7bf8ed3d1f215820142e18c723206227551799",
+      "sha256": "dca75a91589df6f1261e65f0eb2b28eb46d8f311a2eb7f753d00582196bc30ad",
       "br": {
         "size": 935,
-        "sha256": "a8a0f2b921fa6196a2c0b80e6e41e4f0291d6a823249af6deffd9406b8302367",
+        "sha256": "7e7c5f71adb22ca93c4275943d3df1d251fe73e85bfd6de6856037cb4bf7e4ae",
         "suffix": ".br"
       },
       "gzip": {
         "size": 1113,
-        "sha256": "638c88e4f56accaefc043f6ea5cb9427831ac9b122d23e694de953bb6bfc726b",
+        "sha256": "29e2f764c137e80f74bda0a12a353d909557ada1b8c95e377a5d20232b5dd41a",
         "suffix": ".gz"
       }
     },
     "/app.bundle.js": {
-      "size": 346282,
-      "sha256": "b18a8f01785d081599ddee1be525863f6b73f634074c19834abb94a519c72059",
+      "size": 346315,
+      "sha256": "a23e4f305c808e0c6d87cb47b0e77c687017d892aeabcca5346840209783e026",
       "br": {
-        "size": 105212,
-        "sha256": "67a289fd44ca919b79beb74627cc68130c533701899630ecc8530365648674f9",
+        "size": 105230,
+        "sha256": "32d01f9d8fb8d50c68419cf7d6c2d72401a18db2d7bcb36c8868547bff2dd53f",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 126385,
-        "sha256": "49fe1a6ab58f40a91b2218390d9a455da1afb30390d40dd6d10ec2c5ade19c4b",
+        "size": 126401,
+        "sha256": "fcc885c53bd38e608446e0ba095e8da2c63cac02aacf4e8d390f9117b36cf4c1",
         "suffix": ".gz"
       }
     },
     "/app.css": {
-      "size": 123516,
-      "sha256": "7dd3bfe638ecdc13a5dff1b9a8f889aeee7b048ee4ea3eeab920ce11e2012868",
+      "size": 129060,
+      "sha256": "e1fa577b9ac7a206ee7b0da5ddf58742b38718b6286485d5bcf04c0380c09fef",
       "br": {
-        "size": 23314,
-        "sha256": "91f2bdbdc9fc733262fb23bda00aada123af348f41ad00914c48cdfa646b8af4",
+        "size": 24241,
+        "sha256": "321f418a267a67823fad26a61d602e75dadb4ffed65f5be936a53414d1bee7bd",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 25392,
-        "sha256": "48d552712efd47b5a329fc9322a0a4a95b513e56fab820caab680f600ea1b865",
+        "size": 26466,
+        "sha256": "13bc8b17642347e63b5202977d40161539fac196d22fab9b6fad744354a54f14",
         "suffix": ".gz"
       }
     },
