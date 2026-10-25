@@ -1,3 +1,4 @@
+import {allowedRequestOrigin} from './native-origin.mjs';
 import {randomUUID} from 'node:crypto';
 import {weatherArea,weatherFresh,condition,weatherRisk,WEATHER_CODES} from './public/weather-core.mjs';
 const number=(v,min,max)=>typeof v==='number'&&Number.isFinite(v)&&v>=min&&v<=max?v:null;
@@ -50,7 +51,7 @@ export function createWeatherHandler(service){
   if(new URL(req.url,'http://localhost').pathname!=='/api/weather')return false;
   const send=(status,body)=>{if(res.destroyed)return;res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(body));};
   if(req.method!=='POST'){res.setHeader('Allow','POST');send(405,{error:'method_not_allowed'});return true;}
-  const origin=req.headers.origin;let crossSite=req.headers['sec-fetch-site']==='cross-site';if(origin)try{crossSite||=new URL(origin).host!==req.headers.host;}catch{crossSite=true;}
+  const crossSite=!allowedRequestOrigin(req);
   if(crossSite){send(403,{error:'origin_not_allowed'});return true;}
   if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type']||'')){send(415,{error:'invalid_content_type'});return true;}
   const controller=new AbortController(),onClose=()=>{if(!res.writableEnded)controller.abort();};res.on('close',onClose);

@@ -1,3 +1,4 @@
+import {allowedRequestOrigin} from './native-origin.mjs';
 import {DatabaseSync} from 'node:sqlite';
 import {createHash,timingSafeEqual} from 'node:crypto';
 import {mkdirSync,existsSync} from 'node:fs';
@@ -57,7 +58,7 @@ export function createMemoryHandler(store){
    if(['GET','HEAD'].includes(req.method)){const bike=url.searchParams.get('bike');if(!BIKE_IDS.includes(bike))throw new ChatError('invalid_memory');send(200,{available:!!store,memory:store?.latest(bike)||null});return true;}
    if(!['POST','DELETE'].includes(req.method)){res.setHeader('Allow','GET, HEAD, POST, DELETE');throw new ChatError('method_not_allowed',405);}
    const origin=req.headers.origin;
-   if(req.headers['sec-fetch-site']==='cross-site'||origin&&new URL(origin).host!==req.headers.host)throw new ChatError('origin_not_allowed',403);
+   if(!allowedRequestOrigin(req))throw new ChatError('origin_not_allowed',403);
    if(!store)throw new ChatError('memory_unavailable',503);
    const body=await readChatBody(req,4096);
    if(req.method==='DELETE'){store.remove(body);send(200,{removed:true});}else send(200,{memory:store.put(body)});

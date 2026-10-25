@@ -1,3 +1,4 @@
+import {appFetch,speechSocketURL,getDeviceMedia} from './app-network.mjs';
 import {ConversationAudioSession} from './audio-session.mjs';
 import {BUILD} from './build-version.mjs';
 import {StreamingTranscriber} from './asr-stream.mjs';
@@ -40,7 +41,7 @@ export class MicrophoneInput {
       // Start resume and permission capture in the original user gesture. Both
       // waits must settle when stopped, even if the browser never resolves them.
       const resume=Promise.resolve(context.resume());resume.catch(()=>{});
-      const request=this.mediaDevices.getUserMedia(this.constraints()).then(stream=>{
+      const request=getDeviceMedia(this.constraints(),this.mediaDevices).then(stream=>{
         if(serial!==this.serial){stream.getTracks().forEach(t=>t.stop());return;}
         this.stream=stream;this.audioSession.captureReady(this);return stream;
       });
@@ -94,7 +95,7 @@ export class MicrophoneInput {
       if(!force&&this.stream?.getTracks().every(t=>t.readyState!=='ended'&&!t.muted))return;
       this.dropGraph();this.stream?.getTracks().forEach(t=>t.stop());this.stream=null;
       let discard=false;
-      const request=this.mediaDevices.getUserMedia(this.constraints()).then(stream=>{
+      const request=getDeviceMedia(this.constraints(),this.mediaDevices).then(stream=>{
         if(discard||!valid()){stream.getTracks().forEach(t=>t.stop());throw Error('cancelled');}return stream;
       });
       try{
@@ -121,7 +122,7 @@ export class MicrophoneInput {
   }
 }
 
-export function createMicrophoneRecognition({input = new MicrophoneInput(), Socket, location = globalThis.location, fetchImpl = (...args) => globalThis.fetch(...args),
+export function createMicrophoneRecognition({input = new MicrophoneInput(), Socket, location = globalThis.location, fetchImpl = appFetch,
   toBase64 = s => globalThis.btoa(s), setTimer = (...args) => globalThis.setTimeout(...args), clearTimer = (...args) => globalThis.clearTimeout(...args)} = {}) {
   let streamDisabledUntil=0;
   return class MicrophoneRecognition {
@@ -137,7 +138,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
     }
     openStream(){
       if(Socket&&location&&Date.now()>=streamDisabledUntil){
-        const url=new URL('/api/transcribe/live',location.href);url.protocol=location.protocol==='https:'?'wss:':'ws:';url.searchParams.set('language',this.language());
+        const url=speechSocketURL(location);url.searchParams.set('language',this.language());
         this.stream=new StreamingTranscriber({Socket,url:url.href,setTimer,clearTimer,
           onPartial:text=>{if(this.active)this.onresult?.({results:[{0:{transcript:text},isFinal:false}]});},
           onFinal:text=>{if(this.active)this.deliver(text);},

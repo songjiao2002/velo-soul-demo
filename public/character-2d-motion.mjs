@@ -6,7 +6,7 @@ function tick(ms){frame=requestAnimationFrame(tick);if(document.hidden||ms-last<
  const reduced=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
  for(const [host,v]of views){if(!host.isConnected){views.delete(host);continue;}const r=host.getBoundingClientRect();const visible=r.width>0&&r.height>0&&r.bottom>0&&r.top<innerHeight&&r.right>0&&r.left<innerWidth;
   const toonReady=host.dataset.toonState==='ready';set(v.svg,'data-flat-paused',!visible||toonReady);if(!visible||toonReady)continue;
-  const activity=host.dataset.activity||host.dataset.pose||'idle',speed=host.dataset.speed===undefined?12:Number(host.dataset.speed),speech=Math.max(0,Math.min(1,Number(host.style.getPropertyValue('--speech-open'))||0));
+  const activity=host.dataset.previewActivity||host.dataset.activity||host.dataset.pose||'idle',speed=host.dataset.speed===undefined?12:Number(host.dataset.speed),speech=Math.max(0,Math.min(1,Number(host.style.getPropertyValue('--speech-open'))||0));
   set(v.svg,'data-activity',activity);set(v.svg,'data-expression',host.dataset.expression||'rest');set(v.svg,'data-mouth-active',host.dataset.mouthActive==='true');set(v.svg,'data-stopped',activity==='riding'&&!(speed>0));
   if(v.svg.style.getPropertyValue('--speech-open')!==String(speech))v.svg.style.setProperty('--speech-open',String(speech));
   if(activity!=='riding'||reduced||!(speed>0))continue;v.phase+=dt*Math.min(9,speed*.45);

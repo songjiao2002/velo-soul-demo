@@ -1,8 +1,9 @@
+import {appFetch} from './app-network.mjs';
 // Optional media-element playback for browsers whose Web Audio route is wrong.
 // It uses complete WAV responses, trading first-audio latency for a different
 // playback path. It cannot select Bluetooth when the host app forbids it.
 export class NativeSpeechPlayer {
- constructor({document=globalThis.document,URL=globalThis.URL,fetchImpl=(...args)=>globalThis.fetch(...args),setTimer=(...a)=>globalThis.setTimeout(...a),clearTimer=(...a)=>globalThis.clearTimeout(...a),mouth,decode}={}){
+ constructor({document=globalThis.document,URL=globalThis.URL,fetchImpl=appFetch,setTimer=(...a)=>globalThis.setTimeout(...a),clearTimer=(...a)=>globalThis.clearTimeout(...a),mouth,decode}={}){
   Object.assign(this,{URL,fetchImpl,setTimer,clearTimer,mouth,decode});this.serial=0;this.cache=new Map();this.preloads=new Map();this.bytes=0;
   this.audio=document?.createElement?.('audio');if(this.audio){this.audio.preload='auto';this.audio.setAttribute('playsinline','');}
  }

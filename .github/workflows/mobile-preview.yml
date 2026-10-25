@@ -1,0 +1,78 @@
+name: Mobile preview
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'ios/**'
+      - 'public/**'
+      - 'build-native.mjs'
+      - 'capacitor.config.json'
+      - 'package*.json'
+      - '.github/workflows/mobile-preview.yml'
+permissions:
+  contents: read
+concurrency:
+  group: mobile-preview-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run native:prepare
+      - run: node --test --test-isolation=none native-app.test.mjs
+      - name: Compile test-signed APK
+        working-directory: android
+        run: bash gradlew assembleDebug --no-daemon
+      - name: Verify APK signature and permissions
+        run: |
+          TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$TOOLS/apksigner" verify --verbose --print-certs android/app/build/outputs/apk/debug/app-debug.apk
+          "$TOOLS/aapt" dump permissions android/app/build/outputs/apk/debug/app-debug.apk
+          mkdir -p mobile-output
+          cp android/app/build/outputs/apk/debug/app-debug.apk mobile-output/VELO-SOUL-Android.apk
+          sha256sum mobile-output/VELO-SOUL-Android.apk > mobile-output/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VELO-SOUL-Android
+          path: mobile-output/
+          retention-days: 30
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run native:prepare
+      - name: Compile iOS simulator app without publishing
+        run: |
+          XCODE_APP="$(find /Applications -maxdepth 1 -name 'Xcode_26*.app' | sort -V | tail -1)"
+          if [ -n "$XCODE_APP" ]; then sudo xcode-select -s "$XCODE_APP/Contents/Developer"; fi
+          xcodebuild -version
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath ios-build CODE_SIGNING_ALLOWED=NO build
+      - name: Package simulator build and preparation guide
+        run: |
+          mkdir -p mobile-output
+          ditto -c -k --sequesterRsrc --keepParent ios-build/Build/Products/Debug-iphonesimulator/App.app mobile-output/VELO-SOUL-iOS-Simulator.zip
+          cp docs/MOBILE_APP.md mobile-output/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VELO-SOUL-iOS-Simulator
+          path: mobile-output/
+          retention-days: 30

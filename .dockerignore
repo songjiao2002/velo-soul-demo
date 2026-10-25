@@ -6,3 +6,13 @@ server.test.mjs
 
 .data
 *.sqlite*
+
+native-www/
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+
+android/
+ios/
+.github/

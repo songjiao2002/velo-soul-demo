@@ -1,6 +1,9 @@
 // Korean is the source language. Translation only touches presentation nodes,
 // so changing language never remounts a camera, ride, or editable note.
 const rows = `
+소울 꾸미기|Adjust your Soul|调整角色
+앱 다운로드|Get the app|下载 App
+
 호기심 많은 탐험가|A curious explorer|好奇的探险家
 오늘은 어떤 재밌는걸 보러갈까?|What fun things shall we go and see today?|今天去看点什么有趣的东西呢？
 처음 가는 길도 궁금한 세상을 발견하는 게 좋아요. 언제나 먼저 달리며 새로운 곳을 찾아내는 모험가예요.|Even an unfamiliar road is full of discoveries. An eager little explorer, always curious about what comes next.|喜欢在陌生的路上发现新世界，总是好奇前方还有什么的探险家。

@@ -1,3 +1,5 @@
+import {isNative} from './app-network.mjs';
+import {saveNativeImage} from './native-device.mjs';
 // Manual shutter only. Keep the download in the original tap's user activation.
 // Browsers choose the destination; a click cannot confirm a filesystem write.
 export function photoFilename(soul, time=Date.now(), sequence=1) {
@@ -26,7 +28,9 @@ export function capturePhoto(video, doc=globalThis.document) {
  return {full,preview:preview.toDataURL('image/jpeg',.75)};
 }
 
-export function downloadPhoto(src, filename, doc=globalThis.document) {
+export function downloadPhoto(src, filename, options=globalThis.document) {
+ if(isNative())return saveNativeImage(src,filename,{share:options?.share===true});
+ const doc=options?.createElement?options:globalThis.document;
  if(!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(src))throw new Error('Invalid photo');
  const link=doc.createElement('a');
  link.href=src;link.download=filename;link.hidden=true;

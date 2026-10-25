@@ -1,3 +1,4 @@
+import {appFetch} from './app-network.mjs';
 import {SceneGate} from './vision-core.mjs';
 import {outputLanguage} from './seoul-places.mjs';
 
@@ -22,7 +23,7 @@ export function captureVisionFrame(video){
 }
 
 export class SoulVisionObserver {
- constructor({capture,getContext=()=>({}),canObserve=()=>true,onState=()=>{},onReply=()=>{},fetchImpl=(...args)=>globalThis.fetch(...args),intervalMs=20000,timeoutMs=30000,setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args),now=Date.now}={}){
+ constructor({capture,getContext=()=>({}),canObserve=()=>true,onState=()=>{},onReply=()=>{},fetchImpl=appFetch,intervalMs=20000,timeoutMs=30000,setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args),now=Date.now}={}){
   Object.assign(this,{capture,getContext,canObserve,onState,onReply,fetchImpl,intervalMs,timeoutMs,setTimer,clearTimer,now});this.active=false;this.epoch=0;this.controller=null;this.timer=null;this.gate=new SceneGate();
  }
  stop(){this.active=false;this.epoch++;this.clearTimer(this.timer);this.controller?.abort();this.controller=null;this.onState('off');}

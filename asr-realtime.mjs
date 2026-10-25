@@ -1,3 +1,4 @@
+import {allowedRequestOrigin} from './native-origin.mjs';
 import WebSocket,{WebSocketServer} from 'ws';
 import {randomUUID} from 'node:crypto';
 import {chatConfig} from './chat-service.mjs';
@@ -8,8 +9,7 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
   const url=new URL(req.url,'http://localhost');
   const reject=status=>{socket.end(`HTTP/1.1 ${status} Rejected\r\nConnection: close\r\n\r\n`);};
   if(url.pathname!=='/api/transcribe/live')return reject(404);
-  let sameOrigin=false;try{const origin=new URL(req.headers.origin);sameOrigin=['http:','https:'].includes(origin.protocol)&&origin.host===req.headers.host;}catch{}
-  if(!sameOrigin||req.headers['sec-fetch-site']==='cross-site')return reject(403);
+  if(!req.headers.origin||!allowedRequestOrigin(req))return reject(403);
   const language=url.searchParams.get('language')||'auto';if(!['ko','en','zh','auto'].includes(language))return reject(400);
   const config=chatConfig(env);if(!config.configured||env.QWEN_REALTIME_ASR==='off')return reject(503);
   let release;try{release=reserve();}catch{return reject(429);}

@@ -1,3 +1,4 @@
+import {allowedRequestOrigin} from './native-origin.mjs';
 import {memoryContext} from './public/bike-memory-core.mjs';
 import {SEOUL_PLACES} from './public/seoul-places.mjs';
 import {VISION_SCENES} from './public/vision-core.mjs';
@@ -205,7 +206,7 @@ export function createChatHandler(options={}){
     if(!['/api/chat','/api/chat/scene','/api/vision','/api/transcribe','/api/speech','/api/speech/stream'].includes(pathname)||req.method!=='POST'){res.setHeader('Allow',pathname.endsWith('/status')?'GET, HEAD':'POST');send(405,{error:'method_not_allowed'});return true;}
     // JSON POST and same-origin requests keep another website from silently spending this demo's quota.
     const origin=req.headers.origin;
-    if(req.headers['sec-fetch-site']==='cross-site'||(origin&&(()=>{try{return new URL(origin).host!==req.headers.host;}catch{return true;}})())){send(403,{error:'origin_not_allowed'});return true;}
+    if(!allowedRequestOrigin(req)){send(403,{error:'origin_not_allowed'});return true;}
     const controller=new AbortController(),onClose=()=>{if(!res.writableEnded)controller.abort();};
     res.on('close',onClose);
     try{const vision=pathname==='/api/vision',asr=pathname==='/api/transcribe',speech=pathname==='/api/speech';const payload=await readChatBody(req,asr||vision||pathname==='/api/chat/scene'?700000:32768);

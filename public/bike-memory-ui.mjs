@@ -1,8 +1,9 @@
+import {appFetch} from './app-network.mjs';
 import {MEMORY_COPY,MEMORY_DAYS,memoryLine,BIKE_IDS,THEMES} from './bike-memory-core.mjs';
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const KEY='velo-soul-owned-memories-v1';
 export class BikeMemoryUI{
- constructor({document=globalThis.document,storage,fetchImpl=(...a)=>globalThis.fetch(...a),getLanguage=()=> 'en',getVoice=()=> 'en',canSpeak=()=>false,speak=()=>false}={}){Object.assign(this,{document,storage,fetchImpl,getLanguage,getVoice,canSpeak,speak});this.bike='lumi';this.state='loading';this.epoch=0;this.spoken=new Set();this.busy=false;this.status='';this.owned=[];try{this.storage??=globalThis.localStorage;this.owned=JSON.parse(this.storage.getItem(KEY)||'[]').filter(x=>x&&BIKE_IDS.includes(x.bike)&&typeof x.token==='string'&&typeof x.id==='string'&&Date.now()-x.at<MEMORY_DAYS*86400000).slice(-36);}catch{}}
+ constructor({document=globalThis.document,storage,fetchImpl=appFetch,getLanguage=()=> 'en',getVoice=()=> 'en',canSpeak=()=>false,speak=()=>false}={}){Object.assign(this,{document,storage,fetchImpl,getLanguage,getVoice,canSpeak,speak});this.bike='lumi';this.state='loading';this.epoch=0;this.spoken=new Set();this.busy=false;this.status='';this.owned=[];try{this.storage??=globalThis.localStorage;this.owned=JSON.parse(this.storage.getItem(KEY)||'[]').filter(x=>x&&BIKE_IDS.includes(x.bike)&&typeof x.token==='string'&&typeof x.id==='string'&&Date.now()-x.at<MEMORY_DAYS*86400000).slice(-36);}catch{}}
  copy(){return MEMORY_COPY[this.getLanguage()]||MEMORY_COPY.en;}
  markup(mode){return `<section class="bike-memory ${mode}" data-bike-memory="${mode}" data-no-translate aria-label="${escape(this.copy().tag)}"></section>`;}
  async select(bike){

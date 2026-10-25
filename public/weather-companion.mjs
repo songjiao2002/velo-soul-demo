@@ -1,6 +1,7 @@
+import {appFetch} from './app-network.mjs';
 import {weatherArea,weatherFresh,weatherLine,weatherGreeting,WeatherNoticeGate} from './weather-core.mjs';
 export class WeatherCompanion{
- constructor({fetchImpl=(...args)=>globalThis.fetch(...args),getSoul=()=> 'mori',getLanguage=()=> 'en',canSpeak=()=>false,speak=()=>false,onChange=()=>{},refreshPosition=async()=>null,now=Date.now,setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){
+ constructor({fetchImpl=appFetch,getSoul=()=> 'mori',getLanguage=()=> 'en',canSpeak=()=>false,speak=()=>false,onChange=()=>{},refreshPosition=async()=>null,now=Date.now,setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){
   Object.assign(this,{fetchImpl,getSoul,getLanguage,canSpeak,speak,onChange,refreshPosition,now,setTimer,clearTimer});this.epoch=0;this.active=false;this.autoSpeak=true;this.gate=new WeatherNoticeGate();this.state='off';
  }
  setState(state){this.state=state;this.onChange(state,this.snapshot);}

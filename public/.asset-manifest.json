@@ -1,73 +1,73 @@
 {
-  "version": "20261025-panda17b",
+  "version": "20261025-app18",
   "files": {
     "/index.html": {
-      "size": 7621,
-      "sha256": "d7a77b3fb3d50728c49fa4b75c10ce47caa32f5c7d7d8b3a9725d659b06caec8",
+      "size": 7676,
+      "sha256": "ca5d7295ab44ed4a592ba9c70639f69fd6fb9321f4197f3eeb012b850b6b5779",
       "br": {
-        "size": 3123,
-        "sha256": "881a3a7cbaf4026f9cabb6d6b3507ae23a0eaf2e0c7e6a5f450d50b695745041",
+        "size": 2902,
+        "sha256": "3b7f1789c7baa734f9b8fed2273c9f722ed4f865ccbdd37692f8407952dab121",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 3476,
-        "sha256": "10365b07aff0ff3d3eb4352f194ffb67793806687a2e0d57a9aef01467ebc337",
+        "size": 3498,
+        "sha256": "258b0aca6ac40f2d4ea92b941e2e1530630cf09aad3bb7f757030adacbe64c96",
         "suffix": ".gz"
       }
     },
     "/boot.js": {
-      "size": 2486,
-      "sha256": "fee1be0cfb705d6186c4e65cec8ba8f547800c21174c1b7986c860252fd08b43",
+      "size": 2483,
+      "sha256": "3844ba2bbd5eeca7e05ad6e06a7bf8ed3d1f215820142e18c723206227551799",
       "br": {
         "size": 935,
-        "sha256": "e2f6d9a9a3cea285f3ba392cbd5524f59bf81a388bd1b3d2eaf7fa958301b8c7",
+        "sha256": "a8a0f2b921fa6196a2c0b80e6e41e4f0291d6a823249af6deffd9406b8302367",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 1115,
-        "sha256": "f61e443b02ac06faf65e9d507099e420932f3db971e7690ddc9b38fa247acbaf",
+        "size": 1113,
+        "sha256": "638c88e4f56accaefc043f6ea5cb9427831ac9b122d23e694de953bb6bfc726b",
         "suffix": ".gz"
       }
     },
     "/app.bundle.js": {
-      "size": 313644,
-      "sha256": "ad543ad47b8bd6ab98ffe90d546898d388dff6ab017249abe7ddcc43f02bc130",
+      "size": 346282,
+      "sha256": "b18a8f01785d081599ddee1be525863f6b73f634074c19834abb94a519c72059",
       "br": {
-        "size": 95702,
-        "sha256": "0de6d1422e68d31a0ac5f79c3996db2da00d5ad288b5e5af8bb854480b4f07d9",
+        "size": 105212,
+        "sha256": "67a289fd44ca919b79beb74627cc68130c533701899630ecc8530365648674f9",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 114261,
-        "sha256": "d6c473ef68ec124a1035e9fb22ac56c12937c6a4ca0e34b07c4d76c5a4c80d7e",
+        "size": 126385,
+        "sha256": "49fe1a6ab58f40a91b2218390d9a455da1afb30390d40dd6d10ec2c5ade19c4b",
         "suffix": ".gz"
       }
     },
     "/app.css": {
-      "size": 117425,
-      "sha256": "36f2851673d63eebe83b31b6a9547588214f167e61dd41ab9c14061ffa7543a4",
+      "size": 123516,
+      "sha256": "7dd3bfe638ecdc13a5dff1b9a8f889aeee7b048ee4ea3eeab920ce11e2012868",
       "br": {
-        "size": 22110,
-        "sha256": "7f5fd74f55cec2d545bcab59b871aa92b2431374f27cbde1c6db8541eb8838b3",
+        "size": 23314,
+        "sha256": "91f2bdbdc9fc733262fb23bda00aada123af348f41ad00914c48cdfa646b8af4",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 23920,
-        "sha256": "e2189bb5d3d77bf292338a5845855c5a1495807be6dc8eb9b35c3331a33e70cc",
+        "size": 25392,
+        "sha256": "48d552712efd47b5a329fc9322a0a4a95b513e56fab820caab680f600ea1b865",
         "suffix": ".gz"
       }
     },
     "/character-toon.bundle.mjs": {
-      "size": 599749,
-      "sha256": "5d12366a6dcf461769224d7fb4247eec73c182e2a9c55d8f72d74b94de840308",
+      "size": 599841,
+      "sha256": "3900b0dfc1c65b145b131d34425b12ec5ebff13dd392f64c6d551990ec5cfa6f",
       "br": {
-        "size": 141674,
-        "sha256": "1937f3f1da75411ac754ef1c60d2e856243fe2ff68a1e369f83753f6055dda44",
+        "size": 141708,
+        "sha256": "4716ef61508878c65944a90a073fc889fc3c33ee871c05e443b30c2611df2710",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 156707,
-        "sha256": "1d9fc811c26a885bd459abc127b78221a46612c8f7d16c8f1762c5ecebfec0c2",
+        "size": 156742,
+        "sha256": "d0f8b56069554d8a1248488188d6535f4aa681f49195a6465b60ad71bfa66150",
         "suffix": ".gz"
       }
     },

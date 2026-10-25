@@ -1,0 +1,8 @@
+{
+  "appId": "com.velosoul.companion",
+  "appName": "VELO SOUL",
+  "webDir": "native-www",
+  "server": {"androidScheme": "https", "iosScheme": "capacitor", "hostname": "localhost"},
+  "android": {"allowMixedContent": false, "backgroundColor": "#fffdf8"},
+  "ios": {"contentInset": "never", "backgroundColor": "#fffdf8", "preferredContentMode": "mobile"}
+}
