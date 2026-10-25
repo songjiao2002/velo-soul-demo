@@ -68,3 +68,5 @@ Build `20261025-app19` adds a companion-first phone home, clearer UI/voice selec
 ## Preview 0.1.2 media recovery
 
 Build `20261025-media20` adds bounded camera startup and permission recovery, a native Android permission bridge including paired-headset permission, corrected iOS permission-dialog lifecycle handling, and system media playback for Android embedded/native environments. See [camera and audio changes](BLUETOOTH_AUDIO.md) for references, latency tradeoff and physical-device limits. Use the existing `/download.html` page; original QR files and public URLs are preserved.
+
+Validation: 225 local tests passed. Simulated English/Korean continuous-conversation and camera/map integration checks passed. [Mobile preview](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40200880858) compiled Android and iOS. [Android device check](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40200896849) passed first-use camera permission, actual emulator video dimensions, release on stop, all three QR decodes and native API access. Production English/Korean WAV synthesis returned valid audio. Physical Samsung Bluetooth output remains unverified.

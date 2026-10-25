@@ -1,0 +1,76 @@
+name: Publish verified mobile preview
+on:
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BUILD_RUN: '40200880858'
+      BUILD_COMMIT: '9610288fb64d137a535fbfca0b0fe684579f98c5'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '9610288fb64d137a535fbfca0b0fe684579f98c5'
+      - name: Check verified source run
+        run: |
+          gh api repos/${{ github.repository }}/actions/runs/$BUILD_RUN > /tmp/build-run.json
+          python3 - <<'PY'
+          import json, os
+          r=json.load(open('/tmp/build-run.json'))
+          assert r['conclusion']=='success' and r['head_sha']==os.environ['BUILD_COMMIT'] and r['name']=='Mobile preview'
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: VELO-SOUL-Android
+          path: release/android
+          run-id: '40200880858'
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: VELO-SOUL-iOS-Simulator
+          path: release/ios
+          run-id: '40200880858'
+          github-token: ${{ github.token }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund && node build-native.mjs
+      - name: Verify downloaded packages
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, plistlib, zipfile
+          apk=Path('release/android/VELO-SOUL-Android.apk')
+          digest=hashlib.sha256(apk.read_bytes()).hexdigest()
+          assert digest==Path('release/android/SHA256SUMS.txt').read_text().split()[0]
+          with zipfile.ZipFile(apk) as z:
+            assert b'20261025-media20' in z.read('assets/public/index.html')
+            assert not any(n.endswith('/.env') for n in z.namelist())
+            for soul in ('lumi','mori','bori'):
+              for ext in ('png','svg'):
+                name=f'qr-{soul}.{ext}'
+                assert z.read('assets/public/'+name)==Path('native-www',name).read_bytes()
+          with zipfile.ZipFile('release/ios/VELO-SOUL-iOS-Simulator.zip') as z:
+            info=plistlib.loads(z.read('App.app/Info.plist'))
+            assert info['CFBundleShortVersionString']=='0.1.2'
+            assert info['CFBundleIdentifier']=='com.velosoul.companion'
+            for k in ('NSCameraUsageDescription','NSMicrophoneUsageDescription','NSLocationWhenInUseUsageDescription'): assert info[k]
+            assert b'20261025-media20' in z.read('App.app/public/index.html')
+          print(json.dumps({'sha256':digest,'bytes':apk.stat().st_size,'originalQRsUnchanged':True,'iosVersion':info['CFBundleShortVersionString']}))
+          PY
+      - name: Publish preview without replacing earlier releases
+        run: |
+          cat > /tmp/notes.md <<'NOTES'
+          Fixes camera permission ordering, preview startup and retry; preserves system audio output with paired-headset permission on Android 12+ and interrupted-playback recovery. Original website, download page and QR codes remain unchanged.
+
+          Validated: 225 automated tests, Android/iOS compilation, Android 15 emulator first camera permission and actual video frames, capture release, QR decoding and API access. English/Korean production speech returns valid audio. Physical Samsung Bluetooth output remains unverified.
+
+          Android is a test/debug-signed preview. If it cannot replace an earlier preview, export local journeys before uninstalling the old build. iOS archive is simulator-only, not an installable iPhone app.
+          NOTES
+          gh release create v0.1.2-mobile-preview release/android/VELO-SOUL-Android.apk release/android/SHA256SUMS.txt release/ios/VELO-SOUL-iOS-Simulator.zip --target "$BUILD_COMMIT" --title 'VELO SOUL 0.1.2 — camera and system audio recovery' --notes-file /tmp/notes.md --prerelease
