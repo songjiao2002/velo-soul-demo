@@ -1,8 +1,15 @@
 # VELO SOUL
 
-Current release: **20261018-stream1**. Speech is streamed during the utterance, and the UI replaces tentative transcripts as Qwen revises them. Confirmed text is submitted once after a roughly 450 ms pause. Korean, English and Chinese input remain supported; Chinese still receives English replies. Temporary audio is retained only in memory for a bounded HTTP fallback if streaming fails. This reduces waiting for recognition to begin; model response and network latency remain.
+Character release: **20261025-panda17b**. Existing printed QR links open the same public bicycle entrances. Mori, Popo and Lulu now use
+rotatable 3D geometry with two-band cel shading and warm illustrated outlines.
+The existing 2D vector animation appears immediately and remains the fallback
+when WebGL is unavailable. The large companion loads its renderer separately;
+small conversation avatars stay lightweight vectors. The interface stays bright and defaults to English.
 
-The animated characters now share the covers' 1254 px design coordinates and reuse the covers' actual eye, brow and mouth textures. Separated body/hand textures preserve the original proportions and accessories, with no feet and fixed shoulder pivots. Original covers, QR files and destinations are unchanged. Asset prompts and paths: [IDENTITY_ASSETS.json](IDENTITY_ASSETS.json).
+Try the animation states at /character-review.html. The main UI, camera/map
+switching, continuous voice, GPS and journal use the same companions. Printed
+QR IDs and PNG/SVG bytes are unchanged. See [character implementation](docs/CHARACTERS.md)
+and [design reference](docs/CHARACTER_DESIGN_REFERENCE.md).
 
 Streaming setup: run npm ci (ws is a server-only dependency). The browser connects to /api/transcribe/live on this same origin; Railway proxies PCM16 audio to Qwen-ASR-Realtime using the server key. No key is sent to the browser or placed in a URL. The proxy enforces origin, language, payload, duration, backpressure and shared demo quota limits. QWEN_REALTIME_ASR=off disables streaming; QWEN_ASR_MODEL continues to configure the HTTP fallback.
 
@@ -10,7 +17,7 @@ References: [official Qwen3-ASR streaming demo](https://github.com/QwenLM/Qwen3-
 
 Validation: 120 automated checks, including incremental revisions, final-only submission, partials across multiple VAD segments, fallback retention, cancellation, PCM duration, same-origin checks and shared quotas. English and Korean generated samples were streamed through the real Qwen API. Device, wind-noise and speaker tests still require a phone.
 
-The sections below retain earlier implementation notes.
+The sections below retain historical implementation notes. Earlier character names, photo limits and 2D descriptions are superseded by the current release above.
 
 
 自行车人格化／数字骑行伙伴 demo。多语言演示版：相机初遇＋声音陪伴＋旅程日记：

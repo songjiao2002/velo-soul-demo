@@ -1,0 +1,17 @@
+/* A lightweight illustrated companion, with independent vector layers. */
+[data-character-2d]{position:relative;display:block;isolation:isolate;min-width:0;min-height:0;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;filter:none!important}
+[data-character-2d]>.soul-flat{width:100%;height:100%;pointer-events:none}
+.soul-flat[data-flat-paused=true] *{animation-play-state:paused!important}
+.character-puppet[data-character-2d]{aspect-ratio:360/380;width:100%;height:100%;animation:none!important}
+.soul-portrait>[data-character-2d]{width:100%;height:300px;max-width:340px}
+.home-arrival .soul-portrait{height:300px;padding:0;overflow:visible}.home-arrival .soul-portrait:before,.home-arrival .soul-portrait:after{display:none}
+.welcome-puppet{width:310px!important;height:320px!important;max-width:100%}
+.companion>[data-character-2d]{width:285px;height:285px}
+.post-head>[data-character-2d]{width:55px;height:55px;flex:none}.mood-card>[data-character-2d]{width:110px;height:110px;flex:none}
+.camera-fullscreen .soul-overlay{z-index:4;width:210px!important;height:220px!important;left:calc(50% - 105px)!important;top:calc(24% - 55px)!important;pointer-events:none!important}
+.camera-fullscreen .camera-focus{z-index:3}
+.camera-view.awakened .soul-overlay:has([data-character-2d]){animation:none!important;opacity:1;transform:none!important}
+.soul-chat-avatar [data-character-2d]{width:76px;height:76px}
+@media(max-width:760px){.home-arrival .soul-portrait{height:260px}.soul-portrait>[data-character-2d]{height:260px}.welcome-puppet{width:245px!important;height:260px!important}}
+@media(max-height:700px){.camera-fullscreen .soul-overlay{width:140px!important;height:148px!important;left:calc(50% - 70px)!important;top:113px!important}}
+@media(max-height:510px) and (orientation:landscape){.camera-fullscreen .soul-overlay{left:calc(32% - 70px)!important;top:126px!important}}

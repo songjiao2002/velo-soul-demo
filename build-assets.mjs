@@ -9,7 +9,7 @@ for(const file of ['index.html','boot.js']){
  const content=await readFile(new URL(file,root),'utf8');
  await writeFile(new URL(file,root),content.replace(/2026\d{4}-[a-z]+\d+[a-z]*/g,BUILD));
 }
-const textFiles=['index.html','boot.js','app.bundle.js','app.css','mic-worklet.js','vendor/jsQR.js','vendor/maplibre/maplibre-gl.mjs','vendor/maplibre/maplibre-gl-worker.mjs','vendor/maplibre/maplibre-gl.css'];
+const textFiles=['index.html','boot.js','app.bundle.js','app.css','character-toon.bundle.mjs','mic-worklet.js','vendor/jsQR.js','vendor/maplibre/maplibre-gl.mjs','vendor/maplibre/maplibre-gl-worker.mjs','vendor/maplibre/maplibre-gl.css'];
 const images=['assets/characters-original-20261025.jpg',...['lumi','mori','bori'].flatMap(id=>['ko','en'].map(lang=>`audio/characters13/${id}-${lang}.wav`)),'soul-blue.webp','soul-mint.webp','soul-orange.webp',...['lumi','mori','bori'].flatMap(s=>[`assets/${s}-puppet.webp`,`assets/${s}-cover-rig.webp`])];
 const manifest={version:BUILD,files:{}};
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');

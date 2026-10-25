@@ -12,7 +12,7 @@ test('printed QR identities retain their links while names and exact source art 
  assert.equal(createHash('sha256').update(readFileSync(new URL('./public/assets/characters-original-20261025.jpg',import.meta.url))).digest('hex'),'4412873ca032102b50efc41d0248184204835d62c83e85563864b4643084e565');
  for(const [id,name]of [['lumi','Mori'],['bori','Popo'],['mori','Lulu']]){
   assert.equal(parseSoulQR(`https://velo-soul-demo-production.up.railway.app/?bike=${id}`,'https://velo-soul-demo-production.up.railway.app'),id);assert.equal(SOULS[id].en,name);
-  assert.match(characterArtwork(id),/characters-original-20261025\.jpg/);assert.doesNotMatch(characterArtwork(id),/soul-blue|soul-mint|soul-orange/);
+  assert.match(characterArtwork(id),/data-character-2d/);assert.match(characterArtwork(id),/<svg/);assert.doesNotMatch(characterArtwork(id),/<image|<img|characters-original|soul-blue|soul-mint|soul-orange/);
   const intro=soulIntroduction(id,'ko');assert.ok(intro.text.includes(CHARACTERS[id].greeting.ko));assert.match(introductionClip(intro.text,id,'ko'),/characters13/);
   assert.equal(translate(CHARACTERS[id].greeting.ko,'en'),CHARACTERS[id].greeting.en);
  }

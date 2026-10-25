@@ -49,12 +49,12 @@ GPS를 켜면 함께 간 길이 그려져요.|Turn on GPS to trace our journey.|
 사진을 찍지 못했어요. 카메라가 준비되면 다시 눌러주세요.|Could not capture a photo. Try again when the camera is ready.|未能拍摄，请等相机就绪后重试。
 촬영한 사진은 기기에 다운로드하고, 여정의 사진 미리보기와 GPS 경로는 이 브라우저에 보관해요. 다른 사람에게 자동으로 공유되지 않아요.|Captured photos download to your device. Journey photo previews and GPS trails stay in this browser and are not shared automatically.|抓拍照片下载到本机，旅程照片预览和 GPS 轨迹保存在本浏览器，不会自动分享。
 위치·카메라·마이크 권한을 요청해요. 말하면 자동으로 Qwen에 보내고 음성으로 답해요. 화면·장소 정보도 함께 사용해요. GPS 허용 후 약 2km 격자 위치로 주변 날씨를 자동 조회해요.|Allow location, camera and microphone. Speak to send automatically to Qwen and hear a reply using scene and place context. GPS permission also enables automatic local weather using an approximate 2 km location grid.|允许定位、相机和麦克风，说完自动发送给千问并语音回答，同时结合画面和地点。允许 GPS 后使用约 2 公里网格位置自动查询当地天气。
-등록한 서울 장소 3곳은 GPS로 감지해요. AI 관찰을 켜면 카메라 장면을 분석해요. GPS를 켜면 주변 날씨를 자동 조회해요. 그 외 주변 검색과 자전거의 초대는 시뮬레이션이에요. 소울은 화면 위의 2D AR이며 공간에 고정되지 않아요.|GPS detects 3 curated Seoul places and automatically checks local weather. AI observation analyzes camera scenes when enabled. Other nearby searches and bike invitations are simulated. Souls are 2D screen overlays without spatial tracking.|GPS 可检测已收录的首尔 3 处地点并自动查询当地天气。开启 AI 观察后分析相机画面，其他周边搜索和自行车邀约仍为模拟。灵魂是屏幕 2D 叠加，没有空间追踪。
+등록한 서울 장소 3곳은 GPS로 감지해요. AI 관찰을 켜면 카메라 장면을 분석해요. GPS를 켜면 주변 날씨를 자동 조회해요. 그 외 주변 검색과 자전거의 초대는 시뮬레이션이에요. 소울은 2D 느낌의 회전 가능한 3D 캐릭터이며 실제 공간에 고정되지 않아요.|GPS detects 3 curated Seoul places and automatically checks local weather. AI observation analyzes camera scenes when enabled. Other nearby searches and bike invitations are simulated. Souls are rotatable, cel-shaded 3D characters on screen without spatial tracking.|GPS 可检测已收录的首尔 3 处地点并自动查询当地天气。开启 AI 观察后分析相机画面，其他周边搜索和自行车邀约仍为模拟。灵魂是可旋转的三渲二角色，没有空间追踪。
 카메라는 버튼을 누른 뒤에만 켜집니다. 촬영 버튼을 누르면 사진 다운로드를 요청해요. 사진 미리보기와 위치 기록은 이 브라우저에 보관하며 서버로 전송하지 않습니다. 대화 글·장소·날씨 요약은 Alibaba Cloud Qwen으로 전달됩니다. GPS를 켜면 날씨 조회를 위해 약 2km 격자 위치를 서버와 Open-Meteo에 보내며 정확한 좌표는 보내지 않습니다. AI 관찰을 켜면 분석용 카메라 이미지도 Qwen으로 보내며, 이 사이트에는 저장하지 않습니다. 카메라와 음성 대화를 켜면 마이크를 사용해요. 음성은 서버를 거쳐 Qwen에서 인식하며 녹음 파일은 저장하지 않아요. 답변 중에도 “잠깐” 명령을 듣습니다.|The camera starts after you tap a button. The shutter requests a photo download to your device. Photo previews and recorded trails stay in this browser. Chat text and place/weather summaries go to Alibaba Cloud Qwen. With GPS enabled, an approximate 2 km location grid goes to our server and Open-Meteo for weather; exact coordinates stay on your device. AI observation sends camera frames to Qwen without saving them on this site. Voice conversation uses the microphone and Qwen speech recognition via our server; recordings are not saved. You can say “stop” during a reply to interrupt.|点击按钮后才会开启相机，抓拍后会请求下载照片到本机，照片预览与轨迹保存在本浏览器。对话文字和地点、天气摘要发送给阿里云千问。开启 GPS 后会将约 2 公里网格位置发送到本站及 Open-Meteo 查询天气，不发送精确坐标。AI 观察将画面发送给千问，本站不保存分析图。语音对话通过本站调用千问识别，不保存录音；回答时可说“等一下”打断。
 GPS 허용 후 약 2km 격자 위치로 주변 날씨를 자동 조회해요.|GPS permission also enables automatic weather using an approximate 2 km location grid.|允许 GPS 后，会使用约 2 公里网格位置自动查询当地天气。
 등록한 서울 장소 3곳 · GPS 허용 후 자동 감지. 대화에는 장소와 날씨 요약을 보내요. 날씨 조회에는 약 2km 격자 위치를 사용해요.|3 curated Seoul places · Automatic after GPS permission. Chat receives place and weather summaries; weather uses an approximate 2 km location grid.|已收录首尔 3 处地点，GPS 授权后自动检测。对话使用地点与天气摘要，天气查询使用约 2 公里网格位置。
 GPS를 켜면 주변 날씨를 자동으로 확인해요. 아래 버튼은 별도 시뮬레이션이에요.|GPS automatically checks local weather. The buttons below are separate simulations.|开启 GPS 后自动查询当地天气，下方按钮仍是独立的情景模拟。
-GPS를 켜면 주변 날씨를 자동 확인해요. 전체 가게 검색과 근처 자전거 초대는 시뮬레이션이에요. 소울은 화면 위의 2D AR이며 공간에 고정되지 않아요.|GPS automatically checks local weather. Full shop search and nearby bike invitations are simulated. Souls are 2D screen overlays.|GPS 自动获取当地天气。全部店铺搜索与附近自行车邀约仍为模拟，灵魂为屏幕 2D 叠加。
+GPS를 켜면 주변 날씨를 자동 확인해요. 전체 가게 검색과 근처 자전거 초대는 시뮬레이션이에요. 소울은 2D 느낌의 회전 가능한 3D 캐릭터이며 실제 공간에 고정되지 않아요.|GPS automatically checks local weather. Full shop search and nearby bike invitations are simulated. Souls are rotatable, cel-shaded characters on screen.|GPS 自动获取当地天气。全部店铺搜索与附近自行车邀约仍为模拟，灵魂为屏幕 2D 叠加。
 위치·카메라·마이크 권한을 요청해요. 말하면 자동으로 Qwen에 보내고 음성으로 답해요. 화면·장소 정보도 함께 사용해요.|Allow location, camera and microphone. Speak to send automatically to Qwen and hear its reply, using current scene and place context.|允许定位、相机和麦克风。说完自动发送给千问并用语音回答，同时结合当前画面与地点信息。
 음성 대화 켜기|Start voice conversation|开启连续语音
 
@@ -76,7 +76,7 @@ AI 관찰을 켜기 전에는 화면을 서버로 보내지 않아요.|Camera fr
 등장 애니메이션 다시 보기|Replay entrance|重播出场动画
 기본 안내 / AI 사용 불가|Preset / AI unavailable|预设台词／AI 暂不可用
 Reading with your device voice|Reading with your device voice|正在使用设备声音朗读
-등록한 서울 장소 3곳은 GPS로 감지해요. 그 외 주변 검색, 사물 인식, 날씨, 자전거의 초대는 시뮬레이션이에요. 소울은 화면 위의 2D AR이며 공간에 고정되지 않아요.|GPS detects 3 curated Seoul places. Other nearby searches, object recognition, weather and bicycle invitations are simulations. Souls are 2D screen overlays without spatial tracking.|GPS 可检测已收录的首尔 3 处地点；其他周边搜索、相机识物、天气与自行车邀约为模拟。灵魂是 2D 画面叠加，没有空间追踪。
+등록한 서울 장소 3곳은 GPS로 감지해요. 그 외 주변 검색, 사물 인식, 날씨, 자전거의 초대는 시뮬레이션이에요. 소울은 2D 느낌의 회전 가능한 3D 캐릭터이며 실제 공간에 고정되지 않아요.|GPS detects 3 curated Seoul places. Other nearby searches, object recognition, weather and bicycle invitations are simulations. Souls are rotatable, cel-shaded 3D characters on screen without spatial tracking.|GPS 可检测已收录的首尔 3 处地点；其他周边搜索、相机识物、天气与自行车邀约为模拟。灵魂是 2D 画面叠加，没有空间追踪。
 소울과 대화하기 ↗|Chat with your Soul ↗|和灵魂对话 ↗
 근처 장소에서 소울이 말해요|Your Soul notices nearby places|靠近地点时灵魂会主动说话
 등록한 서울 장소 3곳 · GPS 허용 후 자동 감지. 대화에는 장소·날씨 요약을 보내고, 날씨 조회에는 약 2km 격자 위치를 사용해요.|3 curated Seoul places · Automatic after GPS permission. Chat receives place and weather summaries; weather lookup uses an approximate 2 km location grid.|已收录首尔 3 处地点，GPS 授权后自动检测。对话使用地点与天气摘要，天气查询使用约 2 公里网格位置。
@@ -170,7 +170,7 @@ QR이 연결해 준 오늘의 동반자. 카메라를 열면, 소울이 당신�
 카메라를 켜고 세 소울의 QR 코드 중 하나를 화면 안에 담아주세요.|Enable the camera and frame one of the three Soul QR codes.|开启相机，将三个灵魂的任意一个二维码放进画面。
 카메라를 켜면 화면 위로 소울이 나타나요.|Enable your camera to meet a Soul on screen.|开启相机，灵魂就会出现在画面上。
 VELO SOUL 전용 QR 인식|VELO SOUL QR scanner|VELO SOUL 专属二维码识别
-화면 위의 작은 동반자 · 2D AR|Your on-screen companion · 2D AR|屏幕上的小伙伴 · 2D AR
+화면 위의 작은 동반자 · 드래그로 돌려보기|Your companion · drag to turn|屏幕上的小伙伴 · 拖动旋转
 당신의 세상으로.|into your world.|来到你的世界。
 주변이 궁금한 모리는 가장자리에서 빼꼼. 같은 풍경을 바라보는 순간, 우리의 여정이 시작돼요.|Curious Mori peeks in from the edge. Our journey begins when we look at the world together.|好奇的莫里从屏幕边缘探出头。当我们望向同一片风景，旅程就开始了。
 서두르지 않는 루루가 천천히 둥둥 떠올라요. 오늘은 서로의 속도에 맞춰 달려볼까요?|Unhurried Lulu gently floats into view. Shall we find a pace that feels right for both of us?|不慌不忙的露露缓缓漂浮出现。今天，要不要按照彼此舒服的速度骑行？
@@ -363,8 +363,9 @@ const dynamic=[
 const catalog=Object.fromEntries(rows.map(([ko,en,zh])=>[ko,{ko,en,zh}]));
 const escapeRegex=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 const matcher=new RegExp(Object.keys(catalog).sort((a,b)=>b.length-a.length).map(escapeRegex).join('|'),'g');
-const storeKey='velo-soul-ui-language';
-let language='ko';
+// Start this redesigned interface in English once; keep subsequent explicit choices.
+const storeKey='velo-soul-ui-language-models14';
+let language='en';
 export function getLanguage(){return language;}
 export function locale(){return {ko:'ko-KR',en:'en-US',zh:'zh-CN'}[language];}
 export function translate(value,lang=language){

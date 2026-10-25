@@ -32,6 +32,7 @@ export function paintCharacterMotion(root,snapshot,language='ko'){
  for(const el of root.querySelectorAll('.character-puppet')){
   // Homepage illustrations are static; only companion puppets track motion.
   const activity=snapshot.state||'idle';if(el.dataset.activity!==activity)el.dataset.activity=activity;
+  el.dataset.speed=String(snapshot.speed??0);
   if(el.dataset.pace!==snapshot.pace)el.dataset.pace=snapshot.pace||'slow';
   const c=CHARACTERS[el.dataset.soul],rest=c?.rest[language]||c?.rest.en;
   const label=activity==='resting'?rest:activity==='riding'?({ko:'함께 자전거를 타요',en:'Riding together',zh:'一起骑自行车'})[language]:({ko:'곁에 있어요',en:'Right here with you',zh:'就在你身边'})[language];

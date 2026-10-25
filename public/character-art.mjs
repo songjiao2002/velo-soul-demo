@@ -1,5 +1,5 @@
-// Original user artwork, copied byte-for-byte. These are display windows into
-// the supplied board, not generated replacement characters. Legacy bike IDs
+import {characterSVG} from './character-2d.mjs';
+// The original design board is the illustration reference. Legacy bike IDs
 // preserve printed QR codes, server persona routing and saved bicycle memories.
 export const CHARACTER_SOURCE='/assets/characters-original-20261025.jpg';
 export const CHARACTER_SOURCE_SIZE=[1536,1024];
@@ -36,15 +36,11 @@ export function poseOutline(id,pose='cover'){
  if(id==='mori')return 'M1238 15H1511V329H1238V305H1278V143H1238Z';
  return null;
 }
-let artworkSerial=0;
+
+// Hand-drawn vector layers follow the supplied design board.
 export function characterArtwork(id,pose='cover',className=''){
- const c=CHARACTERS[id],box=poseBox(id,pose);if(!c)return '';
- const outline=poseOutline(id,pose),clip=`original-art-${++artworkSerial}`;
- const shape=outline?`<path d="${outline}"/>`:`<rect x="${box[0]}" y="${box[1]}" width="${box[2]}" height="${box[3]}"/>`;
- return `<svg class="character-art ${className}" viewBox="${box.join(' ')}" role="img" aria-label="${c.en}" data-character-art="${id}" data-art-pose="${pose}" data-no-translate><defs><clipPath id="${clip}">${shape}</clipPath></defs><image href="${CHARACTER_SOURCE}" width="1536" height="1024" clip-path="url(#${clip})"/></svg>`;
-}
-export function characterPuppet(id){
  const c=CHARACTERS[id];if(!c)return '';
- const layers=['greeting','riding','rest','restAlt',...(id==='lumi'?['slow','fast','stopping']:[])];
- return `<span class="soul-puppet character-puppet ${id}" data-soul="${id}" data-expression="greeting" data-activity="greeting" role="img" aria-label="${c.en}" data-no-translate><span class="character-shadow" aria-hidden="true"></span><span class="character-trails" aria-hidden="true"><i></i><i></i><i></i></span><span class="character-stage">${layers.map(p=>`<span class="character-pose pose-${p}">${characterArtwork(id,p)}</span>`).join('')}</span><span class="character-voice" aria-hidden="true"><i></i><i></i><i></i></span></span>`;
+ const activity=pose==='cover'||pose==='riding'?'riding':pose==='rest'?'resting':'idle';
+ return '<span class="character-view '+className+'" data-character-2d data-character-toon data-turnable tabindex="0" data-soul="'+id+'" data-pose="'+activity+'" role="img" aria-label="'+c.en+' · illustrated character · drag or use arrow keys to turn" data-no-translate><canvas class="toon-canvas" aria-hidden="true"></canvas>'+characterSVG(id,activity)+'</span>';
 }
+export function characterPuppet(id){const c=CHARACTERS[id];if(!c)return '';return '<span class="soul-puppet character-puppet '+id+'" data-character-2d data-character-toon data-turnable tabindex="0" data-soul="'+id+'" data-expression="greeting" data-activity="greeting" role="img" aria-label="'+c.en+' · illustrated companion · drag or use arrow keys to turn" data-no-translate><canvas class="toon-canvas" aria-hidden="true"></canvas>'+characterSVG(id,'greeting')+'</span>';}

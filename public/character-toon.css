@@ -1,0 +1,9 @@
+/* The SVG remains visible until the first successful cel-shaded frame. */
+[data-character-toon]>.toon-canvas{position:absolute;inset:0;width:100%;height:100%;display:none;pointer-events:none}
+[data-toon-state=ready]>.toon-canvas{display:block}
+[data-toon-state=ready]>.soul-flat{visibility:hidden}
+[data-turnable][data-toon-state=ready]{touch-action:pan-y;cursor:grab;outline-offset:4px}
+[data-turnable][data-toon-state=ready]:active{cursor:grabbing}
+[data-turnable]:focus-visible{outline:2px solid #91a981!important;border-radius:20px!important}
+.camera-fullscreen .soul-overlay:has([data-character-toon]){pointer-events:auto!important}
+.camera-fullscreen .soul-overlay [data-character-toon]{pointer-events:auto}

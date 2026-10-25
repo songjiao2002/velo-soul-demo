@@ -1,46 +1,60 @@
-# Original characters · 2026-10-25
+# Rotatable, cel-shaded companions · 2026-10-25
 
-The supplied 1536 × 1024 JPEG is the visual source of truth. Its bytes are
-preserved in `public/assets/characters-original-20261025.jpg` (SHA-256
-`4412873ca032102b50efc41d0248184204835d62c83e85563864b4643084e565`).
-No generated replacements are used. SVG display windows select the original
-poses; two cover windows exclude neighboring editorial text. Pastel grounds
-remain because the supplied image is not a transparent, layered character file.
+The latest direction combines true 3D rotation with an illustrated 2D appearance.
+The original JPEG remains the reference. The large companion uses articulated
+geometry with two-band toon shading, fine outlines and orthographic projection.
+The existing SVG characters appear immediately and remain the fallback when
+WebGL is unavailable. This is a reconstruction, not pixel-identical reproduction.
 
-| Printed QR / stored bicycle ID | Display identity | First encounter | Sustained rest |
+| Existing QR ID | Display identity | Greeting | Rest |
 | --- | --- | --- | --- |
-| `lumi` | 모리 · Mori · 莫里, explorer cat | Question mark, curious entrance | Dismount, look around |
-| `bori` | 포포 · Popo · 波波, foodie hamster | Eating bread, playful entrance | Bag pose, then bread pose |
-| `mori` | 루루 · Lulu · 露露, relaxed panda | Slow entrance | Lie down and sleep |
+| lumi | Mori / 모리 / 莫里 · explorer cat | Question mark, small wave | Look around |
+| bori | Popo / 포포 / 波波 · foodie hamster | Eating bread | Reach for bread, nibble |
+| mori | Lulu / 루루 / 露露 · relaxed panda | Slow arrival | Lie down, eyes closed, breathing |
 
-All three ride their own bicycles when valid GPS speed remains at least
-4 km/h for 1.5 seconds. A speed at or below 1.5 km/h for 8 seconds establishes
-rest. Uncertain, missing, stale (>15 seconds) or inaccurate (>40 m) speed fixes
-do not establish movement or rest. Mid-range speeds preserve the preceding
-state. Old QR URLs, PNG/SVG downloads, memory keys and server persona IDs stay
-unchanged. No new sensor or microphone requests are made by animation.
+All three cycle when GPS confirms riding. Head, eyes, mouth, hands, tail,
+backpack and bicycle are separately animated. Feet follow the rotating pedals;
+voice amplitude drives the mouth. Zero speed pauses pedaling. Reduced-motion,
+offscreen visibility and hidden documents suppress unnecessary motion. Drag
+horizontally to rotate, use left/right arrow keys, or Home to face forward.
+The review page also offers front, side, back and optional auto-turn controls.
+Animation never requests camera, microphone or location permissions.
 
-The poses retain original proportions and clothing. CSS adds entrance timing,
-small tilts, riding bounce, motion lines, bread gestures and sleep breathing.
-This is screen-space 2D pose animation, not a newly rigged 3D character, true
-pedaling skeleton or spatially anchored AR. Speech uses a small amplitude meter
-so no replacement mouth is drawn over the user's face design. Reduced-motion
-preferences disable decorative motion.
+The existing GPS hysteresis remains: >=4 km/h for 1.5 seconds establishes
+riding, <=1.5 km/h for 8 seconds establishes rest. Missing, inaccurate (>40 m),
+stale (>15 seconds) and out-of-order fixes cannot establish riding/rest.
 
-## Exact Korean lines
+## Dialogue
 
 - Mori: “오늘은 어떤 재밌는걸 보러갈까?”
 - Popo: “오늘은 어떤 맛있는걸 먹으러갈까?”
-- Lulu, good current weather: “날씨가 좋으니 천천히가자”
-- Lulu, bad current weather: “오늘은 그냥 쉬면 안되?”
+- Lulu, fresh good current weather: “날씨가 좋으니 천천히가자”
+- Lulu, fresh bad current weather: “오늘은 그냥 쉬면 안되?”
 
-The first voice introduces the new name, then the personality line. Lulu uses
-a neutral opening until fresh weather is available. Weather never comes from
-the illustration or a future rain forecast treated as current rain. Existing
-current/forecast precautions and deduplication continue. Korean and English
-introductions are packaged under `public/audio/characters13/` to avoid an API
-round trip. Chinese input still receives English speech.
+The first voice introduces the new name before the personality line. Lulu uses
+a neutral greeting until current weather is available. Existing forecast
+precautions and deduplication remain. English and Korean intro clips are local
+files under public/audio/characters13/. Chinese input still receives English
+speech. UI defaults to English once for this redesign, then remembers explicit
+later choices. Skill folder IDs and saved bicycle memories remain unchanged.
 
-The existing three skill folders retain their IDs for compatibility, with
-updated identities, embodiment rules and exact opening lines. Existing camera,
-weather, memory-consent and factual-grounding boundaries remain in force.
+
+## Loading and export
+
+`character-loader.mjs` starts SVG immediately, then imports the separately
+compressed `character-toon.bundle.mjs` without delaying app readiness. One shared
+WebGL renderer serves visible companions of at least 125 px; small avatars remain
+SVG. It clears both color and depth between scenes. Context loss or loading failure
+reveals the SVG again. Detached views release geometry, materials and listeners.
+PNG export copies the visible rendered canvas, or rasterizes SVG as a fallback.
+Camera capture itself is unchanged.
+
+Model tests verify two-band materials, real rotation, pedal contact, zero-speed
+behaviour, reduced motion, speech and personality rest states. Startup checks cover
+the home page and all QR entrances; all six legacy QR byte hashes still match.
+Physical Samsung/Bluetooth behaviour has not been retested for this visual change.
+
+Implementation: Three.js MeshToonMaterial and OutlineEffect, pinned to 0.186.1.
+References: https://threejs.org/docs/pages/MeshToonMaterial.html and
+https://threejs.org/docs/pages/OutlineEffect.html. Third-party license is preserved
+at public/vendor/three-LICENSE.txt. The original public QR destinations and all six QR image bytes are preserved.

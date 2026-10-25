@@ -1,0 +1,56 @@
+/* Warm daylight surfaces. Keep sensor video untouched and text contrast strong. */
+:root{--paper:#fffdf8;--ink:#304039;--muted:#64746b;--line:#e6ebe3;--lime:#e1efb7;--accent:#6f9569;color-scheme:light}
+body{background:radial-gradient(ellipse at 4% 4%,#fff0dd90,transparent 38%),radial-gradient(ellipse at 98% 22%,#ecf6e980,transparent 36%),var(--paper)}
+.topbar{background:#ffffffc9;border-color:#e8ede6}.brand-icon{background:#e6f0d5;color:#405e45;box-shadow:inset 0 0 0 1px #dae7cc}
+.language-picker{border-color:#e3e9de;box-shadow:0 2px 8px #45663c04}.record-count{background:#edf5e5}
+.home-arrival .hero h1{color:#30473a}.hero h1 em:after{background:#f4e4b8}
+.home-arrival .soul-card{background:linear-gradient(155deg,color-mix(in srgb,var(--tint),white 25%),#ffffff 95%);border-color:color-mix(in srgb,var(--accent),white 85%);box-shadow:0 10px 32px #60734409}
+.home-arrival .card-top{border:0}.home-arrival .soul-portrait{border:0;background:radial-gradient(ellipse at 50% 55%,#ffffffb5,transparent 67%)}
+.home-arrival .card-copy{border:0}.home-arrival .name-line h2{color:color-mix(in srgb,var(--accent),#544020 17%);font-weight:650}
+.home-arrival .card-actions .primary,.meeting-actions .primary{background:color-mix(in srgb,var(--accent),white 68%);border:1px solid color-mix(in srgb,var(--accent),white 48%);color:#374633;box-shadow:0 5px 16px color-mix(in srgb,var(--accent),transparent 90%)}
+.home-arrival .card-actions .icon-btn{background:#fffdf8;border-color:color-mix(in srgb,var(--accent),white 65%);color:#66543a;font-family:inherit;font-size:12px}
+.home-arrival .qr-disclosure{background:#ffffff91}.qr-disclosure>summary{color:#5d6c61}.home-arrival .qr-mini{background:transparent}
+.meeting-orbit{border-color:color-mix(in srgb,var(--accent),transparent 90%)}.meeting-portrait:before{background:radial-gradient(ellipse,color-mix(in srgb,var(--tint),white 12%) 24%,#fffdf866 62%,transparent 74%)}
+.meeting-options,.meeting-copy .bike-memory{border-color:#e6ece1}.secondary,.icon-btn{background:#ffffff;border-color:#dfe7d9;color:#465c49}
+.home-map-stack>.korea-map,.korea-map{border-color:#dce7d5;box-shadow:0 8px 30px #597d4009;background:#fffef9}
+.korea-map .map-title,.korea-map .map-caption,.korea-map .map-privacy{background:#fffef9}.korea-map .map-tools{background:#ffffff;border-color:#e1e9da}
+.map-tools .map-places button{background:#f4f8ee}.gps-connect{border-color:#e2eadb;background:#fcfff8}
+.panel,.post,.ride-primary{border-color:#e1e8dc;background:#fffefb;box-shadow:0 6px 28px #6d7c4d07}.page-footer{background:#ffffff75;border-color:#e8ece5;color:#687b6b}
+/* The camera view keeps a subtle scrim for scene legibility, with light controls. */
+.camera-fullscreen{color:#34473b;background:#f4f6ed}
+.camera-fullscreen .camera-placeholder{background:radial-gradient(ellipse at 50% 35%,#fff8e9,#dcead9 90%)}
+.camera-fullscreen .camera-empty,.camera-fullscreen .camera-empty p{color:#52694f}
+.camera-fullscreen .camera-view:after{background:linear-gradient(#ffffff30,transparent 25%,transparent 68%,#ffffff24)}
+.camera-fullscreen .camera-top{background:linear-gradient(#fffffff2,#ffffff00);color:#34473b}
+.camera-fullscreen .camera-round{background:#ffffffeb;color:#3b5140;border-color:#e3ebdd;box-shadow:0 3px 14px #304b3012}
+.camera-fullscreen .camera-name span,.camera-fullscreen .camera-label{background:#fffffff0;color:#4f6b50;border-color:#e2eadc}
+.camera-fullscreen .camera-settings{color:#40563f}.camera-fullscreen .camera-settings>summary{background:#fffffff0;color:#456044;border-color:#e1eadb}
+.camera-fullscreen .camera-settings[open]{background:#fffffff5;border-color:#e0ead8;box-shadow:0 12px 35px #415d3924}
+.camera-fullscreen .camera-settings button{color:#3e5b3f}.camera-fullscreen .camera-settings .vision-notice{color:#52664f}
+.camera-fullscreen .camera-conversation{background:#fffef9f2;color:#344b3b;border-color:#ffffff;box-shadow:0 10px 36px #36502b1c}
+.camera-fullscreen .conversation-kicker{color:#61775a}.camera-fullscreen .camera-conversation [data-live-status]{color:#304a35}
+.camera-fullscreen .camera-conversation .conversation-toggle{background:#e5efcb;color:#344b2a;border:1px solid #d5e2b5}
+.camera-fullscreen .camera-conversation .conversation-toggle[aria-pressed=true]{background:#edf3e4;color:#46613e;border-color:#d7e4ca}
+.camera-fullscreen .camera-conversation button{color:#435b3e}.camera-fullscreen .camera-conversation .heard-text{color:#4b6e3b}
+.camera-fullscreen .camera-conversation .mic-level-row,.camera-fullscreen .camera-conversation .input-language-hint{color:#617558}
+.camera-fullscreen .voice-bars i{background:#7fa65d}.camera-fullscreen .connection-orb{background:#8ca774}
+.camera-fullscreen .character-speed{background:#fffef9ed;color:#3e573f;border-color:#ffffff;box-shadow:0 4px 16px #4358361a}
+.camera-fullscreen .camera-live-caption{background:#fffef9f2;color:#344b3b;border-color:#e4ecdc}
+.camera-fullscreen .camera-focus{border-color:#ffffffd9;box-shadow:0 0 0 1px #45604435}.camera-fullscreen .camera-focus i{background:#fff}
+.camera-fullscreen .camera-bottom,.camera-fullscreen[data-scene-mode=map] .camera-bottom{background:linear-gradient(#ffffff00,#fffef9f5 42%);color:#40583f}
+.camera-fullscreen .camera-bottom button,.camera-fullscreen .camera-gps-status{color:#40583f}
+.camera-fullscreen .camera-mode-row button{background:#fffffff2;border-color:#dce7d4;color:#40583f}
+.camera-fullscreen .camera-status{color:#597052;opacity:1}
+.camera-fullscreen .camera-shutter{border-color:#b9cba9;background:#fffdf8;box-shadow:0 2px 14px #45643817}
+.camera-fullscreen .camera-conversation .conversation-flow,.camera-fullscreen .hands-free-help,.camera-fullscreen .hands-free-help summary{color:#607456}
+.camera-fullscreen .hands-free-help p{color:#4f6549}
+.camera-fullscreen .scene-switch{background:#fffffff0;border-color:#e2eadb;box-shadow:0 3px 14px #36502b0d}
+.camera-fullscreen .scene-switch button{color:#56724d}.camera-fullscreen .scene-switch button[aria-pressed=true]{background:#e7f1d7;color:#38542e}
+.camera-fullscreen .camera-weather .weather-card{background:#fffef9f5;border-color:#e3ecd9;color:#4c6744;box-shadow:0 3px 12px #3b583111}
+.camera-fullscreen .camera-weather .weather-card summary,.camera-fullscreen .camera-weather .weather-card p,.camera-fullscreen .camera-weather .weather-card b,.camera-fullscreen .camera-weather .weather-card span{color:#4c6744}
+.camera-fullscreen .camera-live-caption p{background:#fffef9f5;color:#344b3b;border-color:#e4ecdc;box-shadow:0 5px 18px #46663310}
+.primary,.secondary,.camera-round,.scene-switch button,.language-picker{transition:background-color .18s,border-color .18s,box-shadow .18s,transform .18s}
+.primary:active:not(:disabled),.secondary:active:not(:disabled),.camera-round:active:not(:disabled){transform:scale(.98)}
+.language-picker:focus-within{box-shadow:0 0 0 3px #dbeaca80;border-color:#b9cea9}
+@media(hover:hover){.home-arrival .card-actions .primary:hover,.meeting-actions .primary:hover{background:color-mix(in srgb,var(--accent),white 56%)}.secondary:hover{background:#f3f8eb}}
+@media(prefers-reduced-motion:reduce){.home-arrival .soul-card{transition:none}}

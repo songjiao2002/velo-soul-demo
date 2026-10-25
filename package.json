@@ -9,12 +9,13 @@
   },
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test server.test.mjs final.test.mjs language.test.mjs audio.test.mjs chat.test.mjs places.test.mjs vision.test.mjs connected.test.mjs hands-free.test.mjs browser-api.test.mjs microphone.test.mjs speech.test.mjs streaming.test.mjs weather.test.mjs asr-realtime.test.mjs mouth.test.mjs audio-session.test.mjs audio-devices.test.mjs native-speech.test.mjs speech-cache.test.mjs photo-capture.test.mjs journey-store.test.mjs qr-cache.test.mjs bike-memory.test.mjs korea-map.test.mjs gps-ui.test.mjs character-motion.test.mjs",
-    "build": "esbuild public/final.js --bundle --minify --charset=utf8 --format=iife --target=es2020 --outfile=public/app.bundle.js && esbuild public/styles.entry.css --bundle --minify --target=es2020 --outfile=public/app.css && node build-assets.mjs"
+    "test": "node --test server.test.mjs final.test.mjs language.test.mjs audio.test.mjs chat.test.mjs places.test.mjs vision.test.mjs connected.test.mjs hands-free.test.mjs browser-api.test.mjs microphone.test.mjs speech.test.mjs streaming.test.mjs weather.test.mjs asr-realtime.test.mjs mouth.test.mjs audio-session.test.mjs audio-devices.test.mjs native-speech.test.mjs speech-cache.test.mjs photo-capture.test.mjs journey-store.test.mjs qr-cache.test.mjs bike-memory.test.mjs korea-map.test.mjs gps-ui.test.mjs character-motion.test.mjs character-2d.test.mjs character-toon.test.mjs",
+    "build": "esbuild public/final.js --bundle --minify --charset=utf8 --format=iife --target=es2020 --outfile=public/app.bundle.js && esbuild public/styles.entry.css --bundle --minify --target=es2020 --outfile=public/app.css && esbuild public/character-toon.mjs --bundle --minify --charset=utf8 --format=esm --target=es2020 --outfile=public/character-toon.bundle.mjs && node build-assets.mjs"
   },
   "devDependencies": {
     "esbuild": "0.25.12",
-    "fake-indexeddb": "6.2.6"
+    "fake-indexeddb": "6.2.6",
+    "three": "0.186.1"
   },
   "dependencies": {
     "ws": "8.22.0"
