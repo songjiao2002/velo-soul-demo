@@ -37,9 +37,11 @@ jobs:
           api-level: 35
           arch: x86_64
           target: google_apis
-          ram-size: 2048M
+          ram-size: 3072M
           cores: 2
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back emulated -memory 2048
+          # The headless runner intermittently loses gfxstream color buffers.
+          # Keep camera coverage, but use a cold boot and disable unused Vulkan.
+          emulator-options: -no-window -no-snapshot -gpu swiftshader -feature -Vulkan -noaudio -no-boot-anim -camera-back emulated -camera-front none -memory 3072
           disable-animations: true
           script: |
             adb logcat -c
