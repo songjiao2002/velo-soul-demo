@@ -1,0 +1,53 @@
+name: Security scan
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: security-scan-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Dependency audit including build tooling
+        run: npm audit --audit-level=moderate
+      - name: Application and update regressions
+        run: node --input-type=module -e "import {readFileSync} from 'node:fs';import {spawnSync} from 'node:child_process';const files=JSON.parse(readFileSync('package.json')).scripts.test.split(' ').slice(2);const r=spawnSync(process.execPath,['--test','--test-isolation=none',...files],{stdio:'inherit'});process.exit(r.status??1);"
+  codeql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          queries: security-extended
+          config: |
+            paths-ignore:
+              - public/app.bundle.js
+              - public/character-toon.bundle.mjs
+              - public/vendor
+              - vendor
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:javascript-typescript
