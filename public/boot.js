@@ -36,10 +36,10 @@
   });
   // One classic bundle avoids a chain of module requests and partial versions.
   var script = document.createElement('script');
-  script.src = '/app.bundle.js?v=20261026-security24';
+  script.src = '/app.bundle.js?v=20261026-security25';
   // A retry must also bypass a partially cached script, not only the HTML.
-  var reload = new URL(window.location.href).searchParams.get('reload');
-  if (reload) script.src += '&reload=' + encodeURIComponent(reload);
+  var reload = Number(new URL(window.location.href).searchParams.get('reload'));
+  if (Number.isSafeInteger(reload) && reload > 0) script.src += '&reload=' + reload;
   script.async = true;
   script.onerror = function () { failed(new Error('Could not download the app. Please reload.')); };
   script.onload = function () { if (!ready) failed(new Error('App startup did not complete. Please reload.')); };

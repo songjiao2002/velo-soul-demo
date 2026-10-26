@@ -3,6 +3,20 @@ import assert from 'node:assert/strict';
 import {SoulSpeechPlayer} from './public/soul-speech.mjs';
 import {HandsFreeConversation} from './public/hands-free.mjs';
 import {SoulVisionObserver} from './public/soul-vision.mjs';
+import {readFileSync} from 'node:fs';
+import {runInNewContext} from 'node:vm';
+
+test('startup cache recovery keeps script URLs local and accepts only a numeric retry value',()=>{
+ const boot=readFileSync(new URL('./public/boot.js',import.meta.url),'utf8');
+ for(const value of [null,'1793000000000','https://elsewhere.example/a.js','//elsewhere.example/a.js','1&redirect=https://elsewhere.example','Infinity','-1','9007199254740992']){
+  let script;const elements=new Map();
+  const document={getElementById(id){if(!elements.has(id))elements.set(id,{innerHTML:'<main>fallback</main>',addEventListener(){}});return elements.get(id);},createElement(){return {};},head:{appendChild(el){script=el;}},documentElement:{dataset:{}}};
+  const href='https://demo.example/?bike=lumi'+(value===null?'':'&reload='+encodeURIComponent(value));
+  runInNewContext(boot,{document,window:{location:{href},addEventListener(){}},URL,setTimeout(){return 1;},clearTimeout(){}});
+  const url=new URL(script.src,href);assert.equal(url.origin,'https://demo.example');assert.equal(url.pathname,'/app.bundle.js');
+  assert.equal(url.searchParams.get('reload'),value==='1793000000000'?value:null);assert.deepEqual([...url.searchParams.keys()],value==='1793000000000'?['v','reload']:['v']);
+ }
+});
 
 test('browser timer and fetch defaults retain the Window receiver during startup and replies',async t=>{
  const calls=[];
