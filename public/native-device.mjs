@@ -56,3 +56,5 @@ export function initNativeDevice({onBack,onURL,onPause}){
   }catch{const el=document.getElementById('toast');if(el){el.textContent=({ko:'내보내기를 완료하지 못했어요. 다시 눌러주세요.',zh:'未能完成导出，请重试。'})[document.documentElement.lang.slice(0,2)]||'Could not finish exporting. Please try again.';el.classList.add('show');setTimeout(()=>el.classList.remove('show'),4200);}}
  });
 }
+
+export async function shareNativeText({title,text}){return Share.share({title,text,dialogTitle:"Save to Notes"});}

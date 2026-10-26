@@ -1,0 +1,69 @@
+/* Camera and map fill the viewport from entry, without a Fullscreen API prompt. */
+body.camera-open{overflow:hidden;overscroll-behavior:none}
+body.camera-open>.topbar,body.camera-open>.page-footer,body.camera-open>.app-tabbar{display:none!important}
+.camera-fullscreen{height:100%;height:100dvh;min-height:0;--ride-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+.camera-fullscreen .camera-top{padding:calc(12px + env(safe-area-inset-top,0px)) 14px 0;align-items:center;pointer-events:none;background:none}
+.camera-top>*{pointer-events:auto}.camera-fullscreen .camera-name{flex:0;gap:8px;margin-right:auto;padding:8px 12px;border-radius:24px;background:#fffef9ed;box-shadow:0 3px 18px #263d2b12}
+.camera-fullscreen .camera-name b{font-size:15px}.camera-fullscreen .camera-name span{border:0;padding:0;background:none;font-size:9px;white-space:nowrap}
+.camera-fullscreen .camera-round{width:44px;height:44px;min-width:44px}
+.camera-fullscreen .scene-switch{top:calc(70px + env(safe-area-inset-top,0px));left:14px}
+.camera-fullscreen .scene-switch button{min-height:38px;padding:8px 16px}
+.camera-fullscreen .camera-label,.camera-fullscreen .ar-hint{display:none}
+.camera-fullscreen .camera-view:after{background:linear-gradient(#00000008,transparent 25%,transparent 75%,#00000020)}
+.camera-fullscreen .camera-empty{padding:0 30px;position:absolute;top:25%;left:0;right:0}.camera-fullscreen .camera-empty p{max-width:280px;margin:10px auto}
+.camera-fullscreen .soul-overlay{width:210px!important;height:220px!important;left:calc(50% - 105px)!important;top:calc(48% - 110px)!important}
+.camera-fullscreen .soul-portal{top:calc(48% - 130px)!important}.camera-fullscreen .camera-focus{top:50%;width:28px;height:28px}
+.camera-fullscreen .camera-settings{position:static;max-width:none;color:#36523c}
+.camera-fullscreen .camera-settings>summary{display:grid;place-items:center;width:44px;height:44px;padding:0;border-radius:50%;font-size:23px;letter-spacing:1px;list-style:none;box-sizing:border-box}
+.camera-settings>summary::-webkit-details-marker{display:none}
+.camera-fullscreen .camera-settings[open]{background:none;border:0;padding:0;box-shadow:none}
+.ride-settings-panel{position:absolute;top:calc(65px + env(safe-area-inset-top,0px));right:14px;width:min(330px,calc(100vw - 28px));max-height:calc(100dvh - 95px - env(safe-area-inset-top,0px));overflow:auto;overscroll-behavior:contain;padding:18px;border:1px solid #dee8d4;border-radius:22px;background:#fffef9fa;box-shadow:0 15px 55px #23382e30;z-index:20;text-align:left;font-size:12px;box-sizing:border-box}
+.ride-settings-panel h2{margin:0 0 14px;font-size:17px}.ride-settings-panel>button{display:block;width:100%;min-height:44px;margin:8px 0;border:1px solid #d8e4d0;border-radius:12px;background:#f1f6e9;padding:10px;color:#36523c!important}
+.ride-settings-panel label{display:grid;gap:8px;margin:12px 0}.ride-settings-panel select{width:100%;min-height:44px;padding:10px;border:1px solid #d8e4d0;border-radius:12px;background:white;color:#36523c}
+.camera-fullscreen .ride-settings-panel .camera-status,.camera-fullscreen .ride-settings-panel .camera-gps-status{max-height:none;text-align:left;font-size:11px;line-height:1.5;color:#60705d}
+.camera-fullscreen .ride-settings-panel .vision-panel{position:static;display:block;padding:14px 0;margin-top:14px;border:0;border-top:1px solid #e1e9da;border-radius:0;max-height:none;background:none;color:#36523c}
+.camera-fullscreen .ride-settings-panel #visionToggle{color:#36523c;width:100%;min-height:44px;background:#f1f6e9;border-color:#d8e4d0}
+.camera-fullscreen .ride-settings-panel #visionStatus{color:#60705d}.ride-settings-panel .weather-card{position:static;max-width:none;margin:14px 0;padding:0;background:none;border:0;color:#36523c}
+.ride-settings-panel .weather-card p,.ride-settings-panel .weather-card span{color:#60705d}.ride-settings-panel .mic-level-row{display:flex;align-items:center;gap:10px;margin:14px 0;font-size:11px}.ride-settings-panel meter{flex:1}
+.ride-settings-panel .small{font-size:11px;line-height:1.6}.ride-settings-panel .camera-status:empty{display:none}
+.camera-fullscreen .camera-conversation{left:14px;right:14px;top:auto;bottom:calc(96px + var(--ride-bottom));max-width:440px;padding:8px 10px;border-radius:22px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:#fffef9ed;box-shadow:0 4px 24px #20362419}
+.camera-fullscreen .conversation-heading{flex:1;min-width:0;gap:10px;padding:0 6px}
+.camera-fullscreen .camera-conversation [data-live-status]{font-size:12px;margin:0;line-height:1.4}.camera-fullscreen .connection-orb{width:7px;height:7px}
+.camera-fullscreen .camera-conversation .conversation-toggle{font-size:11px;min-width:0;min-height:44px;padding:10px 13px;border-radius:16px;max-width:48%;line-height:1.3}
+.camera-fullscreen .camera-conversation .audio-retry{flex-basis:100%;min-height:44px}
+.camera-fullscreen .camera-live-caption{bottom:calc(170px + var(--ride-bottom));left:20px;right:20px;max-width:440px;max-height:15dvh;font-size:13px;background:none;border:0;pointer-events:auto;overflow:auto;scrollbar-width:thin;padding:0}
+.camera-fullscreen .camera-live-caption p{padding:8px 12px;margin:4px 0;max-width:100%;text-shadow:none}.camera-fullscreen .camera-live-caption p:empty{display:none}
+.camera-fullscreen .camera-live-caption .heard-text{display:block;font-size:11px;color:#526847;background:#ffffffd6;border:0;max-height:none}
+.camera-fullscreen .camera-live-caption .heard-text:empty{display:none}
+.camera-fullscreen .camera-bottom{max-width:440px;bottom:var(--ride-bottom);padding:0 14px;left:0;right:0;margin:auto;background:none}
+.camera-fullscreen .camera-shutter-row{display:grid;grid-template-columns:64px 1fr 64px;min-height:76px;gap:12px}
+.camera-fullscreen .camera-shutter{width:66px;height:66px}.camera-fullscreen .camera-photo-preview{width:48px;height:48px;background:#fffef9e8;color:#36523c;border-color:#d8e4d0}
+.camera-fullscreen .ride-finish{min-height:48px;min-width:60px;padding:8px 10px;border:1px solid #d8e4d0;border-radius:17px;background:#fffef9ed;font-size:11px;color:#36523c!important;line-height:1.35}
+.camera-fullscreen .scene-map-layer .map-viewport,.camera-fullscreen .scene-map-layer .korea-map-canvas,.camera-fullscreen .scene-map-layer .map-loading{position:absolute;inset:0;width:100%;height:100%;min-height:0}
+.camera-fullscreen .scene-map-layer .map-expand-button,.camera-fullscreen .scene-map-layer .map-title,.camera-fullscreen .scene-map-layer .map-key,.camera-fullscreen .scene-map-layer [data-map-controls],.camera-fullscreen .scene-map-layer .scene-camera-note{display:none}
+.camera-fullscreen .scene-map-layer .map-caption{bottom:auto;top:calc(120px + env(safe-area-inset-top,0px));left:14px;right:auto;max-width:calc(100% - 100px);padding:5px 9px;border-radius:9px;background:#fffef9e8;font-size:9px;pointer-events:none}
+.camera-fullscreen .scene-map-layer .scene-recenter{top:auto;bottom:calc(208px + var(--ride-bottom));left:auto;right:14px;min-height:44px;font-size:11px;max-width:150px}
+.camera-fullscreen .scene-map-layer .maplibregl-ctrl-top-right{top:calc(70px + env(safe-area-inset-top,0px));right:8px}
+.camera-fullscreen .scene-map-layer .maplibregl-ctrl-bottom-left,.camera-fullscreen .scene-map-layer .maplibregl-ctrl-bottom-right{bottom:0}
+.camera-fullscreen .scene-map-layer .map-privacy{bottom:24px;left:14px;right:14px;font-size:9px;padding:0 9px;border:1px solid #d8e4d0;border-radius:10px;background:#fffef9ed;max-width:280px;max-height:45%;overflow:auto}
+.camera-fullscreen .scene-map-layer .map-privacy summary{min-height:25px;display:flex;align-items:center}.camera-fullscreen .scene-map-layer .map-privacy p{line-height:1.5}
+.camera-fullscreen .scene-map-layer .map-place-detail{position:absolute;bottom:calc(150px + var(--ride-bottom));left:14px;right:14px;max-width:440px;max-height:35dvh;margin:auto;overflow:auto;z-index:6;background:#fffef9}
+.camera-fullscreen[data-scene-mode=map] .camera-view{display:none}
+.camera-fullscreen[data-scene-mode=map] .camera-recovery{display:none}
+.camera-fullscreen[data-scene-mode=map] .camera-conversation{bottom:calc(66px + var(--ride-bottom));padding:8px 10px}
+.camera-fullscreen[data-scene-mode=map] .camera-live-caption{bottom:calc(140px + var(--ride-bottom));max-height:15dvh}
+.camera-fullscreen[data-scene-mode=map] .camera-bottom{bottom:calc(18px + var(--ride-bottom));padding:0 14px;background:none}
+.camera-fullscreen[data-scene-mode=map] .camera-shutter-row{display:flex;justify-content:flex-end;min-height:44px}
+.camera-fullscreen[data-scene-mode=map] .camera-shutter,.camera-fullscreen[data-scene-mode=map] .camera-photo-preview,.camera-fullscreen[data-scene-mode=map] .camera-focus{display:none}
+.diary-finish .finish-copy{align-self:start}.diary-finish textarea{width:100%;box-sizing:border-box;min-height:120px;resize:vertical;border:1px solid #d8e3d0;border-radius:16px;padding:14px;font:inherit;background:#fffef9}
+.diary-finish .finish-copy>button{display:block;width:100%;margin:12px 0}.diary-finish [data-save-state=failed]{color:#9f482e}.post .diary-body{white-space:pre-line}.post-actions{flex-wrap:wrap;gap:12px}
+@media(max-height:550px) and (orientation:landscape){
+ .camera-fullscreen .camera-conversation{left:auto;right:14px;bottom:calc(72px + var(--ride-bottom));width:290px;max-width:45%;box-sizing:border-box}
+ .camera-fullscreen .camera-bottom{left:auto;right:14px;width:290px;max-width:45%;box-sizing:border-box;padding:0}
+ .camera-fullscreen .camera-shutter-row{min-height:58px}.camera-fullscreen .camera-shutter{width:52px;height:52px}
+ .camera-fullscreen .camera-live-caption{left:auto;right:14px;bottom:calc(140px + var(--ride-bottom));width:290px;max-width:45%;max-height:20dvh}
+ .camera-fullscreen .soul-overlay{left:calc(30% - 70px)!important;top:calc(52% - 74px)!important;width:140px!important;height:148px!important}
+ .camera-fullscreen .scene-map-layer .scene-recenter{left:14px;right:auto;bottom:50px}
+ .camera-fullscreen .scene-map-layer .maplibregl-ctrl-top-right{top:70px}
+ .camera-fullscreen[data-scene-mode=map] .camera-conversation{bottom:calc(66px + var(--ride-bottom))}
+}

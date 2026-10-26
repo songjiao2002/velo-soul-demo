@@ -60,7 +60,7 @@ export class KoreaMap{
    const lib=await loadLibrary();if(serial!==this.epoch||!root.isConnected)return;this.lib=lib;
    lib.setWorkerUrl(`/vendor/maplibre/maplibre-gl-worker.mjs?v=${BUILD}`);
    const accent=getComputedStyle(root).getPropertyValue('--accent').trim()||'#187962';
-   this.map=new lib.Map({container:root.querySelector('[data-map-canvas]'),style:koreaMapStyle(this.lang,accent),center:[126.997,37.557],zoom:11.4,minZoom:4,maxZoom:18,attributionControl:{compact:true},cooperativeGestures:!this.fullscreen.active,localIdeographFontFamily:'sans-serif',canvasContextAttributes:{antialias:false},fadeDuration:0});
+   this.map=new lib.Map({container:root.querySelector('[data-map-canvas]'),style:koreaMapStyle(this.lang,accent),center:[126.997,37.557],zoom:11.4,minZoom:4,maxZoom:18,attributionControl:{compact:true},cooperativeGestures:!this.fullscreen.active&&!root.closest('.camera-fullscreen'),localIdeographFontFamily:'sans-serif',canvasContextAttributes:{antialias:false},fadeDuration:0});
    this.map.addControl(new lib.NavigationControl({showCompass:false}),'top-right');
    this.map.addControl(new lib.ScaleControl({maxWidth:88,unit:'metric'}),'bottom-left');
    this.map.on('resize',()=>this.addPlaces());

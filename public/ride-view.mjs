@@ -13,7 +13,6 @@ export class RideView {
  switch(root,mode){
   if(!root||!['camera','map'].includes(mode))return;
   if(this.root!==root){this.destroy();this.root=root;
-   if(typeof ResizeObserver!=='undefined'){this.resize=new ResizeObserver(()=>{const panel=root.querySelector('.camera-conversation');if(panel){root.style.setProperty('--scene-map-bottom',Math.min(panel.getBoundingClientRect().height+143,root.clientHeight-230)+'px');this.map.map?.resize();}});this.resize.observe(root.querySelector('.camera-conversation'));}
   }
   this.mode=mode;root.dataset.sceneMode=mode;
   root.querySelectorAll('[data-scene-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.sceneMode===mode)));

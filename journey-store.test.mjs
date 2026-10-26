@@ -2,6 +2,26 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {IDBFactory,IDBKeyRange} from 'fake-indexeddb';
 import {JourneyStore,JourneyPager} from './public/journey-store.mjs';
+import {rideDiary,DiaryAutosave} from './public/journey-diary.mjs';
+
+test('offline diaries describe actual ride facts in all three languages without inventing places',()=>{
+ const r={id:'diary',createdAt:1700000000000,soul:'bori',seconds:125,route:[{lat:37.5,lon:127},{lat:37.51,lon:127}],photos:['photo1','photo2'],note:'A peaceful afternoon <script>'};
+ for(const lang of ['en','ko','zh']){const d=rideDiary(r,lang);assert.match(d.title,/Popo/);assert.match(d.body,/2/);assert.match(d.body,/1\.11/);assert.ok(d.text.includes(r.note));assert.doesNotMatch(d.text,/cafe|rain|카페|비가|咖啡|下雨/i);}
+ assert.match(rideDiary({...r,route:[],photos:[]},'en').body,/not enough GPS.*No photos/);
+});
+
+test('automatic diary writes survive reopen and serialize note changes into one record',async()=>{
+ const {store}=setup(),states=[];const autosave=new DiaryAutosave({store,onState:s=>states.push(s)});
+ const r={...record('diary'),seconds:80};const first=autosave.save(r);r.note='First thought';const second=autosave.save(r);r.note='Final thought';const third=autosave.save(r);
+ assert.deepEqual(await Promise.all([first,second,third]),[true,true,true]);assert.equal(autosave.saved,true);assert.equal(states.at(-1),'saved');
+ const page=await store.page();assert.equal(page.total,1);assert.equal(page.records[0].note,'Final thought');assert.deepEqual(page.records[0].photos,r.photos);
+});
+
+test('failed automatic storage stays unsaved and retries without duplicating the diary',async()=>{
+ const {store}=setup();let fail=true;const states=[];const autosave=new DiaryAutosave({store:{run(...args){if(fail)throw Error('Quota exceeded');return store.run(...args);}},onState:s=>states.push(s)});
+ assert.equal(await autosave.save(record('retry')),false);assert.equal(autosave.saved,false);assert.equal(states.at(-1),'failed');fail=false;
+ assert.equal(await autosave.save({...record('retry'),note:'Recovered'}),true);assert.equal(autosave.saved,true);assert.equal((await store.page()).total,1);
+});
 
 const setup=()=>{const indexedDB=new IDBFactory();return {indexedDB,store:new JourneyStore({indexedDB,KeyRange:IDBKeyRange})};};
 const record=(id,time=100)=>({id,createdAt:time,soul:'lumi',photos:['data:image/jpeg;base64,cGhvdG8='],route:[],note:'kept'});
