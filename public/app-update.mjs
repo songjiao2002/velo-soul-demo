@@ -43,3 +43,13 @@ export function androidUpdateState(release,search='') {
  if(installed===android.versionCode)return 'current';
  return installed<4?'legacy':'update';
 }
+
+// Recheck at the user's click, so a page left open never downloads a stale APK.
+// A browser cannot silently install it; Android's installer owns confirmation.
+export async function downloadLatestAndroid({loadRelease,search='',navigate}){
+ let release;try{release=validateAppRelease(await loadRelease());}catch{return 'unavailable';}
+ const state=androidUpdateState(release,search);
+ if(!['download','legacy','update'].includes(state))return state;
+ navigate(release.android.url);
+ return 'requested';
+}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {appUpdateURL,androidUpdateState,validateAppRelease,APP_ID,RELEASE_CERTIFICATE} from './public/app-update.mjs';
+import {appUpdateURL,androidUpdateState,validateAppRelease,downloadLatestAndroid,APP_ID,RELEASE_CERTIFICATE} from './public/app-update.mjs';
 const release={version:'0.1.4-preview',android:{available:true,testSigned:false,packageId:APP_ID,certificateSHA256:RELEASE_CERTIFICATE,sha256:'a'.repeat(64),size:24000000,versionCode:5,url:'https://github.com/songjiao2002/velo-soul-demo/releases/download/v0.1.4-mobile-preview/VELO-SOUL-Android.apk'}};
 test('native update link leaves bundled localhost and reports only validated installed version',()=>{
  const url=new URL(appUpdateURL({version:'0.1.3',build:'4'},'ko'));
@@ -21,4 +21,24 @@ test('release metadata fails closed for wrong package, signature, tag, digest, s
  const legacy={version:'0.1.2-preview',android:{...release.android,versionCode:3,testSigned:true,certificateSHA256:'67096e7e3a7454f02ebb4426061991eb2040717b2dce7ad2176c17e3b115ed6c',url:release.android.url.replace('0.1.4','0.1.2')}};
  assert.ok(validateAppRelease(legacy));assert.equal(androidUpdateState(legacy,'?build=4'),'newer');assert.equal(androidUpdateState(legacy,'?build=2'),'legacy');
  assert.equal(validateAppRelease({...legacy,android:{...legacy.android,certificateSHA256:RELEASE_CERTIFICATE}}),null);
+});
+
+test('one download click checks the current release before requesting an update',async()=>{
+ const navigation=[];let checks=0;
+ assert.equal(await downloadLatestAndroid({loadRelease:async()=>{checks++;return release;},search:'?build=4',navigate:url=>navigation.push(url)}),'requested');
+ assert.equal(checks,1);assert.deepEqual(navigation,[release.android.url]);
+});
+
+test('a release replaced while the download page is open never causes a downgrade or duplicate install',async()=>{
+ for(const [build,expected] of [[5,'current'],[6,'newer']]){
+  let navigations=0;
+  assert.equal(await downloadLatestAndroid({loadRelease:async()=>release,search:'?build='+build,navigate:()=>navigations++}),expected);
+  assert.equal(navigations,0);
+ }
+});
+
+test('failed or tampered click-time checks never start a stale download',async()=>{
+ for(const loadRelease of [async()=>{throw Error('offline');},async()=>null,async()=>({...release,android:{...release.android,url:'https://other.example/app.apk'}})]){
+  let navigations=0;assert.equal(await downloadLatestAndroid({loadRelease,navigate:()=>navigations++}),'unavailable');assert.equal(navigations,0);
+ }
 });

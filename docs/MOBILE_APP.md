@@ -2,7 +2,7 @@
 
 App ID: `com.velosoul.companion` · Version: `0.1.3` · Android 7+ / iOS 15+.
 
-The Android APK is a **preview signed with a fixed owner-controlled release key** from 0.1.3 onward, not a Google Play release. The iOS target is a real Xcode project with a simulator build workflow. It is not a signed IPA or a published TestFlight app. The owner does not yet have Apple Developer membership.
+The Android project is configured for a **fixed owner-controlled release key** from 0.1.3 onward; that new APK has not yet been published. The public download currently remains the earlier 0.1.2 preview. This is not a Google Play release. The iOS target is a real Xcode project with a simulator build workflow. It is not a signed IPA or a published TestFlight app. The owner does not yet have Apple Developer membership.
 
 ## What is included
 
@@ -53,7 +53,7 @@ The old QR codes continue opening the website in a system camera/browser. The **
 
 ## Before a production Android release
 
-The fixed PKCS12 release key is backed up outside the project and stored in GitHub Actions secrets `ANDROID_KEYSTORE_BASE64` and `ANDROID_KEYSTORE_PASSWORD`. CI assembles Release, verifies the certificate against `android/release-certificate.sha256`, and refuses missing keys. Never regenerate this key for subsequent updates. Increase Android versionCode for every published APK. Prepare an AAB and complete Play Console disclosures before a store release.
+The fixed PKCS12 release key is backed up outside the project. CI expects GitHub Actions secrets `ANDROID_KEYSTORE_BASE64` and `ANDROID_KEYSTORE_PASSWORD`; these have not been uploaded because explicit authorization is still pending. CI assembles Release, verifies the certificate against `android/release-certificate.sha256`, and refuses missing keys. Never regenerate this key for subsequent updates. Increase Android versionCode for every published APK. Prepare an AAB and complete Play Console disclosures before a store release.
 
 The original download page always points to the latest verified APK. Android decides whether to install or update; confirmation is still required. Native App.getInfo supplies a version hint to that page using a public HTTPS link. Browsers cannot reliably detect installed APKs. Previews 0.1.1 and 0.1.2 used different temporary debug keys, so export local journeys before a one-time uninstall/reinstall; uninstalling deletes app data. From 0.1.3, same-package, same-key updates preserve app data.
 
@@ -96,3 +96,9 @@ The release workflow accepts only the dispatch commit on main, with matching suc
 Validation: 234 local automated tests passed, including malformed WebSocket frames/HTTP targets, bounded transcription events, invalid release metadata, mismatched release artifacts and downgrade prevention. English/Korean simulated continuous-conversation flows and the three-language download UI passed. An npm audit of all dependencies initially reported three related moderate entries in the `@capacitor/cli → xcode → uuid` chain. Only `xcode`’s `uuid` was overridden to 11.1.1; its existing v4 use and iOS project parsing remain compatible. Final production/development audits reported zero known advisories. This addresses [GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq); the app did not use the affected v3/v5/v6 buffer APIs directly. No private credentials are included in this change.
 
 The Security scan workflow runs on main-branch changes and pull requests: dependency audit includes build tools; the application and update regression suite runs; CodeQL security-extended analyzes first-party JavaScript source (excluding duplicated bundles and vendored libraries). Startup cache-retry input is converted to a positive safe integer before forming the local script URL. CodeQL's file-to-network warning for the release publisher was reviewed as expected publication of validated public metadata to the fixed repository API, with the rationale recorded on the alert; it does not read private signing files or .env.
+
+## Download page automatic release checks (2026-10-26)
+
+The `download26` page keeps the original `/download.html` URL and QR codes. It checks verified release metadata on entry, every minute while visible, after returning from the background/back-forward cache and when connectivity returns. A single click on Download / Update performs another fresh check before requesting the latest verified APK. Simultaneous checks share one request; duplicate clicks do not start duplicate downloads; hidden pages stop polling. Current, newer, invalid or unavailable releases do not start a download. The visible published version, optional installed-version hint, last check time and manual retry are translated into English, Korean and Chinese.
+
+Metadata refresh is automatic; APK installation still requires Android's confirmation. Browsers cannot detect arbitrary installed APKs. The page explicitly identifies the available 0.1.2 APK as an earlier preview until a new signed release is actually published. iPhone uses the unchanged website/Home Screen flow and loads website updates when reopened online. This page does not silently reload a ride or touch local journey data.
