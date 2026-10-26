@@ -37,3 +37,13 @@ test('native platform config bundles local screens and declares only foreground 
  const android=read('android/app/src/main/AndroidManifest.xml');for(const key of ['CAMERA','RECORD_AUDIO','ACCESS_FINE_LOCATION','ACCESS_COARSE_LOCATION'])assert.ok(android.includes('android.permission.'+key));assert.ok(!android.includes('ACCESS_BACKGROUND_LOCATION'));assert.ok(android.includes('android:allowBackup="false"'));
  const ios=read('ios/App/App/Info.plist');for(const key of ['NSCameraUsageDescription','NSMicrophoneUsageDescription','NSLocationWhenInUseUsageDescription'])assert.ok(ios.includes(key));assert.ok(!ios.includes('UIBackgroundModes'));
 });
+
+test('local signing build keeps normal release key enforcement and cannot publish an unsigned artifact',()=>{
+ const read=p=>readFileSync(new URL(p,import.meta.url),'utf8');const gradle=read('android/app/build.gradle');
+ assert.match(gradle,/unsignedRelease\s*\{[\s\S]*?signingConfig null/);
+ assert.match(gradle,/task.name == 'validateSigningRelease'[\s\S]*?throw new GradleException/);
+ const workflow=read('.github/workflows/android-local-signing.yml');
+ assert.match(workflow,/contents: read/);assert.match(workflow,/assembleUnsignedRelease/);assert.doesNotMatch(workflow,/secrets\.|gh release|contents: write/);
+ assert.match(workflow,/if "\$TOOLS\/apksigner" verify "\$APK"; then/);
+ assert.match(read('.github/workflows/publish-mobile-preview.yml'),/apksigner.*verify --print-certs/);
+});

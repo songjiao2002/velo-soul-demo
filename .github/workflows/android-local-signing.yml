@@ -1,0 +1,68 @@
+name: Android package for local signing
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  package:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run native:prepare
+      - name: Test app and audit dependencies
+        run: |
+          node --input-type=module -e "import {readFileSync} from 'node:fs';import {spawnSync} from 'node:child_process';const files=JSON.parse(readFileSync('package.json')).scripts.test.split(' ').slice(2);const r=spawnSync(process.execPath,['--test','--test-isolation=none',...files],{stdio:'inherit'});process.exit(r.status??1);"
+          npm audit --audit-level=moderate
+      - name: Compile without receiving a signing key
+        working-directory: android
+        run: bash gradlew :app:assembleUnsignedRelease --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx2048m
+      - name: Verify unsigned package and provenance
+        run: |
+          mkdir -p mobile-unsigned
+          APK=android/app/build/outputs/apk/unsignedRelease/app-unsignedRelease-unsigned.apk
+          test -f "$APK"
+          TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          if "$TOOLS/apksigner" verify "$APK"; then echo 'Unexpected signature'; exit 1; fi
+          "$TOOLS/aapt" dump badging "$APK" > mobile-unsigned/package.txt
+          "$TOOLS/aapt" dump permissions "$APK" > mobile-unsigned/permissions.txt
+          cp "$APK" mobile-unsigned/VELO-SOUL-Android-unsigned.apk
+          cp android/release-certificate.sha256 mobile-unsigned/EXPECTED-CERTIFICATE-SHA256.txt
+          sha256sum mobile-unsigned/VELO-SOUL-Android-unsigned.apk > mobile-unsigned/SHA256SUMS.txt
+          printf '%s\n' "$GITHUB_SHA" > mobile-unsigned/SOURCE-COMMIT.txt
+          node --input-type=module -e "import {readFileSync,writeFileSync} from 'node:fs';const m=JSON.parse(readFileSync('public/.asset-manifest.json'));writeFileSync('mobile-unsigned/WEB-BUILD.txt',m.version+'\\n');"
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile, re
+          badging=Path('mobile-unsigned/package.txt').read_text()
+          assert "name='com.velosoul.companion'" in badging
+          gradle=Path('android/app/build.gradle').read_text()
+          code=re.search(r'versionCode (\d+)',gradle)[1]
+          version=re.search(r'versionName "([\d.]+)"',gradle)[1]
+          assert f"versionCode='{code}'" in badging and f"versionName='{version}'" in badging
+          assert 'application-debuggable' not in badging
+          with zipfile.ZipFile('mobile-unsigned/VELO-SOUL-Android-unsigned.apk') as z:
+            assert not any(n.endswith(('/.env','.p12','.jks','.keystore')) for n in z.namelist())
+            for name in ('index.html','app.bundle.js','app.css','assets/app-icon.png'):
+              assert z.read('assets/public/'+name)==Path('native-www',name).read_bytes()
+            for soul in ('lumi','mori','bori'):
+              for ext in ('png','svg'):
+                name=f'qr-{soul}.{ext}'
+                assert z.read('assets/public/'+name)==Path('native-www',name).read_bytes()
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VELO-SOUL-Android-unsigned
+          path: mobile-unsigned/
+          retention-days: 14

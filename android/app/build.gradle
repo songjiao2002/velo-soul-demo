@@ -33,6 +33,13 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+        // CI may compile a package for owner-local signing. This artifact is
+        // deliberately not installable and must never be a public download.
+        unsignedRelease {
+            initWith release
+            signingConfig null
+            matchingFallbacks = ['release']
+        }
     }
 }
 
