@@ -16,10 +16,12 @@ export class StreamingTranscriber {
   this.socket.onopen=()=>{if(this.closed)return;for(const bytes of this.queue)this.send(bytes);this.queue=[];this.queuedBytes=0;if(this.finishing)this.send(JSON.stringify({type:'finish'}));};
   this.socket.onmessage=event=>{
    if(this.closed)return;let message;try{message=JSON.parse(event.data);}catch{return this.fail();}
+   if(!message||typeof message!=='object'||Array.isArray(message))return this.fail();
    if(message.type==='ready'){this.clearTimer(this.timer);if(this.finishing)this.timer=this.setTimer(()=>this.fail(),10000);}
    else if(message.type==='partial'&&typeof message.text==='string')this.onPartial(message.text.slice(0,1000));
    else if(message.type==='final'&&typeof message.text==='string'){this.close();this.onFinal(message.text.slice(0,1000));}
-   else if(message.type==='error')this.fail(message.error);
+   else if(message.type==='error')this.fail(typeof message.error==='string'?message.error:'network');
+   else this.fail();
   };
   this.socket.onerror=()=>this.fail();this.socket.onclose=()=>{if(!this.closed)this.fail();};
  }

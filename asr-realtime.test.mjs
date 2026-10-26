@@ -98,3 +98,14 @@ test('disconnect retains the whole utterance for one fallback and ignores stale 
 test('leaving during transcription closes streaming and never uploads fallback audio',async()=>{
  const a=client(),r=new a.Recognition();let results=0;r.onresult=()=>results++;r.start();await tick();a.feed(.1,400);const ws=a.sockets[0];ws.open();const late=ws.onmessage;a.feed(0,500);r.abort();late({data:JSON.stringify({type:'final',text:'late'})});assert.equal(ws.readyState,3);assert.equal(a.uploads.length,0);assert.equal(results,0);
 });
+
+test('malformed browser streaming responses fall back once without losing the utterance',async()=>{
+ for(const invalid of [null,[],42,{}, {type:'partial',text:null}, {type:'final'}, {type:'unknown'}]){
+  const a=client(),r=new a.Recognition(),events=[];r.onresult=e=>events.push(e.results[0]);r.start();await tick();a.feed(.1,300);
+  const ws=a.sockets[0];ws.open();const late=ws.onmessage;
+  assert.doesNotThrow(()=>ws.event(invalid));assert.equal(ws.readyState,3);
+  a.feed(.1,300);a.feed(0,500);await tick();
+  assert.equal(a.uploads.length,1);assert.equal(events.length,1);assert.equal(events[0].isFinal,true);assert.equal(events[0][0].transcript,'Fallback complete sentence');
+  late({data:JSON.stringify({type:'final',text:'stale'})});assert.equal(events.length,1);r.abort();
+ }
+});
