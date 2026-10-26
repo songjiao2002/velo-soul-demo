@@ -119,7 +119,15 @@ jobs:
 
           Validated by the source CI runs: automated tests, Android/iOS compilation, APK signature and artifact digest, original QR assets and Android emulator camera/QR checks. Physical Samsung headset and iPhone Home Screen behavior remain unverified.
           NOTES
-          gh release create "v${RELEASE_VERSION}-mobile-preview" release/android/VELO-SOUL-Android.apk release/android/SHA256SUMS.txt release/android/SIGNING-CERTIFICATE-SHA256.txt release/ios/VELO-SOUL-iOS-Simulator.zip --target "$BUILD_COMMIT" --title "VELO SOUL ${RELEASE_VERSION} — install and update" --notes-file /tmp/notes.md --prerelease
+          TAG="v${RELEASE_VERSION}-mobile-preview"
+          if gh release view "$TAG" --json tagName > /dev/null 2>&1; then
+            # A previous attempt may have uploaded the APK before a network
+            # failure. The next step still checks source/digest/size/signature;
+            # never replace assets, and never advance an unverified release.
+            echo 'Existing release found; verifying it before retrying metadata publication.'
+          else
+            gh release create "$TAG" release/android/VELO-SOUL-Android.apk release/android/SHA256SUMS.txt release/android/SIGNING-CERTIFICATE-SHA256.txt release/ios/VELO-SOUL-iOS-Simulator.zip --target "$BUILD_COMMIT" --title "VELO SOUL ${RELEASE_VERSION} — install and update" --notes-file /tmp/notes.md --prerelease
+          fi
       - name: Advance download metadata only after artifact verification
         env:
           GH_TOKEN: ${{ github.token }}
