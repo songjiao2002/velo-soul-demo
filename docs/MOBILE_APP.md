@@ -2,12 +2,12 @@
 
 App ID: `com.velosoul.companion` · Version: `0.1.3` · Android 7+ / iOS 15+.
 
-The Android project is configured for a **fixed owner-controlled release key** from 0.1.3 onward; that new APK has not yet been published. The public download currently remains the earlier 0.1.2 preview. This is not a Google Play release. The iOS target is a real Xcode project with a simulator build workflow. It is not a signed IPA or a published TestFlight app. The owner does not yet have Apple Developer membership.
+Android 0.1.3 uses a **fixed owner-controlled release key** and bundles the full-screen ride UI and automatic diaries. The public install entry points to the verified 0.1.3 APK. This is not a Google Play release. The iOS target is a real Xcode project with a simulator build workflow. It is not a signed IPA or a published TestFlight app. The owner does not yet have Apple Developer membership.
 
 ## What is included
 
 - Local bundled startup, all three cel-shaded companions, voice introductions, and original QR images.
-- Home / Scan QR / Journeys bottom navigation, English default with Korean and Chinese interface options.
+- Home / Scan QR / Diaries bottom navigation, English default with Korean and Chinese interface options.
 - Rear-camera scanner decodes original `?bike=lumi`, `?bike=bori`, `?bike=mori` QR URLs without replacing the printed codes. Unknown QR URLs are rejected rather than opened.
 - Original character appearance and automatic riding/rest animation. Live ride activity follows GPS. The manual character editor was retired in 0.1.3.
 - Native foreground GPS, WebView camera/microphone, streamed Qwen recognition, cloud speech, and local journey records. First camera and microphone prompts are serialized on native Android.
@@ -53,7 +53,7 @@ The old QR codes continue opening the website in a system camera/browser. The **
 
 ## Before a production Android release
 
-The fixed PKCS12 release key is backed up outside the project. CI expects GitHub Actions secrets `ANDROID_KEYSTORE_BASE64` and `ANDROID_KEYSTORE_PASSWORD`; these have not been uploaded because explicit authorization is still pending. CI assembles Release, verifies the certificate against `android/release-certificate.sha256`, and refuses missing keys. Never regenerate this key for subsequent updates. Increase Android versionCode for every published APK. Prepare an AAB and complete Play Console disclosures before a store release.
+The fixed PKCS12 release key is backed up outside the project. The active publication route builds an unsigned release in the read-only Android package workflow, then signs and verifies it locally before uploading the public APK. The optional signed-CI route expects GitHub Actions secrets `ANDROID_KEYSTORE_BASE64` and `ANDROID_KEYSTORE_PASSWORD`; these have not been uploaded because explicit authorization is still pending. The normal Release build verifies the certificate against `android/release-certificate.sha256` and refuses missing keys. Never regenerate this key for subsequent updates. Increase Android versionCode for every published APK. Prepare an AAB and complete Play Console disclosures before a store release.
 
 The original download page always points to the latest verified APK. Android decides whether to install or update; confirmation is still required. Native App.getInfo supplies a version hint to that page using a public HTTPS link. Browsers cannot reliably detect installed APKs. Previews 0.1.1 and 0.1.2 used different temporary debug keys, so export local journeys before a one-time uninstall/reinstall; uninstalling deletes app data. From 0.1.3, same-package, same-key updates preserve app data.
 
@@ -101,11 +101,21 @@ The Security scan workflow runs on main-branch changes and pull requests: depend
 
 The `download26` page keeps the original `/download.html` URL and QR codes. It checks verified release metadata on entry, every minute while visible, after returning from the background/back-forward cache and when connectivity returns. A single click on Download / Update performs another fresh check before requesting the latest verified APK. Simultaneous checks share one request; duplicate clicks do not start duplicate downloads; hidden pages stop polling. Current, newer, invalid or unavailable releases do not start a download. The visible published version, optional installed-version hint, last check time and manual retry are translated into English, Korean and Chinese.
 
-Metadata refresh is automatic; APK installation still requires Android's confirmation. Browsers cannot detect arbitrary installed APKs. The page explicitly identifies the available 0.1.2 APK as an earlier preview until a new signed release is actually published. iPhone uses the unchanged website/Home Screen flow and loads website updates when reopened online. This page does not silently reload a ride or touch local journey data.
-# Full-screen rides and automatic diaries (2026-10-26)
+Metadata refresh is automatic; APK installation still requires Android's confirmation. Browsers cannot detect arbitrary installed APKs. The page identified 0.1.2 as an earlier preview while its replacement was pending. The verified 0.1.3 publication now replaces that download. iPhone uses the unchanged website/Home Screen flow and loads website updates when reopened online. This page does not silently reload a ride or touch local journey data.
+## Full-screen rides and automatic diaries (2026-10-26)
 
 Camera entry and the Camera / Map switch now use the entire browser viewport by default. The OS browser bar may remain visible; this does not require the gesture-gated Fullscreen API. View switching retains the same video, map and voice session. GPS, weather, language and camera observation settings live in the collapsed More menu; recovery controls remain available on camera errors. Finish ride is always available in either view.
 
 Finishing a ride writes its route, duration, photo previews and a factual EN/KO/ZH diary to the existing device-local IndexedDB store automatically. Notes save after a short pause, and in-app navigation waits for pending writes. Writes are serialized to prevent an earlier note overwriting a newer one. Storage failures keep the draft open with a retry/export message. Previously saved journeys remain readable. Clearing browser/app data removes these local records.
 
 Export to Notes opens the system share sheet when available (Capacitor Share in the Android app, Web Share in supported browsers); the user chooses their notes app. Unsupported browsers download a UTF-8 text file. Copy diary is a separate fallback. The app does not silently write into Apple Notes or Samsung Notes. Exported text contains the diary and note; route and photo previews remain in the app and can also be exported as a card image. Generation runs locally without an AI API request.
+
+## Locally signed Android 0.1.3 package (2026-10-26)
+
+The Android package for local signing workflow compiles an unsigned, non-debuggable release variant and runs the app suite and dependency audit. It has read-only repository permissions, receives no signing secrets and cannot publish a release. The normal assembleRelease task still requires the configured private key.
+
+The owner signs the downloaded artifact locally with the existing fixed PKCS12 key. Before publication, verify source revision, successful package/security/device-check runs, APK package/version, bundled build, original QR/icon assets, no private material in the archive, zip alignment, all APK signatures and the exact expected signing certificate. Upload only the signed APK and public checksums. Advance app-release.json only after GitHub confirms matching digest and size, preserving source/main and downgrade guards. No private key or password was uploaded to GitHub. The original signed-CI workflow remains optional and still requires separate authorization for GitHub Secrets.
+
+This version includes full-screen camera/map views, continuous voice, automatic local ride diaries and Notes export. iPhone continues using the live website or Safari Add to Home Screen; there is no signed iOS installer. Previews 0.1.1/0.1.2 require exporting journeys before a one-time reinstall because their old signatures differ. Subsequent releases signed with the fixed key can update in place after Android confirmation.
+
+Published source: `3fd2f3b27f7a37d6b7f9725bfdb2d9d94e3f32f8`, web build `20261026-ride27c`. [Package checks](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40318462323), [Android device checks](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40318465936) and [security scan](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40318469223) all passed on that revision. There were 241 automated tests; the emulator suite had zero failures/errors. All 92 bundled web/QR assets matched the local build. The public APK download was checked against its local SHA-256 after publication. The earlier emulator-disconnect failures remain in Actions history; the successful run supersedes them. Physical Samsung headset and iPhone installation behavior were not tested.
