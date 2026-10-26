@@ -1,1 +1,1 @@
-export const BUILD='20261025-update22';
+export const BUILD='20261026-security23';

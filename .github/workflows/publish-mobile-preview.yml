@@ -17,30 +17,39 @@ on:
 permissions:
   actions: read
   contents: write
+concurrency:
+  group: mobile-release-publication
+  cancel-in-progress: false
 jobs:
   publish:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       BUILD_RUN: ${{ inputs.build_run }}
       DEVICE_RUN: ${{ inputs.device_run }}
       BUILD_COMMIT: ${{ inputs.source_commit }}
-      GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.source_commit }}
       - name: Check successful source runs
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           [[ "$BUILD_RUN" =~ ^[0-9]+$ && "$DEVICE_RUN" =~ ^[0-9]+$ && "$BUILD_COMMIT" =~ ^[a-f0-9]{40}$ ]]
+          test "$BUILD_COMMIT" = "$GITHUB_SHA"
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" > /tmp/build-run.json
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$DEVICE_RUN" > /tmp/device-run.json
           python3 - <<'PY'
           import json, os
-          for file, name in [('build-run','Mobile preview'),('device-run','Android device check')]:
+          for file, name, workflow in [('build-run','Mobile preview','mobile-preview.yml'),('device-run','Android device check','android-device-check.yml')]:
             r=json.load(open('/tmp/'+file+'.json'))
             assert r['conclusion']=='success' and r['head_sha']==os.environ['BUILD_COMMIT'] and r['name']==name
+            assert r['head_branch']=='main' and r['event'] in ('push','workflow_dispatch') and r['path']=='.github/workflows/'+workflow
+            assert r['repository']['full_name']==os.environ['GITHUB_REPOSITORY']
           PY
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
           name: VELO-SOUL-Android
@@ -93,9 +102,13 @@ jobs:
             for k in ('NSCameraUsageDescription','NSMicrophoneUsageDescription','NSLocationWhenInUseUsageDescription'): assert info[k]
             assert build in z.read('App.app/public/index.html')
           with open(os.environ['GITHUB_ENV'],'a') as f: f.write('RELEASE_VERSION='+version+'\n')
-          print(json.dumps({'sha256':digest,'bytes':apk.stat().st_size,'originalQRsUnchanged':True,'certificateSHA256':certificate,'version':version,'versionCode':int(code)}))
+          verified={'sha256':digest,'bytes':apk.stat().st_size,'originalQRsUnchanged':True,'certificateSHA256':certificate,'version':version,'versionCode':int(code)}
+          Path('release/verification.json').write_text(json.dumps(verified))
+          print(json.dumps(verified))
           PY
       - name: Publish verified release without replacing earlier versions
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           cat > /tmp/notes.md <<'NOTES'
           VELO SOUL now uses the provided green bicycle icon. The original download page offers Android download/update and a direct iPhone web entry with Safari Home Screen instructions in English, Korean and Chinese. Original website and QR codes remain unchanged.
@@ -104,6 +117,10 @@ jobs:
 
           Android 0.1.3 starts a fixed release signing identity. Future same-package, same-key versions can update in place after system confirmation. Early 0.1.1/0.1.2 debug previews used different keys: export journeys before a one-time uninstall/reinstall. This is not silent installation or a Google Play release. iPhone currently uses the live website/Home Screen version; the iOS archive is simulator-only.
 
-          Validated: 224 automated tests, English/Korean simulated conversation, download/version flows, Android/iOS compilation and Android emulator camera/QR checks. Physical Samsung headset and iPhone Home Screen behavior remain unverified.
+          Validated by the source CI runs: automated tests, Android/iOS compilation, APK signature and artifact digest, original QR assets and Android emulator camera/QR checks. Physical Samsung headset and iPhone Home Screen behavior remain unverified.
           NOTES
           gh release create "v${RELEASE_VERSION}-mobile-preview" release/android/VELO-SOUL-Android.apk release/android/SHA256SUMS.txt release/android/SIGNING-CERTIFICATE-SHA256.txt release/ios/VELO-SOUL-iOS-Simulator.zip --target "$BUILD_COMMIT" --title "VELO SOUL ${RELEASE_VERSION} — install and update" --notes-file /tmp/notes.md --prerelease
+      - name: Advance download metadata only after artifact verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/publish-app-release.mjs

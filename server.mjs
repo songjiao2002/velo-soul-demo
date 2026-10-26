@@ -40,18 +40,23 @@ function originFor(req) {
 export const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Content-Security-Policy', "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'");
+  res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=(self), speaker-selection=(self)');
-  if(nativeCors(req,res))return;
-  if(await handleMemory(req,res)||await handleWeather(req,res)||await handleChat(req,res))return;
   const send = (code, body, type='text/plain; charset=utf-8') => {
     res.writeHead(code, { 'Content-Type':type, 'Content-Length':Buffer.byteLength(body) });
     res.end(req.method === 'HEAD' ? undefined : body);
   };
-  if (!['GET','HEAD'].includes(req.method)) {
-    res.setHeader('Allow', 'GET, HEAD');
-    return send(405, 'Method not allowed');
-  }
   try {
+    // All URL parsing and async API dispatch stays inside the error boundary.
+    // An invalid absolute request target must not reject this async listener.
+    new URL(req.url, 'http://localhost');
+    if(nativeCors(req,res))return;
+    if(await handleMemory(req,res)||await handleWeather(req,res)||await handleChat(req,res))return;
+    if (!['GET','HEAD'].includes(req.method)) {
+      res.setHeader('Allow', 'GET, HEAD');
+      return send(405, 'Method not allowed');
+    }
     const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
     if (pathname === '/healthz') return send(200, '{"status":"ok","app":"velo-soul"}', types['.json']);
     const qrMatch = pathname.match(/^\/qr-(lumi|mori|bori)\.(svg|png)$/);

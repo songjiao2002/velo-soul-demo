@@ -18,10 +18,13 @@ concurrency:
   cancel-in-progress: true
 jobs:
   android:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -32,7 +35,8 @@ jobs:
           java-version: '21'
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run native:prepare
-      - run: node --test --test-isolation=none native-app.test.mjs
+      - name: Run application and release safety checks
+        run: node --input-type=module -e "import {readFileSync} from 'node:fs';import {spawnSync} from 'node:child_process';const files=JSON.parse(readFileSync('package.json')).scripts.test.split(' ').slice(2);const r=spawnSync(process.execPath,['--test','--test-isolation=none',...files],{stdio:'inherit'});process.exit(r.status??1);"
       - name: Restore stable release signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -66,10 +70,13 @@ jobs:
           path: mobile-output/
           retention-days: 30
   ios:
+    if: github.ref == 'refs/heads/main'
     runs-on: macos-15
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '24'

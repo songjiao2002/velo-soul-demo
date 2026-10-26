@@ -6,10 +6,12 @@ import {chatConfig} from './chat-service.mjs';
 export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,options)=>new WebSocket(url,options)}={}){
  const sockets=new WebSocketServer({noServer:true,maxPayload:32768,perMessageDeflate:false});
  server.on('upgrade',(req,socket,head)=>{
-  const url=new URL(req.url,'http://localhost');
   const reject=status=>{socket.end(`HTTP/1.1 ${status} Rejected\r\nConnection: close\r\n\r\n`);};
+  let url;try{url=new URL(req.url,'http://localhost');}catch{return reject(400);}
   if(url.pathname!=='/api/transcribe/live')return reject(404);
   if(!req.headers.origin||!allowedRequestOrigin(req))return reject(403);
+  // Reject invalid handshakes before reserving the shared paid-service budget.
+  if(req.method!=='GET'||req.headers.upgrade?.toLowerCase()!=='websocket'||!/^\s*13\s*$/.test(req.headers['sec-websocket-version']||'')||! /^[+/0-9A-Za-z]{22}==$/.test(req.headers['sec-websocket-key']||''))return reject(400);
   const language=url.searchParams.get('language')||'auto';if(!['ko','en','zh','auto'].includes(language))return reject(400);
   const config=chatConfig(env);if(!config.configured||env.QWEN_REALTIME_ASR==='off')return reject(503);
   let release;try{release=reserve();}catch{return reject(429);}
@@ -34,7 +36,7 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
     if(ready)emit({type:'input_audio_buffer.append',audio:raw.toString('base64')});else queued.push(Buffer.from(raw));
    }else{
     let event;try{event=JSON.parse(raw);}catch{return fail('invalid_request');}
-    if(event.type!=='finish'||finishing)return fail('invalid_request');finishing=true;finish();
+    if(!event||typeof event!=='object'||Array.isArray(event)||event.type!=='finish'||finishing)return fail('invalid_request');finishing=true;finish();
    }
   });
   readyTimer=setTimeout(()=>fail('asr_timeout'),8000);lifeTimer=setTimeout(()=>fail('asr_timeout'),50000);
@@ -47,6 +49,7 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
   upstream.on('close',()=>{if(!closed)fail('network');});
   upstream.on('message',raw=>{
    if(closed)return;let event;try{event=JSON.parse(raw);}catch{return fail('invalid_response');}
+   if(!event||typeof event!=='object'||Array.isArray(event)||typeof event.type!=='string')return fail('invalid_response');
    if(event.type==='session.updated'){
     clearTimeout(readyTimer);ready=true;send({type:'ready'});for(const pcm of queued)emit({type:'input_audio_buffer.append',audio:pcm.toString('base64')});queued=[];finish();
    }else if(event.type==='conversation.item.input_audio_transcription.text'){
@@ -56,7 +59,8 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
     segments.set(key,{partial:(event.text+(event.stash||'')).slice(0,1000)});send({type:'partial',text:result()});
    }else if(event.type==='conversation.item.input_audio_transcription.completed'){
     if(typeof event.transcript!=='string')return fail('invalid_response');
-    segments.set(event.item_id||'utterance',{final:event.transcript.slice(0,1000)});send({type:'partial',text:result()});
+    const key=event.item_id||'utterance';if(!segments.has(key)&&segments.size>=40)return fail('invalid_response');
+    segments.set(key,{final:event.transcript.slice(0,1000)});send({type:'partial',text:result()});
    }else if(event.type==='session.finished'){
     // A VAD segment may finish during a natural pause. Submit only once our
     // client ends its utterance, using confirmed segments, never tentative text.

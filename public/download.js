@@ -1,5 +1,5 @@
 import {characterSVG} from './character-2d.mjs';
-import {androidUpdateState} from './app-update.mjs';
+import {androidUpdateState,validateAppRelease} from './app-update.mjs';
 const $=id=>document.getElementById(id);
 $('downloadCharacters').innerHTML=characterSVG('lumi');
 const copy={
@@ -8,7 +8,9 @@ const copy={
  zh:{title:'一个小小的伙伴。<br>住进你的手机。',intro:'遇见 Mori、Popo 和 Lulu。扫一下自行车，找到自己的节奏，留下一点旅途的记忆。',androidText:'下载／更新安卓',appleText:'苹果直接打开',pending:'安卓下载暂时不可用，你仍可打开网页版。',ready:'Android 7.0 及以上。下载并打开 APK，在系统弹窗确认安装；同签名更新会保留已存旅程。',testReady:'Android 7.0 及以上 · 体验版 APK。按系统提示允许此浏览器安装应用。',update:'有新版本。下载并打开 APK，在 Android 弹窗中确认“更新”。',current:'当前已是此版本或更新版本，仅需重新安装时再下载。',again:'重新下载安装包',legacy:'早期测试版（0.1.1／0.1.2）的签名不同。请先导出旅程记录，再卸载旧测试版、换装一次。从 0.1.3 起固定签名，后续可覆盖更新。',feature1:'兼容原有二维码',feature2:'语音、相机与定位',feature3:'保存旅程记忆',webLink:'用浏览器打开 VELO SOUL ↗',iosTitle:'把它放到 iPhone 桌面',iosBody:'无需 App Store。在 Safari 打开 VELO SOUL 后：',iosStep1:'点击“分享”（方框向上的箭头）。',iosStep2:'选择“添加到主屏幕”；若看到“作为网页 App 打开”，保持开启。',iosStep3:'点击“添加”，桌面就会出现 VELO SOUL 图标。',iosNote:'微信或 KakaoTalk 内请先用 Safari 打开链接。桌面版使用线上网站，联网重新打开即可加载网站更新；语音交流时请保持页面开启。',privacyLink:'隐私与权限'}
 };
 const requested=new URLSearchParams(location.search).get('lang');
+const updateCopy={en:{current:'Already up to date',newer:'Your installed version is newer than this download. Keep it; no downgrade is offered.',checking:'Checking the latest release…',retry:'Check again',release:'Release details ↗'},ko:{current:'최신 버전 사용 중',newer:'설치된 앱이 다운로드 버전보다 최신이에요. 이전 버전은 제공하지 않아요.',checking:'최신 버전을 확인하고 있어요…',retry:'다시 확인',release:'릴리스 정보 ↗'},zh:{current:'已是最新版本',newer:'已安装版本高于当前下载版本，保留现有 App，不提供降级下载。',checking:'正在检查最新版本…',retry:'重新检查',release:'查看发布说明 ↗'}};
 let release={},lang=Object.prototype.hasOwnProperty.call(copy,requested)?requested:'en';
+let checking=true,request;
 $('downloadLanguage').value=lang;
 function paint(){
  const c=copy[lang];document.documentElement.lang=lang;
@@ -16,17 +18,30 @@ function paint(){
   const el=$(id);if(!el)continue;
   if(id==='title')el.innerHTML=value;else el.textContent=value;
  }
- const state=androidUpdateState(release,location.search),ready=state!=='unavailable';
- $('androidStatus').textContent=state==='unavailable'?c.pending:state==='current'?c.current:state==='update'?c.update:release.android.testSigned?c.testReady:c.ready;
- $('androidDownload').setAttribute('aria-disabled',String(!ready));
- $('androidDownload').href=ready?release.android.url:'#androidStatus';
- if(state==='current')$('androidText').textContent=c.again;
- $('legacyNote').hidden=!ready;
+ const validated=validateAppRelease(release),state=androidUpdateState(release,location.search),ready=!!validated&&!checking,downloadable=ready&&!['current','newer'].includes(state),u=updateCopy[lang];
+ $('androidStatus').textContent=checking?u.checking:state==='unavailable'?c.pending:state==='newer'?u.newer:state==='current'?u.current:state==='update'?c.update:release.android.testSigned?c.testReady:c.ready;
+ $('androidDownload').setAttribute('aria-disabled',String(!downloadable));
+ if(downloadable)$('androidDownload').href=validated.android.url;else $('androidDownload').removeAttribute('href');
+ if(['current','newer'].includes(state))$('androidText').textContent=u.current;
+ $('legacyNote').hidden=!ready||!['download','legacy'].includes(state);
  $('legacyNote').textContent=c.legacy;
- const version=typeof release.version==='string'&&/^[\w.-]{1,40}$/.test(release.version)?release.version:'';
- $('releaseVersion').textContent=ready?version:'';
+ $('releaseVersion').textContent=ready?`${validated.version} · ${(validated.android.size/1000000).toFixed(1)} MB`:'';
+ $('releaseDetails').hidden=!ready;$('releaseDetails').textContent=u.release;
+ if(ready)$('releaseDetails').href=`https://github.com/songjiao2002/velo-soul-demo/releases/tag/v${validated.versionName}-mobile-preview`;
+ $('releaseRetry').hidden=checking||ready;$('releaseRetry').textContent=u.retry;
 }
 $('downloadLanguage').addEventListener('change',event=>{lang=event.target.value;paint();});
 $('androidDownload').addEventListener('click',event=>{if(event.currentTarget.getAttribute('aria-disabled')==='true')event.preventDefault();});
-fetch('/app-release.json',{cache:'no-store'}).then(response=>response.ok?response.json():{}).then(value=>{release=value&&typeof value==='object'?value:{};paint();}).catch(()=>paint());
+async function refreshRelease(){
+ request?.abort();const controller=new AbortController();request=controller;checking=true;paint();
+ const timeout=setTimeout(()=>controller.abort(),10000);
+ try{const response=await fetch('/app-release.json',{cache:'no-store',signal:controller.signal});if(!response.ok)throw Error('unavailable');const value=await response.json();if(request===controller)release=validateAppRelease(value)||{};}
+ catch{if(request===controller)release={};}
+ finally{clearTimeout(timeout);if(request===controller){checking=false;paint();}}
+}
+$('releaseRetry').addEventListener('click',refreshRelease);
+addEventListener('pageshow',event=>{if(event.persisted)void refreshRelease();});
+addEventListener('online',()=>{if(!document.hidden)void refreshRelease();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshRelease();});
+void refreshRelease();
 paint();

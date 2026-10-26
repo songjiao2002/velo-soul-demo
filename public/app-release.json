@@ -5,10 +5,14 @@
     "minAndroid": "7.0",
     "size": 24392280,
     "testSigned": true,
-    "available": true
+    "available": true,
+    "packageId": "com.velosoul.companion",
+    "versionCode": 3,
+    "certificateSHA256": "67096e7e3a7454f02ebb4426061991eb2040717b2dce7ad2176c17e3b115ed6c"
   },
   "ios": {
-    "testflight": null
+    "testflight": null,
+    "webApp": true
   },
   "version": "0.1.2-preview"
 }

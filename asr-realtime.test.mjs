@@ -46,6 +46,31 @@ test('realtime cancellation releases upstream and shares the existing daily budg
  const service=createChatService({env:{DASHSCOPE_API_KEY:'test',QWEN_MAX_DAILY_REQUESTS:'1'}});const release=service.reserveRealtime();release();release();assert.throws(()=>service.reserveRealtime(),{code:'rate_limited'});
 });
 
+test('malformed JSON frames close only the affected connection and release quota',async t=>{
+ const a=await relay(t);
+ for(const value of [null,[],42,'finish',{}]){
+  const ws=new WebSocket(a.url,{origin:a.origin}),events=[];ws.on('message',raw=>events.push(JSON.parse(raw)));t.after(()=>ws.terminate());
+  await wait(()=>events.some(e=>e.type==='ready'));ws.send(JSON.stringify(value));await wait(()=>events.some(e=>e.error==='invalid_request'));await wait(()=>a.active===0);
+ }
+ const ws=new WebSocket(a.url,{origin:a.origin}),events=[];ws.on('message',raw=>events.push(JSON.parse(raw)));t.after(()=>ws.terminate());
+ await wait(()=>events.some(e=>e.type==='ready'));a.upstream.event(null);await wait(()=>events.some(e=>e.error==='invalid_response'));await wait(()=>a.active===0);
+});
+
+test('completed transcription segments are bounded even without interim events',async t=>{
+ const a=await relay(t),ws=new WebSocket(a.url,{origin:a.origin}),events=[];ws.on('message',raw=>events.push(JSON.parse(raw)));t.after(()=>ws.terminate());
+ await wait(()=>events.some(e=>e.type==='ready'));
+ for(let i=0;i<41;i++)a.upstream.event({type:'conversation.item.input_audio_transcription.completed',item_id:String(i),transcript:'hello'});
+ await wait(()=>events.some(e=>e.error==='invalid_response'));await wait(()=>a.active===0);
+});
+
+test('malformed upgrade URL and handshake are rejected before quota or provider access',async t=>{
+ const a=await relay(t);
+ for(const path of ['http://[','/api/transcribe/live']){
+  const status=await new Promise((resolve,reject)=>{const req=http.request(a.origin,{path,headers:{Origin:a.origin,Connection:'Upgrade',Upgrade:'websocket','Sec-WebSocket-Version':'13','Sec-WebSocket-Key':'invalid'}},res=>{res.resume();resolve(res.statusCode);});req.on('error',reject);req.end();});
+  assert.equal(status,400);assert.equal(a.active,0);assert.equal(a.upstream,undefined);
+ }
+});
+
 test('streaming resampler preserves 16kHz duration across uneven 44.1/48kHz chunks',()=>{
  for(const rate of [44100,48000,16000]){const encode=createPcm16Encoder();let bytes=0;for(let i=0;i<rate;i+=2048){const frame=encode(new Float32Array(Math.min(2048,rate-i)).fill(.5),rate);bytes+=frame.length;for(let j=0;j<frame.length;j+=2)assert.ok(Math.abs(new DataView(frame.buffer).getInt16(j,true)-16384)<=1);}assert.equal(bytes,32000);}
 });

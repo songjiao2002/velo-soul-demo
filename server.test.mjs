@@ -6,9 +6,16 @@ import {createHash} from 'node:crypto';
 import {BUILD} from './public/build-version.mjs';
 import {preferredEncoding} from './static-assets.mjs';
 import vm from 'node:vm';
+import http from 'node:http';
 let base;
 before(async()=>{await new Promise(r=>server.listen(0,'127.0.0.1',r));base='http://127.0.0.1:'+server.address().port;});
 after(()=>new Promise(r=>server.close(r)));
+
+test('invalid request targets cannot crash API dispatch; pages cannot be framed',async()=>{
+ const status=await new Promise((resolve,reject)=>{const req=http.request(base,{path:'http://['},res=>{res.resume();resolve(res.statusCode);});req.on('error',reject);req.end();});
+ assert.equal(status,400);const health=await fetch(base+'/healthz');assert.equal(health.status,200);
+ const home=await fetch(base+'/');assert.equal(home.headers.get('x-frame-options'),'DENY');assert.match(home.headers.get('content-security-policy'),/frame-ancestors 'none'/);
+});
 
 test('final UI, camera modules and decoder use executable MIME and camera policy',async()=>{
   for(const p of ['/boot.js','/final.js','/soul-core.mjs','/vendor/jsQR.js']){const r=await fetch(base+p);assert.equal(r.status,200);assert.match(r.headers.get('content-type'),/javascript/);}
