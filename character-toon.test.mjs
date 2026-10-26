@@ -33,3 +33,18 @@ test('Lulu keeps a pale fitted helmet; all personality rest and speech states st
   animateCharacter(m,{time:6,dt:1,state:'resting',reduced:true});animateCharacter(m,{time:9,dt:1,state:'resting',reduced:true});assert.equal(m.snack.visible,id==='bori');assert.equal(m.sleep.visible,id==='mori');assert.equal(m.helmet.visible,id!=='mori');assert.equal(m.hatMaterial.color.getHex(),hat);disposeCharacter(m);
  }
 });
+
+test('all cycling companions turn through 360 degrees while feet and wheels keep moving',()=>{
+ for(const id of ['lumi','bori','mori']){
+  const m=createCharacterModel(id);animateCharacter(m,{time:1,dt:1,state:'riding',speed:12});
+  for(let i=0;i<=8;i++){
+   const before=m.pedalPhase,yaw=i*Math.PI/4;
+   animateCharacter(m,{time:2+i,dt:1,state:'riding',speed:12,yaw});
+   assert.equal(m.root.rotation.y,yaw);assert.equal(m.bike.visible,true);assert.ok(m.pedalPhase>before);
+   assert.equal(m.wheels[0].rotation.x,-m.pedalPhase);m.root.updateMatrixWorld(true);
+   const pedals=[];m.crank.traverse(o=>{if(o.name==='pedal')pedals.push(o);});
+   for(let n=0;n<2;n++){const foot=m.legs[n].foot.getWorldPosition(m.legs[n].foot.position.clone()),pedal=pedals[n].getWorldPosition(pedals[n].position.clone());foot.y-=.1;assert.ok(foot.distanceTo(pedal)<.04);}
+  }
+  disposeCharacter(m);
+ }
+});

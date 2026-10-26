@@ -37,3 +37,24 @@ test('Lulu uses exact good/bad weather lines only with fresh current evidence',(
  assert.ok(!weatherGreeting({...base,code:3},'mori','ko').startsWith('날씨가 좋으니'));
  const forecast={...base,nextHours:[{at:now+3600000,code:61,precipitationMm:1,probability:90}]};assert.ok(!weatherGreeting(forecast,'mori','ko').startsWith('오늘은 그냥 쉬면 안되?'));assert.match(weatherGreeting(forecast,'mori','en'),/hour/i);
 });
+
+test('ride entry and camera greetings keep cycling without inventing a GPS speed',()=>{
+ for(const soul of ['lumi','bori','mori']){
+  let now=100000;const m=new CharacterMotion({now:()=>now});m.enter(soul);m.setRideMode(true);
+  assert.equal(m.state,'riding');assert.equal(m.snapshot().speed,null);assert.equal(m.snapshot().animationSpeed,12);
+  m.enter(soul);assert.equal(m.state,'riding');now+=5000;m.tick();assert.equal(m.state,'riding');
+  m.pause();assert.equal(m.state,'riding');assert.equal(m.speed,null);
+  m.setRideMode(false);assert.equal(m.state,'idle');assert.equal(m.snapshot().animationSpeed,0);
+  m.enter(soul);assert.equal(m.state,'greeting');
+ }
+});
+
+test('real ride stops pause pedals, sustained stops rest, and GPS loss keeps the ride animation',()=>{
+ let now=100000;const m=new CharacterMotion({now:()=>now});m.setRideMode(true);
+ m.sample(0);assert.equal(m.state,'riding');assert.equal(m.snapshot().animationSpeed,0);
+ now+=8100;m.sample(0);assert.equal(m.state,'resting');
+ now+=1000;m.sample(12);now+=1600;m.sample(12);assert.equal(m.state,'riding');assert.equal(m.snapshot().animationSpeed,12);
+ now+=16000;m.tick();assert.equal(m.state,'riding');assert.equal(m.speed,null);
+ m.sample(0,{accuracy:80});assert.equal(m.state,'riding');assert.equal(m.speed,null);
+ m.setRideMode(false);assert.equal(m.state,'idle');
+});

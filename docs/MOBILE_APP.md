@@ -1,6 +1,6 @@
 # VELO SOUL mobile preview
 
-App ID: `com.velosoul.companion` · Version: `0.1.3` · Android 7+ / iOS 15+.
+App ID: `com.velosoul.companion` · Source version: `0.1.4` · Android 7+ / iOS 15+.
 
 Android 0.1.3 uses a **fixed owner-controlled release key** and bundles the full-screen ride UI and automatic diaries. The public install entry points to the verified 0.1.3 APK. This is not a Google Play release. The iOS target is a real Xcode project with a simulator build workflow. It is not a signed IPA or a published TestFlight app. The owner does not yet have Apple Developer membership.
 
@@ -119,3 +119,11 @@ The owner signs the downloaded artifact locally with the existing fixed PKCS12 k
 This version includes full-screen camera/map views, continuous voice, automatic local ride diaries and Notes export. iPhone continues using the live website or Safari Add to Home Screen; there is no signed iOS installer. Previews 0.1.1/0.1.2 require exporting journeys before a one-time reinstall because their old signatures differ. Subsequent releases signed with the fixed key can update in place after Android confirmation.
 
 Published source: `3fd2f3b27f7a37d6b7f9725bfdb2d9d94e3f32f8`, web build `20261026-ride27c`. [Package checks](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40318462323), [Android device checks](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40318465936) and [security scan](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40318469223) all passed on that revision. There were 241 automated tests; the emulator suite had zero failures/errors. All 92 bundled web/QR assets matched the local build. The public APK download was checked against its local SHA-256 after publication. The earlier emulator-disconnect failures remain in Actions history; the successful run supersedes them. Physical Samsung headset and iPhone installation behavior were not tested.
+
+## 0.1.4 cycling companions and personal diary voices
+
+Build `20261026-ride29` enters a bicycle animation as soon as a ride begins. Camera startup and replay preserve that state; camera/map switching preserves the same character. When GPS speed is unavailable, a presentation-only pedal cadence keeps the companion cycling while the recorded speed remains unknown. A valid zero speed stops the pedals; a sustained stop keeps the existing personality-specific resting behavior. Leaving the ride restores the normal greeting/idle states.
+
+Cycling characters retain continuous 360-degree drag/keyboard rotation in the cel-shaded renderer. The complete bicycle, rider, wheels and pedal-linked feet turn together. Devices without WebGL retain the animated 2D fallback. Reduced-motion preferences still pause cycling movement.
+
+Diaries use each companion's first-person voice in English, Korean and Chinese: Mori's questions and field notebook, Popo's playful bread wishes, and Lulu's unhurried reflection. Time, GPS distance and photo counts remain recorded facts; wishes never claim a meal, place or weather that was not recorded. Personal notes remain unchanged. On-screen diaries, text/Notes export and card images share this text. The new Android package uses version 0.1.4 / code 5 and the existing fixed key; public metadata advances only after package and device verification.

@@ -49,7 +49,7 @@ function renderView(host,view,time,dt){
  if(facing!==view.facing){view.facing=facing;if(Number.isFinite(Number(host.dataset.facing)))view.target=Number(host.dataset.facing);}
  if(host.dataset.autoTurn==='true'&&!view.down&&!reduced)view.target+=dt*.42;
  view.yaw=reduced?view.target:T.MathUtils.lerp(view.yaw,view.target,1-Math.exp(-dt*12));
- animateCharacter(view.model,{time,dt,state:host.dataset.previewActivity||host.dataset.activity||host.dataset.pose||'idle',speed:host.dataset.speed===undefined?12:Number(host.dataset.speed),expression:host.dataset.expression,speech:host.dataset.mouthActive==='true'?Number(host.style.getPropertyValue('--speech-open'))||0:0,yaw:view.yaw,reduced});
+ animateCharacter(view.model,{time,dt,state:host.dataset.previewActivity||host.dataset.activity||host.dataset.pose||'idle',speed:Number(host.dataset.animationSpeed??host.dataset.speed??12),expression:host.dataset.expression,speech:host.dataset.mouthActive==='true'?Number(host.style.getPropertyValue('--speech-open'))||0:0,yaw:view.yaw,reduced});
  const ratio=Math.min(devicePixelRatio||1,1.5),w=Math.max(1,Math.min(600,Math.round(rect.width*ratio))),h=Math.max(1,Math.min(600,Math.round(rect.height*ratio)));
  if(view.canvas.width!==w||view.canvas.height!==h){view.canvas.width=w;view.canvas.height=h;}
  const half=Math.max(1.55,1.33/(w/h))/(Math.max(75,Math.min(125,Number(host.dataset.lookSize)||100))/100);camera.left=-half*w/h;camera.right=half*w/h;camera.top=half;camera.bottom=-half;camera.updateProjectionMatrix();

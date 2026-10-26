@@ -10,6 +10,20 @@ test('offline diaries describe actual ride facts in all three languages without 
  assert.match(rideDiary({...r,route:[],photos:[]},'en').body,/not enough GPS.*No photos/);
 });
 
+test('three diary voices keep identical facts, first-person tone and language-specific personalities',()=>{
+ const markers={en:['field notebook','bread','no hurry'],ko:['탐험 수첩','빵','천천히'],zh:['探险手账','面包','慢慢']};
+ for(const lang of ['en','ko','zh']){
+  const bodies=['lumi','bori','mori'].map((soul,i)=>{
+   const r={soul,seconds:125,createdAt:1700000000000,photos:['photo'],route:[{lat:37.5,lon:127},{lat:37.51,lon:127}],note:'My own note'};
+   const before=JSON.stringify(r),d=rideDiary(r,lang);assert.equal(JSON.stringify(r),before);
+   assert.ok(d.body.includes(markers[lang][i]));assert.match(d.body,/1\.11/);assert.match(d.body,/2/);assert.match(d.body,/5/);
+   assert.ok(d.text.endsWith(r.note));assert.doesNotMatch(d.body,/we ate|we visited|먹었|방문했|吃到了|去了|下雨|sunny|카페/);
+   assert.ok(rideDiary({...r,photos:[]},lang).body!==d.body);return d.body;
+  });assert.equal(new Set(bodies).size,3);
+ }
+ assert.equal(rideDiary({soul:'constructor'}).title,'Soul · Ride diary');
+});
+
 test('automatic diary writes survive reopen and serialize note changes into one record',async()=>{
  const {store}=setup(),states=[];const autosave=new DiaryAutosave({store,onState:s=>states.push(s)});
  const r={...record('diary'),seconds:80};const first=autosave.save(r);r.note='First thought';const second=autosave.save(r);r.note='Final thought';const third=autosave.save(r);
