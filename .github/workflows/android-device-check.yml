@@ -47,9 +47,9 @@ jobs:
           target: google_apis
           ram-size: 2560M
           cores: 2
-          # The deprecated indirect backend disconnected during WebView activity transitions.
-          # Use the documented software renderer; keep all camera and WebView assertions.
-          emulator-options: -no-window -gpu swiftshader -feature -Vulkan -no-snapshot -noaudio -no-boot-anim -camera-back emulated -memory 2560
+          # Reopening the checkerboard camera crashes the host renderer in this runner.
+          # Use the virtual-scene camera and ANGLE software backend; retain all assertions.
+          emulator-options: -no-window -gpu swangle -feature -Vulkan -no-snapshot -noaudio -no-boot-anim -camera-back virtualscene -memory 2560
           disable-animations: true
           script: |
             adb logcat -c
