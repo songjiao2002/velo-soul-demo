@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {Box3} from 'three';
-import {createCharacterModel,animateCharacter,disposeCharacter} from './public/character-toon-model.mjs';
+import {Box3,Vector3} from 'three';
+import {createCharacterModel,animateCharacter,disposeCharacter,CHARACTER_FACING} from './public/character-toon-model.mjs';
 test('all companions are articulated meshes with two-band toon materials and real backs',()=>{
  for(const id of ['lumi','bori','mori']){const m=createCharacterModel(id);let toon=0;
   m.root.traverse(o=>{if(!o.isMesh)return;assert.ok(!o.material.map);if(o.material.isMeshToonMaterial){toon++;assert.deepEqual([...o.material.gradientMap.image.data],[175,255]);}});
@@ -41,10 +41,31 @@ test('all cycling companions turn through 360 degrees while feet and wheels keep
    const before=m.pedalPhase,yaw=i*Math.PI/4;
    animateCharacter(m,{time:2+i,dt:1,state:'riding',speed:12,yaw});
    assert.equal(m.root.rotation.y,yaw);assert.equal(m.bike.visible,true);assert.ok(m.pedalPhase>before);
-   assert.equal(m.wheels[0].rotation.x,-m.pedalPhase);m.root.updateMatrixWorld(true);
+   m.root.updateMatrixWorld(true);
    const pedals=[];m.crank.traverse(o=>{if(o.name==='pedal')pedals.push(o);});
    for(let n=0;n<2;n++){const foot=m.legs[n].foot.getWorldPosition(m.legs[n].foot.position.clone()),pedal=pedals[n].getWorldPosition(pedals[n].position.clone());foot.y-=.1;assert.ok(foot.distanceTo(pedal)<.04);}
   }
   disposeCharacter(m);
+ }
+});
+
+test('wheel tops and the upper pedal move toward the front wheel at every viewing angle',()=>{
+ for(const id of ['lumi','bori','mori'])for(const yaw of [0,Math.PI/2,Math.PI,Math.PI*1.5,Math.PI*2]){
+  const m=createCharacterModel(id);animateCharacter(m,{time:0,dt:1,state:'riding',speed:0,yaw});m.root.updateMatrixWorld(true);
+  const rear=m.wheels[0].getWorldPosition(new Vector3()),front=m.wheels[1].getWorldPosition(new Vector3()),forward=front.clone().sub(rear).normalize();
+  const tops=m.wheels.map(w=>w.localToWorld(new Vector3(0,.29,0)));
+  const pedal=m.crank.children.find(o=>o.name==='pedal'&&o.position.y>0),beforePedal=pedal.getWorldPosition(new Vector3());
+  animateCharacter(m,{time:0,dt:.01,state:'riding',speed:12,yaw});m.root.updateMatrixWorld(true);
+  for(let i=0;i<2;i++)assert.ok(m.wheels[i].localToWorld(new Vector3(0,.29,0)).sub(tops[i]).dot(forward)>0,`${id}: wheel top must move forward, yaw ${yaw}`);
+  assert.ok(pedal.getWorldPosition(new Vector3()).sub(beforePedal).dot(forward)>0,`${id}: upper pedal must move forward, yaw ${yaw}`);
+  disposeCharacter(m);
+ }
+});
+
+test('AR default points down the road while the portrait still faces the viewer',()=>{
+ for(const id of ['lumi','bori','mori'])for(const [view,yaw]of Object.entries(CHARACTER_FACING)){
+  const m=createCharacterModel(id);animateCharacter(m,{time:0,dt:1,state:'riding',speed:0,yaw});m.root.updateMatrixWorld(true);
+  const front=m.wheels[1].getWorldPosition(new Vector3()),rear=m.wheels[0].getWorldPosition(new Vector3());
+  assert.ok(view==='ride'?front.z<rear.z:front.z>rear.z);disposeCharacter(m);
  }
 });

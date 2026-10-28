@@ -7,6 +7,9 @@ const ramp=new T.DataTexture(new Uint8Array([175,255]),2,1,T.RedFormat);
 ramp.minFilter=ramp.magFilter=T.NearestFilter;ramp.generateMipmaps=false;ramp.needsUpdate=true;
 const skin=new T.SphereGeometry(1,24,18),unitCylinder=new T.CylinderGeometry(1,1,1,12);
 const UP=new T.Vector3(0,1,0),v=new T.Vector3(),q=new T.Quaternion();
+// The bicycle's front is local +Z. The camera looks down -Z, so an AR rider
+// following the road faces away from the lens; portraits still face the viewer.
+export const CHARACTER_FACING=Object.freeze({portrait:.55,ride:Math.PI+.35});
 const palettes={lumi:{fur:0xfff6e9,accent:0xefac69,hat:0xdcb98a,bag:0xe88c43},bori:{fur:0xfff8ee,accent:0xffd574,hat:0xffd574,bag:0xedba4d},mori:{fur:0xfffaf3,accent:0x363433,hat:0xf4eee5,bag:0x7e9a63}};
 function material(color,roughness=.68){const m=new T.MeshToonMaterial({color,gradientMap:ramp});m.userData.outlineParameters={thickness:.0025,color:new T.Color(0x716857).toArray()};return m;}
 function group(parent,name,x=0,y=0,z=0){const g=new T.Group();g.name=name;g.position.set(x,y,z);parent.add(g);return g;}
@@ -154,10 +157,11 @@ export function animateCharacter(model,{time,dt=.033,state='idle',speed=12,expre
   if(looking&&arm.side===-1){arm.shoulder.rotation.x=-.6+.2*Math.sin(t);arm.shoulder.rotation.z=-.65;}
  }
  m.bike.visible=r>.025;m.bike.scale.setScalar(Math.max(.02,r));m.bike.position.x=-.3*(1-r);
- for(const wheel of m.wheels)wheel.rotation.x=-phase;m.crank.rotation.x=-phase;
+ // Positive X rotation rolls toward the front (+Z); the upper pedal follows.
+ for(const wheel of m.wheels)wheel.rotation.x=phase;m.crank.rotation.x=phase;
  for(const leg of m.legs){
   const a=phase+(leg.side===1?Math.PI:0),hip=[leg.side*.21,.45,0];
-  const stand=[leg.side*.23,.11,.04],pedal=[leg.side*.27,.59+leg.side*.17*Math.cos(phase)-m.avatar.position.y,-.03-leg.side*.17*Math.sin(phase)];
+  const stand=[leg.side*.23,.11,.04],pedal=[leg.side*.27,.59+leg.side*.17*Math.cos(phase)-m.avatar.position.y,-.03+leg.side*.17*Math.sin(phase)];
   const foot=stand.map((x,i)=>T.MathUtils.lerp(x,pedal[i],r));const dy=foot[1]-hip[1],dz=foot[2]-hip[2],d=Math.min(.5,Math.hypot(dy,dz)),bend=Math.sqrt(Math.max(0,.26**2-(d/2)**2));
   const knee=[leg.side*.22,(hip[1]+foot[1])/2+dz/(d||1)*bend,(hip[2]+foot[2])/2-dy/(d||1)*bend];
   limb(leg.upper,hip,knee,.13);limb(leg.lower,knee,foot,.115);leg.foot.position.set(...foot);leg.foot.rotation.x=r*Math.sin(a)*.25;

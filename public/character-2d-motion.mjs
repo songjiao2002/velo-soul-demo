@@ -1,4 +1,4 @@
-import {cyclePose} from './character-2d.mjs';
+import {cyclePose,cycleWheelAngle} from './character-2d.mjs';
 const views=new Map();let frame=0,last=0,observer=null;
 const set=(node,name,value)=>{if(node.getAttribute(name)!==String(value))node.setAttribute(name,String(value));};
 function attach(root=document){for(const host of root.querySelectorAll('[data-character-2d]')){if(views.has(host))continue;const svg=host.querySelector('.soul-flat');if(!svg)continue;views.set(host,{svg,phase:0,legs:[...svg.querySelectorAll('[data-flat-leg]')],feet:[...svg.querySelectorAll('[data-flat-foot]')],wheels:[...svg.querySelectorAll('[data-flat-wheel]')],crank:svg.querySelector('[data-flat-crank]')});}}
@@ -11,7 +11,7 @@ function tick(ms){frame=requestAnimationFrame(tick);if(document.hidden||ms-last<
   if(v.svg.style.getPropertyValue('--speech-open')!==String(speech))v.svg.style.setProperty('--speech-open',String(speech));
   if(activity!=='riding'||reduced||!(speed>0))continue;v.phase+=dt*Math.min(9,speed*.45);
   const pose=cyclePose(v.phase);for(let i=0;i<2;i++){set(v.legs[i],'d',pose[i].path);set(v.feet[i],'transform',`translate(${pose[i].x} ${pose[i].y-3})`);}
-  for(const wheel of v.wheels)set(wheel,'transform',`rotate(${v.phase*180/Math.PI} ${wheel.dataset.flatWheel} 304)`);
+  for(const wheel of v.wheels)set(wheel,'transform',`rotate(${cycleWheelAngle(v.phase)} ${wheel.dataset.flatWheel} 304)`);
   set(v.crank,'d',`M${pose[0].x} ${pose[0].y} L${pose[1].x} ${pose[1].y}`);
  }
 }

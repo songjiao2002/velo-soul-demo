@@ -74,6 +74,8 @@ function head(id,p){const cat=id==='lumi',panda=id==='mori';const ears=cat?`<g c
 }
 function sleepingPanda(p){return `<g class="two-sleeping-panda"><g transform="rotate(-12 251 284)">${path('M239 259 Q260 252 270 266 L274 294 Q262 308 242 302Z',p.bag,p.edge,1.8)}${path('M247 272 L266 270 L269 292 L250 296Z','none','#c8d4b5',1.5)}</g>${ellipse(232,300,48,31,p.fur,`stroke="${p.edge}" stroke-width="2"`)}${ellipse(266,319,16,11,'#4d504b')}${ellipse(249,301,18,20,'#4d504b')}<g transform="translate(-8 106) rotate(-7 178 165)">${head('mori',p)}</g>${ellipse(144,334,22,7,'#4d504b')}${ellipse(198,334,20,7,'#4d504b')}${path('M133 334 L139 334 M189 334 L195 334','none','#7f8a73',1.5)}</g>`;}
 export function cyclePose(phase=0){return [-1,1].map((side,i)=>{const a=phase+i*Math.PI,x=196+Math.sin(a)*12,y=294+Math.cos(a)*12,hipX=i?205:185,hipY=i?248:245;return {x,y,hipX,hipY,path:`M${hipX} ${hipY} Q${hipX+18} ${(hipY+y)/2} ${x} ${y-4}`};});}
+// SVG front fork/basket face left. Match the existing forward pedal orbit.
+export function cycleWheelAngle(phase=0){return -phase*180/Math.PI;}
 
 export function characterSVG(id,activity='idle'){
  const p=FLAT_PALETTES[id];if(!p)return '';const panda=id==='mori',fur=panda?'#4d504b':p.fur;

@@ -1,6 +1,6 @@
 # VELO SOUL mobile preview
 
-App ID: `com.velosoul.companion` · Source version: `0.1.4` · Android 7+ / iOS 15+.
+App ID: `com.velosoul.companion` · Source version: `0.1.5` · Android 7+ / iOS 15+.
 
 Android 0.1.4 uses the **same owner-controlled release key as 0.1.3** and bundles the cycling AR companions, personality diaries and full-screen ride UI. The public install entry points to the verified 0.1.4 APK. Existing 0.1.3 installations update in place after Android confirmation; do not uninstall them. This is not a Google Play release. The iOS target is a real Xcode project with a simulator build workflow. It is not a signed IPA or a published TestFlight app. The owner does not yet have Apple Developer membership.
 
@@ -129,3 +129,11 @@ Cycling characters retain continuous 360-degree drag/keyboard rotation in the ce
 Diaries use each companion's first-person voice in English, Korean and Chinese: Mori's questions and field notebook, Popo's playful bread wishes, and Lulu's unhurried reflection. Time, GPS distance and photo counts remain recorded facts; wishes never claim a meal, place or weather that was not recorded. Personal notes remain unchanged. On-screen diaries, text/Notes export and card images share this text. The new Android package uses version 0.1.4 / code 5 and the existing fixed key; public metadata advances only after package and device verification.
 
 Published 0.1.4 source: `0d38a9cec2e42de0a09dff4e20b161d568b2f39c`. [Package checks](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40321721049), [Android device checks](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40321727005) and [security scan](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40321732351) passed. The 245 automated tests include cycling without fabricated speed, rest/restart, all three characters' pedal linkage throughout 360-degree rotation, and three-language diary voices. The production-bundle DOM flow preserves character state, camera/microphone and dialogue across view switches. Browser checks confirmed WebGL rotation beyond a full turn and pointer dragging while cycling. The 92 packaged assets, fixed certificate, APK version and publicly downloaded SHA-256 matched verification. Website URLs and six original QR images remain unchanged.
+
+## 0.1.5 forward cycling correction (2026-10-28)
+
+Build `20261028-forward30` corrects two independent issues. The 3D bicycle's front wheel is at local +Z, but wheel and crank rotations previously drove their upper points toward -Z. Both now rotate forward and the feet follow the corrected pedal coordinates. The left-facing SVG fallback's wheel rotation now matches its already-correct pedal orbit. Regression checks measure movement toward the actual front wheel at five viewing angles, rather than comparing rotation to the same implementation formula.
+
+The riding AR overlay now starts facing away from the camera toward the road, using a slight rear three-quarter angle. Portraits and camera-free introductions keep their original facing. Dragging and keyboard rotation still turn through 360 degrees; map/camera switching retains the chosen angle. Zero speed and reduced-motion preferences still pause pedaling. This is camera-overlay presentation, not world-anchored AR navigation.
+
+Android 0.1.5 / code 6 uses the same package and fixed release key as 0.1.3/0.1.4. Diary data and original QR codes are unchanged. Public install metadata advances only after the package and device checks pass and the signed download is verified.

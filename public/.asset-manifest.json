@@ -1,45 +1,45 @@
 {
-  "version": "20261026-ride29",
+  "version": "20261028-forward30",
   "files": {
     "/index.html": {
-      "size": 7842,
-      "sha256": "67825d1949ba8e480354ea95b7ad8e65cfd2beb3f745a8fdb8f39b4a094929a1",
+      "size": 7860,
+      "sha256": "c140d02efc6c491770da14cc474f133e9e9324262446b57e700234a2b36d9312",
       "br": {
-        "size": 2865,
-        "sha256": "931db0023964510f80e4c72f477ddb1d7adf7a68c11b3208401f028a82b6b905",
+        "size": 3099,
+        "sha256": "776629265a017241cf5a298c455f3ea5d403249a21d121ae5a3f9cc31188459f",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 3461,
-        "sha256": "bdd8e00b2754cf444ba5acd7b3ead3956f01c41592cfbc8f5223ce41681b5f58",
+        "size": 3466,
+        "sha256": "8ec98de847c27fb8887d88162dcbc6fc03ff2ae11c6ee6234dfdf0649e05f5cd",
         "suffix": ".gz"
       }
     },
     "/boot.js": {
-      "size": 2508,
-      "sha256": "a7ceb231c4f0402da708001f2fffb8f2ea0ae13e212872560319c255cead6bd3",
+      "size": 2511,
+      "sha256": "3caded1146e08c4cd1353c2a90905b45a81f59018886c01a1e9308716cf8a158",
       "br": {
         "size": 946,
-        "sha256": "a3a18b1244b187db75582d7cc49c56be888364b954c2eb52a00b53480bab2d9e",
+        "sha256": "f3790b5af066d6c7e717f9defbe6385392b3a5d24187cc182e2ab60d1630d932",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 1129,
-        "sha256": "42fd548d45ae8a30a8c5e796be8a135579dc8f6f3c8f86916a0007a4bee51af4",
+        "size": 1132,
+        "sha256": "3f97628bf9fd011ee5da9862f1f744f74f749041b4ce9898ee56417ae45e7956",
         "suffix": ".gz"
       }
     },
     "/app.bundle.js": {
-      "size": 335389,
-      "sha256": "2465b90355429f1256c3c006ebe0f6dcfe4fb7e67045cb409f55b8f6609e7cc6",
+      "size": 335488,
+      "sha256": "3b9e580af1e6a62cf737a87c69b1d8fa7caf7a5b52cb734d53f71c2763f4ebda",
       "br": {
-        "size": 102820,
-        "sha256": "51e25218a576a5a5e1c656d4d4443c0993e0c664221786d9e74cfebcf28f557e",
+        "size": 102858,
+        "sha256": "c3678396925914ddbb624c28b38396bf3017b284ddda23efc515a55a2812b2c9",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 123241,
-        "sha256": "f2d10e743f548e2d28459510c500863775cf9d1f4e529d0d8ca82678ca38c936",
+        "size": 123282,
+        "sha256": "2ed0354a39af09ed87819925e1598e7c6479cef32393a2622a65c07e28827888",
         "suffix": ".gz"
       }
     },
@@ -58,16 +58,16 @@
       }
     },
     "/character-toon.bundle.mjs": {
-      "size": 599843,
-      "sha256": "ea9a72bbdb89af11291b4839fbb964479b08ea1570c034f15189d690ad702bab",
+      "size": 599954,
+      "sha256": "65fc90a4106fa8e350da959d17554e14ab4d908b67aa9bf3ddc6af363646332f",
       "br": {
-        "size": 141713,
-        "sha256": "86ea05252103d08c2007668fc0587bf541dfe16213507aa34d185ff939fadec2",
+        "size": 141753,
+        "sha256": "121e0ef2e54a137c41a7777e8a05088df2084b145f499664a7541f62ec1506dc",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 156744,
-        "sha256": "26bf6287d4e167964051b3f8071b5f622a4cc6e67f450c17deb1ed360c419bb1",
+        "size": 156804,
+        "sha256": "4feaa05b6e903546b2624785640cbcce84add28b5c16a209e02b7d3d00914822",
         "suffix": ".gz"
       }
     },

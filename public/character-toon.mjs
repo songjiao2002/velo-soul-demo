@@ -1,6 +1,6 @@
 import * as T from 'three';
 import {OutlineEffect} from 'three/addons/effects/OutlineEffect.js';
-import {createCharacterModel,animateCharacter,disposeCharacter} from './character-toon-model.mjs';
+import {createCharacterModel,animateCharacter,disposeCharacter,CHARACTER_FACING} from './character-toon-model.mjs';
 
 let renderer=null,effect=null,failed=false,frame=0,last=0,observer=null,visibility=null;
 const views=new Map(),watched=new Set(),camera=new T.OrthographicCamera(-1.6,1.6,1.6,-1.6,.1,30);
@@ -27,7 +27,8 @@ function createView(host){
  try{
   const model=createCharacterModel(host.dataset.soul),scene=new T.Scene();scene.add(model.root);
   scene.add(new T.AmbientLight(0xffffff,.85));const key=new T.DirectionalLight(0xffffff,2.25);key.position.set(-3,6,5);scene.add(key);
-  const view={model,scene,canvas,context,yaw:.55,target:.55,drag:false,x:0,y:0,down:false,facing:null};views.set(host,view);
+  const heading=host.closest('[data-ride-direction="forward"]')?CHARACTER_FACING.ride:CHARACTER_FACING.portrait;
+  const view={model,scene,canvas,context,yaw:heading,target:heading,drag:false,x:0,y:0,down:false,facing:null};views.set(host,view);
   host.addEventListener('pointerdown',view.start=e=>{if(!host.hasAttribute('data-turnable')||e.button>0)return;view.down=true;view.drag=false;view.x=e.clientX;view.y=e.clientY;});
   host.addEventListener('pointermove',view.move=e=>{if(!view.down)return;const dx=e.clientX-view.x,dy=e.clientY-view.y;if(!view.drag){if(Math.abs(dy)>Math.abs(dx)&&Math.abs(dy)>7){view.down=false;return;}if(Math.abs(dx)<5)return;view.drag=true;host.setPointerCapture?.(e.pointerId);}view.target+=dx*.012;view.x=e.clientX;view.y=e.clientY;host.dataset.autoTurn='false';});
   host.addEventListener('pointerup',view.end=e=>{view.down=view.drag=false;if(host.hasPointerCapture?.(e.pointerId))host.releasePointerCapture(e.pointerId);});
