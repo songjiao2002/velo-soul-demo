@@ -1,45 +1,45 @@
 {
-  "version": "20261028-study36",
+  "version": "20261028-study37",
   "files": {
     "/index.html": {
       "size": 8872,
-      "sha256": "4127719c540e6dcc3585aabb3afda90ed434d47b91b890e98d5d17ae16238d41",
+      "sha256": "5bd00942072c9131052f616232338492bac21cf6b4537e63e3f278bb60e01a50",
       "br": {
         "size": 3375,
-        "sha256": "07c6bc4d873b02f7ee9217d3539d84a4b64d0275ac4897fb2f69b0a0038b0897",
+        "sha256": "697fc492378f7cce26300f30f769e6f2380209e3516639101345b1fb768d09cb",
         "suffix": ".br"
       },
       "gzip": {
         "size": 4001,
-        "sha256": "cee3e4d9d6526fb8777097524f4d0cfeb20cb5dc524750cb8b501eb5529ce99c",
+        "sha256": "64a984d8acb550f83202220406b21e0cdc21eadbe615513d7b7a754ae27b2e9a",
         "suffix": ".gz"
       }
     },
     "/boot.js": {
       "size": 2509,
-      "sha256": "9a07eb5f274a68b67723da63a62fee6a0a81a408deaed55dd11db319174718a4",
+      "sha256": "1667d2ead2e8314bc494eb276cd3c38785886f5d90c3e39091468180357affbf",
       "br": {
         "size": 952,
-        "sha256": "85dd3f950bdf9ae3a5b5ae2236628b6f185e57d3b4f5e01b13b142dd56a5c31c",
+        "sha256": "e112c13b5b8ffe8e293861de67d3f1faa94a5b13895ecd5725142eda1ec7f392",
         "suffix": ".br"
       },
       "gzip": {
         "size": 1132,
-        "sha256": "74f810df4619b22d49ba565ff2b277ab45097ae70a7cd0541c8b184b2e7b9a3f",
+        "sha256": "526827968e85543c80796f9e0f4470bcf3ac0f0106dbd1276de5c488fd116c2e",
         "suffix": ".gz"
       }
     },
     "/app.bundle.js": {
-      "size": 342338,
-      "sha256": "0da6bdcd1e7f1f02f94a2eb0cdaba5ec4dddd8a5af0cd332faac98d05042afbd",
+      "size": 341900,
+      "sha256": "163b05b43e223fd57e93cd6f605ed6038c7e7a0c2efff19ce4071a9e06e2666e",
       "br": {
-        "size": 105938,
-        "sha256": "6ed64bf3f06181c7cc0405f4f2924feac7988783dff19dee35e9eb7b5bb29d7e",
+        "size": 105706,
+        "sha256": "9add715750af6ebac6aab2322db95ffa9acd6d6930edced45bc3b3da0ca20793",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 128274,
-        "sha256": "d48c9bd352ad89413f32684392795be116ef458cba5bae7092a54d4db67c71e2",
+        "size": 127904,
+        "sha256": "a7442adbf4f1cfd352e6eecdffdcc37ccf837b0abab587eb8a2ea9773e4be770",
         "suffix": ".gz"
       }
     },

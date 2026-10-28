@@ -15,7 +15,7 @@ export function rideDiary(record,language='en'){
  if(r.photos?.length)paragraphs.push(voice.photos);
  if(exchanges.length){
   const pair=exchanges.at(-1);
-  paragraphs.push(lang==='ko'?'네가 “'+pair.user+'”라고 말했지. 나는 “'+pair.reply+'”라고 답했고. '+voice.reflection:lang==='zh'?'你说：“'+pair.user+'” 我回答：“'+pair.reply+'” '+voice.reflection:'You said, “'+pair.user+'” I answered, “'+pair.reply+'” '+voice.reflection);
+  paragraphs.push(lang==='ko'?'네가 “'+pair.user+'”라고 말했지. '+voice.reflection:lang==='zh'?'你说：“'+pair.user+'” '+voice.reflection:'You said, “'+pair.user+'” '+voice.reflection);
  }else paragraphs.push(voice.quiet);
  paragraphs.push(voice.close);
  const generated=r.generatedDiary,ready=generated&&typeof generated.body==='string'&&generated.body.trim()&&typeof generated.title==='string';

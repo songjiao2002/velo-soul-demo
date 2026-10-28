@@ -44,9 +44,9 @@ jobs:
           target: google_apis
           ram-size: 2560M
           cores: 2
-          # Keep the rendering configuration used by the last successful run.
-          # Collect host diagnostics rather than hide a device disconnect.
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back emulated -memory 2560
+          # The deprecated indirect backend disconnected during WebView activity transitions.
+          # Use the documented software renderer; keep all camera and WebView assertions.
+          emulator-options: -no-window -gpu swiftshader -feature -Vulkan -no-snapshot -noaudio -no-boot-anim -camera-back emulated -memory 2560
           disable-animations: true
           script: |
             adb logcat -c
