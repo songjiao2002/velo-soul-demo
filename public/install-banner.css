@@ -1,0 +1,11 @@
+/* A dismissible strip in normal flow: it never covers the ride surface. */
+.install-banner{display:flex;align-items:center;gap:10px;min-height:48px;padding:2px 5vw;background:#edf4e4;border-bottom:1px solid #dfe8d5;color:#3e5741}
+.install-banner-copy{margin-right:auto;font-size:12px;font-weight:600;letter-spacing:.01em}
+.install-banner-link{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:0 15px;font-size:12px;font-weight:700;white-space:nowrap}
+.install-banner-link svg{width:16px;height:16px;flex:none}
+.install-banner-close{display:grid;place-items:center;flex:0 0 44px;min-height:44px;border-radius:50%;font-size:23px;line-height:1;color:#60735d}
+.install-banner-link:focus-visible,.install-banner-close:focus-visible{outline:2px solid #52734a;outline-offset:-3px;border-radius:12px}
+.native-app .install-banner,body.camera-open>.install-banner,body[data-screen=camera]>.install-banner,body.map-fullscreen-open>.install-banner{display:none}
+@media(hover:hover){.install-banner-link:hover{color:#263d2c;text-decoration:underline;text-underline-offset:4px}.install-banner-close:hover{background:#dfe9d4}}
+@media(max-width:700px){.install-banner{padding-inline:20px;gap:4px}.install-banner-copy{font-size:11px}.install-banner-link{padding-inline:10px}}
+@media(display-mode:standalone){.install-banner{display:none}}

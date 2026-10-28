@@ -5,6 +5,10 @@ const rows = `
 카메라 화면을 시작하지 못했어요. 다시 켜기를 눌러주세요.|Could not start the camera preview. Tap to try again.|相机预览未能启动，请点击重试。
 소울 꾸미기|Adjust your Soul|调整角色
 앱 설치 / 업데이트|Install / Update|安装／更新
+앱 설치 안내|App installation|应用安装
+VELO SOUL 앱|VELO SOUL app|VELO SOUL 应用
+설치하기|Install|安装
+설치 안내 닫기|Dismiss installation banner|关闭安装提示
 
 호기심 많은 탐험가|A curious explorer|好奇的探险家
 오늘은 어떤 재밌는걸 보러갈까?|What fun things shall we go and see today?|今天去看点什么有趣的东西呢？

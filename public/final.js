@@ -36,6 +36,16 @@ import {translate,startLanguageUI,getLanguage} from './i18n.mjs';
 import {SOULS,SCENARIOS,parseSoulQR,appendPoint,routeDistance,projectRoute,SoulCameraController} from './soul-core.mjs';
 let voiceLanguage='en';try{if(['en','ko'].includes(localStorage.getItem('velo-soul-voice-language')))voiceLanguage=localStorage.getItem('velo-soul-voice-language');}catch{}
 const $=id=>document.getElementById(id),app=$('app'),audio=$('soulAudio');
+const installBanner=document.querySelector('[data-install-banner]');
+if(installBanner){
+ let dismissed=false;try{dismissed=sessionStorage.getItem('velo-soul-install-dismissed')==='1';}catch{}
+ installBanner.hidden=dismissed||isNative()||globalThis.navigator?.standalone===true||globalThis.matchMedia?.('(display-mode: standalone)').matches===true;
+ installBanner.querySelector('[data-dismiss-install]')?.addEventListener('click',()=>{
+  installBanner.hidden=true;
+  try{sessionStorage.setItem('velo-soul-install-dismissed','1');}catch{}
+  document.querySelector('.topbar .brand')?.focus({preventScroll:true});
+ });
+}
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let handsFree=null,wakeLock=null,gpsPoint=null,gpsSpeed=null,gpsStatus='',gpsConnection='off';
 let activeVoiceSoul='lumi',encounterPhotos=[],companionPending=false,latestPhoto=null;
