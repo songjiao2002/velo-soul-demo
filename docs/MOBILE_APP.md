@@ -1,13 +1,13 @@
 # VELO SOUL mobile preview
 
-App ID: `com.velosoul.companion` · Source version: `0.1.5` · Android 7+ / iOS 15+.
+App ID: `com.velosoul.companion` · Source version: `0.1.6` · Android 7+ / iOS 15+.
 
 Android 0.1.5 uses the **same owner-controlled release key as 0.1.3/0.1.4** and corrects forward wheel/pedal motion and the default road-facing AR angle. The public install entry points to the verified 0.1.5 APK. Existing 0.1.3/0.1.4 installations update in place after Android confirmation; do not uninstall them. Cycling companions, personality diaries and the full-screen ride UI are retained. This is not a Google Play release. The iOS target is a real Xcode project with a simulator build workflow. It is not a signed IPA or a published TestFlight app. The owner does not yet have Apple Developer membership.
 
 ## What is included
 
 - Local bundled startup, all three cel-shaded companions, voice introductions, and original QR images.
-- Home / Scan QR / Diaries bottom navigation, English default with Korean and Chinese interface options.
+- Scanner-first home with a rear-camera frame and one primary scan button. Companion descriptions appear only after selecting the scanned bicycle. UI/voice preferences and original QR downloads are in Settings; English, Korean and Chinese interfaces remain available.
 - Rear-camera scanner decodes original `?bike=lumi`, `?bike=bori`, `?bike=mori` QR URLs without replacing the printed codes. Unknown QR URLs are rejected rather than opened.
 - Original character appearance and automatic riding/rest animation. Live ride activity follows GPS. The manual character editor was retired in 0.1.3.
 - Native foreground GPS, WebView camera/microphone, streamed Qwen recognition, cloud speech, and local journey records. First camera and microphone prompts are serialized on native Android.
@@ -139,3 +139,7 @@ The riding AR overlay now starts facing away from the camera toward the road, us
 Android 0.1.5 / code 6 uses the same package and fixed release key as 0.1.3/0.1.4. Diary data and original QR codes are unchanged. Public install metadata advances only after the package and device checks pass and the signed download is verified.
 
 Published 0.1.5 source: `9112d52513018d662fbf7ec55f9fe4b7e2630a6b`. [Package checks](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40624723022), [Android device checks](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40624725966) and [security scan](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40624729220) passed. All 248 automated tests passed. Browser verification showed all three riders facing down the road and preserved cycling during pointer rotation. The production-bundle camera/map/voice/diary flow passed. All 92 packaged assets matched the local build; the fixed signing certificate matched 0.1.4. The public APK SHA-256 and size were verified after publication. The original website/download URLs and all six QR files are unchanged. Physical Samsung headset behavior was not retested.
+
+## Preview 0.1.6 scanner-first home
+
+Build `20261028-scanhome32d` removes the homepage character list and top navigation. The first screen contains the QR camera frame; camera permission is requested when Scan is tapped. A successful scan displays only that bicycle’s companion name, personality and story. Settings retain UI/voice language and original PNG QR downloads. Small-phone layouts keep the primary button visible. Android versionCode is 7 and uses the existing fixed release certificate; 0.1.3–0.1.5 installations can update in place. Public download metadata stays on the last verified APK until the new package passes signing and download verification. The iPhone Home Screen edition already uses the updated original website.
