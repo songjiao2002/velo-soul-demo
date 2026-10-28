@@ -1,5 +1,5 @@
 import {characterSVG} from './character-2d.mjs';
-import {androidUpdateState,validateAppRelease,downloadLatestAndroid} from './app-update.mjs?v=20261028-install37';
+import {androidUpdateState,validateAppRelease,downloadLatestAndroid} from './app-update.mjs?v=20261028-install38';
 const $=id=>document.getElementById(id);
 $('downloadCharacters').innerHTML=characterSVG('lumi');
 const copy={
