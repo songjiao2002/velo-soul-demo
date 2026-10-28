@@ -50,7 +50,11 @@ public class ExampleInstrumentedTest {
         }
         fail("Camera permission dialog did not appear");
     }
-    @Test public void bundledAppScannerAndCompanionWork() throws Exception {
+    @Test public void bundledAppScannerAndCompanionWork() throws Throwable {
+        try { verifyBundledApp(); }
+        catch (Throwable failure) { android.util.Log.e("VeloDeviceTest", "Device assertion failed before activity cleanup", failure); throw failure; }
+    }
+    private void verifyBundledApp() throws Exception {
         assertEquals("com.velosoul.companion",InstrumentationRegistry.getInstrumentation().getTargetContext().getPackageName());
         awaitTrue("document.body.dataset.screen === 'home' && document.querySelector('#startupNotice').hidden");
         assertEquals("true",js("window.isSecureContext && Capacitor.isNativePlatform() && !!navigator.mediaDevices?.getUserMedia"));

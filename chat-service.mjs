@@ -165,7 +165,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
     },
     async diary(input,{signal}={}){
       const payload=validateDiary(input,{ChatError,validateImage}),config=chatConfig(env);if(!config.configured)throw new ChatError('not_configured',503);
-      if(payload.photos.length)payload.photoFacts=await complete(diaryPhotoRequest(payload.photos,config.visionModel),config,signal,{readResult:data=>diaryPhotoResult(data,ChatError)});
+      if(payload.photos.length||payload.conversation.length||payload.observations.length)payload.diaryEvidence=await complete(diaryPhotoRequest(payload,payload.photos.length?config.visionModel:config.model),config,signal,{readResult:data=>diaryPhotoResult(data,ChatError,payload)});
       const model=config.model;
       const request=diaryRequest(payload,(await diarySkills)[payload.soul],model);
       return complete(request,config,signal,{readResult:data=>diaryResult(data,payload,{ChatError,model})});

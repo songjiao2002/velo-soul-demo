@@ -7,14 +7,14 @@ import {diaryPayload,generateRideDiary} from './public/diary-generation.mjs';
 const image='data:image/jpeg;base64,'+Buffer.from([255,216,255,224,0,255,217]).toString('base64');
 const input=(soul='lumi',language='en')=>({rideId:'ride-36',soul,language,photos:[image],conversation:[{user:'That blue door looks like the sea.',reply:'A little sea tucked into the street.'}],observations:[{scene:'architecture',impression:'Perhaps a blue doorway.'}]});
 const env={DASHSCOPE_API_KEY:'diary-test-secret'};
-const photoAnswer=()=>Response.json({choices:[{message:{content:JSON.stringify({facts:['A pale blue window beside a green sign.']})}}]});
+const photoAnswer=()=>Response.json({choices:[{message:{content:JSON.stringify({facts:['A pale blue window beside a green sign.'],quotes:['That blue door looks like the sea.'],impressions:[]})}}]});
 const answer=()=>Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify({title:'A little sea',body:'I kept your words beside our photograph.\n\nThank you for sharing that little moment with me.'})}}]});
 test('all three diary skills receive images and conversation, written Chinese stays Chinese, GPS and sample reviews are excluded',async()=>{
  const calls=[];const service=createChatService({env,fetchImpl:async(_,options)=>{calls.push(JSON.parse(options.body));return JSON.parse(options.body).messages[0].content.startsWith('PHOTO_EVIDENCE')?photoAnswer():answer();}});
  for(const [soul,name,language] of [['lumi','Mori','en'],['bori','Popo','ko'],['mori','Lulu','zh']]){
   const r=await service.diary({...input(soul,language),route:[{lat:37.1234567}],reviews:['FAKE-REVIEW-INJECTION']});const call=calls.at(-1);
   assert.equal(r.soul,soul);assert.equal(r.language,language);assert.equal(r.rideId,'ride-36');assert.match(call.messages[0].content,new RegExp('You are '+name));
-  assert.equal(call.model,'qwen-plus');assert.equal(calls.at(-2).model,'qwen3-vl-plus');assert.equal(calls.at(-2).messages[1].content[0].image_url.url,image);assert.match(call.messages[1].content,/blue door/);assert.match(call.messages[1].content,/pale blue window/);
+  assert.equal(call.model,'qwen-plus');assert.equal(calls.at(-2).model,'qwen3-vl-plus');assert.equal(calls.at(-2).messages[1].content[1].image_url.url,image);assert.match(call.messages[1].content,/blue door/);assert.match(call.messages[1].content,/pale blue window/);
   assert.doesNotMatch(JSON.stringify(call),/37\.1234567|FAKE-REVIEW-INJECTION|diary-test-secret/);assert.match(call.messages[0].content,/untrusted data/);
  }assert.match(calls.at(-1).messages[0].content,/in Simplified Chinese/);
 });
@@ -26,10 +26,19 @@ test('diary rejects external images, oversized context and malformed or truncate
  await assert.rejects(createChatService({env,fetchImpl:async()=>Response.json({choices:[{finish_reason:'length',message:{content:'{"title":"x","body":"unfinished"}'}}]})}).diary(input()),{code:'invalid_response'});
 });
 test('diary shares the existing demo budget and cancellation and does not leak upstream errors',async()=>{
- const service=createChatService({env:{...env,QWEN_MAX_DAILY_REQUESTS:'1'},fetchImpl:async()=>answer()});await service.diary({...input(),photos:[]});
+ const service=createChatService({env:{...env,QWEN_MAX_DAILY_REQUESTS:'1'},fetchImpl:async()=>answer()});await service.diary({...input(),photos:[],conversation:[],observations:[]});
  await assert.rejects(service.reply({soul:'lumi',language:'en',messages:[{role:'user',content:'Hello'}]}),{code:'rate_limited'});
  await assert.rejects(createChatService({env,fetchImpl:async()=>new Response('diary-test-secret',{status:401})}).diary(input()),e=>e.code==='provider_auth'&&!e.message.includes('diary-test-secret'));
  const aborted=new AbortController();aborted.abort();await assert.rejects(createChatService({env,fetchImpl:async(_,options)=>{options.signal.throwIfAborted();}}).diary(input(),{signal:aborted.signal}),{code:'cancelled'});
+});
+test('diary writer receives selected exact rider excerpts, not raw refusals, recommendations or fabricated quotes',async()=>{
+ const calls=[];const payload={...input(),photos:[],conversation:[{user:'That blue door looks like the sea. No detour today.',reply:'You should visit it next time.'}]};
+ const service=createChatService({env,fetchImpl:async(_,options)=>{const body=JSON.parse(options.body);calls.push(body);return calls.length===1?photoAnswer():answer();}});
+ await service.diary(payload);const context=JSON.parse(calls[1].messages[1].content.split('\n').at(-1));
+ assert.deepEqual(context.riderExcerpts,['That blue door looks like the sea.']);assert.deepEqual(context.visiblePhotoDetails,[]);
+ assert.doesNotMatch(JSON.stringify(context),/No detour|visit it next time/);assert.equal(calls[0].model,'qwen-plus');
+ const forged=createChatService({env,fetchImpl:async()=>Response.json({choices:[{message:{content:JSON.stringify({facts:[],quotes:['We stopped for bread.'],impressions:[]})}}]})});
+ await assert.rejects(forged.diary(payload),{code:'invalid_response'});
 });
 test('only bounded completed exchanges of the current character and selected photos enter the diary request',async()=>{
  const record={id:'new-ride',soul:'bori',photos:Array(7).fill(image),route:[{lat:37.123456}],note:'PRIVATE NOTE'};
