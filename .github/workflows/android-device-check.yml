@@ -40,6 +40,9 @@ jobs:
       - uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
+          # 37.2.12 crashes its host RenderThread during camera/WebView tests.
+          # Google archive: emulator-linux_x64-15261927.zip (36.5.11 stable).
+          emulator-build: 15261927
           arch: x86_64
           target: google_apis
           ram-size: 2560M
