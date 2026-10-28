@@ -1,3 +1,4 @@
+import {loadDiarySkills,validateDiary,diaryRequest,diaryResult,diaryPhotoRequest,diaryPhotoResult} from './diary-service.mjs';
 import {allowedRequestOrigin} from './native-origin.mjs';
 import {memoryContext} from './public/bike-memory-core.mjs';
 import {SEOUL_PLACES} from './public/seoul-places.mjs';
@@ -94,7 +95,7 @@ export function speechAudioURL(value){
 }
 
 export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,timeoutMs=30000,getWeather=()=>null,getBikeMemory=()=>null}={}){
-  const skills=loadSoulSkills();
+  const skills=loadSoulSkills(),diarySkills=loadDiarySkills();
   // A shared demo budget deliberately covers all visitors and cannot be bypassed with new cookies.
   const maxDaily=Number(env.QWEN_MAX_DAILY_REQUESTS)||200;
   let minute=0,day=0,minuteCount=0,dayCount=0,active=0;
@@ -162,6 +163,13 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
       if(typeof text!=='string'||text.length>10000)throw new ChatError('invalid_response',502);
       return {text:text.trim().slice(0,1000),provider:'Qwen',model:config.asrModel};
     },
+    async diary(input,{signal}={}){
+      const payload=validateDiary(input,{ChatError,validateImage}),config=chatConfig(env);if(!config.configured)throw new ChatError('not_configured',503);
+      if(payload.photos.length)payload.photoFacts=await complete(diaryPhotoRequest(payload.photos,config.visionModel),config,signal,{readResult:data=>diaryPhotoResult(data,ChatError)});
+      const model=config.model;
+      const request=diaryRequest(payload,(await diarySkills)[payload.soul],model);
+      return complete(request,config,signal,{readResult:data=>diaryResult(data,payload,{ChatError,model})});
+    },
     async reply(input,{signal,vision=false}={}){
       const payload=vision?validateVision(input):validateChat(input,now()),config=chatConfig(env);
       if(!config.configured)throw new ChatError('not_configured',503);
@@ -200,16 +208,16 @@ export function createChatHandler(options={}){
   const service=createChatService(options);
   const handler=async (req,res)=>{
     const pathname=new URL(req.url,'http://localhost').pathname;
-    if(!['/api/chat','/api/chat/scene','/api/chat/status','/api/vision','/api/transcribe','/api/speech','/api/speech/stream'].includes(pathname))return false;
+    if(!['/api/diary','/api/chat','/api/chat/scene','/api/chat/status','/api/vision','/api/transcribe','/api/speech','/api/speech/stream'].includes(pathname))return false;
     const send=(status,body)=>{if(res.destroyed)return;res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(req.method==='HEAD'?undefined:JSON.stringify(body));};
     if(pathname==='/api/chat/status'&&['GET','HEAD'].includes(req.method)){send(200,service.status());return true;}
-    if(!['/api/chat','/api/chat/scene','/api/vision','/api/transcribe','/api/speech','/api/speech/stream'].includes(pathname)||req.method!=='POST'){res.setHeader('Allow',pathname.endsWith('/status')?'GET, HEAD':'POST');send(405,{error:'method_not_allowed'});return true;}
+    if(!['/api/diary','/api/chat','/api/chat/scene','/api/vision','/api/transcribe','/api/speech','/api/speech/stream'].includes(pathname)||req.method!=='POST'){res.setHeader('Allow',pathname.endsWith('/status')?'GET, HEAD':'POST');send(405,{error:'method_not_allowed'});return true;}
     // JSON POST and same-origin requests keep another website from silently spending this demo's quota.
     const origin=req.headers.origin;
     if(!allowedRequestOrigin(req)){send(403,{error:'origin_not_allowed'});return true;}
     const controller=new AbortController(),onClose=()=>{if(!res.writableEnded)controller.abort();};
     res.on('close',onClose);
-    try{const vision=pathname==='/api/vision',asr=pathname==='/api/transcribe',speech=pathname==='/api/speech';const payload=await readChatBody(req,asr||vision||pathname==='/api/chat/scene'?700000:32768);
+    try{const vision=pathname==='/api/vision',asr=pathname==='/api/transcribe',speech=pathname==='/api/speech';const payload=await readChatBody(req,pathname==='/api/diary'?2000000:asr||vision||pathname==='/api/chat/scene'?700000:32768);
       if(pathname==='/api/speech/stream'){
         await service.speechStream(payload,{signal:controller.signal,emit:async frame=>{
           if(res.destroyed)throw new ChatError('cancelled',499);
@@ -218,6 +226,7 @@ export function createChatHandler(options={}){
         }});res.end();
       }
       else if(speech){const audio=await service.speech(payload,{signal:controller.signal});if(!res.destroyed){res.writeHead(200,{'Content-Type':'audio/wav','Content-Length':audio.length,'Cache-Control':'no-store'});res.end(audio);}}
+      else if(pathname==='/api/diary')send(200,await service.diary(payload,{signal:controller.signal}));
       else send(200,await (asr?service.transcribe(payload,{signal:controller.signal}):service.reply(payload,{signal:controller.signal,vision})));}
     catch(e){const failure={error:e instanceof ChatError?e.code:'server_error'};if(res.headersSent){if(!res.destroyed)res.end(JSON.stringify(failure)+'\n');}else send(e instanceof ChatError?e.status:500,failure);}
     finally{res.off('close',onClose);}
@@ -226,3 +235,4 @@ export function createChatHandler(options={}){
   handler.reserveRealtime=service.reserveRealtime;
   return handler;
 }
+

@@ -32,13 +32,11 @@ export class MapFullscreen{
   // status updates. Cloning presentation controls does not restart media.
   const gps=scope.querySelector('[data-gps-toggle]');
   if(gps){const b=gps.cloneNode(true);b.removeAttribute('id');shell.querySelector('[data-full-map-gps]').append(b);}
-  const mic=scope.querySelector('[data-action="hands-free"]'),status=scope.querySelector('[data-live-status]');
-  if(mic){
+  const controls=scope.querySelector('.ride-voice-controls');
+  if(controls){
    const bar=shell.querySelector('[data-full-map-voice]');bar.hidden=false;shell.classList.add('has-voice');
-   if(status){const label=status.cloneNode(true);label.removeAttribute('id');label.setAttribute('role','status');bar.append(label);}
-   for(const source of [mic,scope.querySelector('[data-action="audio-unlock"]')].filter(Boolean)){
-    const b=source.cloneNode(true);b.removeAttribute('id');bar.append(b);
-   }
+   bar.append(controls.cloneNode(true));
+   const retry=scope.querySelector('[data-action="audio-unlock"]');if(retry)bar.append(retry.cloneNode(true));
   }
   this.doc.body.append(shell);shell.prepend(root);root.classList.add('map-is-fullscreen');
   this.doc.body.classList.add('map-fullscreen-open');

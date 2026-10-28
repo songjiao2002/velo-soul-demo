@@ -4,10 +4,10 @@ import {IDBFactory,IDBKeyRange} from 'fake-indexeddb';
 import {JourneyStore,JourneyPager} from './public/journey-store.mjs';
 import {rideDiary,DiaryAutosave} from './public/journey-diary.mjs';
 
-test('offline diaries describe actual ride facts in all three languages without inventing places',()=>{
+test('offline diaries use a personal tone without GPS reports or invented experiences',()=>{
  const r={id:'diary',createdAt:1700000000000,soul:'bori',seconds:125,route:[{lat:37.5,lon:127},{lat:37.51,lon:127}],photos:['photo1','photo2'],note:'A peaceful afternoon <script>'};
- for(const lang of ['en','ko','zh']){const d=rideDiary(r,lang);assert.match(d.title,/Popo/);assert.match(d.body,/2/);assert.match(d.body,/1\.11/);assert.ok(d.text.includes(r.note));assert.doesNotMatch(d.text,/cafe|rain|카페|비가|咖啡|下雨/i);}
- assert.match(rideDiary({...r,route:[],photos:[]},'en').body,/not enough GPS.*No photos/);
+ for(const lang of ['en','ko','zh']){const d=rideDiary(r,lang);assert.match(d.title,/Popo/);assert.doesNotMatch(d.body,/GPS|1\.11|125/);assert.ok(d.text.includes(r.note));assert.doesNotMatch(d.text,/cafe|rain|카페|비가|咖啡|下雨/i);}
+ assert.doesNotMatch(rideDiary({...r,route:[],photos:[]},'en').body,/GPS|No photos|km/);assert.notEqual(rideDiary({...r,route:[],photos:[]},'en').body,rideDiary(r,'en').body);
 });
 
 test('three diary voices keep identical facts, first-person tone and language-specific personalities',()=>{
@@ -16,7 +16,7 @@ test('three diary voices keep identical facts, first-person tone and language-sp
   const bodies=['lumi','bori','mori'].map((soul,i)=>{
    const r={soul,seconds:125,createdAt:1700000000000,photos:['photo'],route:[{lat:37.5,lon:127},{lat:37.51,lon:127}],note:'My own note'};
    const before=JSON.stringify(r),d=rideDiary(r,lang);assert.equal(JSON.stringify(r),before);
-   assert.ok(d.body.includes(markers[lang][i]));assert.match(d.body,/1\.11/);assert.match(d.body,/2/);assert.match(d.body,/5/);
+   assert.ok(d.body.includes(markers[lang][i]));assert.doesNotMatch(d.body,/GPS|1\.11|125/);
    assert.ok(d.text.endsWith(r.note));assert.doesNotMatch(d.body,/we ate|we visited|먹었|방문했|吃到了|去了|下雨|sunny|카페/);
    assert.ok(rideDiary({...r,photos:[]},lang).body!==d.body);return d.body;
   });assert.equal(new Set(bodies).size,3);

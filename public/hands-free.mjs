@@ -9,7 +9,7 @@ export const HANDS_FREE_COPY={
 };
 
 export class HandsFreeConversation {
- constructor({Recognition=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition,fetchImpl=appFetch,getContext=()=>({}),speak=()=>{},stopSpeech=()=>{},releaseInput=()=>{},onState=()=>{},onTranscript=()=>{},onReply=()=>{},getOpening=()=>null,onOpening=()=>{},introduced=new Set(),setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{Recognition,fetchImpl,getContext,speak,stopSpeech,releaseInput,onState,onTranscript,onReply,getOpening,onOpening,introduced,setTimer,clearTimer});this.active=false;this.epoch=0;this.recognizer=null;this.controller=null;this.timer=null;this.state='off';this.histories={lumi:[],mori:[],bori:[]};}
+ constructor({Recognition=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition,fetchImpl=appFetch,getContext=()=>({}),speak=()=>{},stopSpeech=()=>{},releaseInput=()=>{},onState=()=>{},onTranscript=()=>{},onReply=()=>{},onTurn=()=>{},getOpening=()=>null,onOpening=()=>{},introduced=new Set(),setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{Recognition,fetchImpl,getContext,speak,stopSpeech,releaseInput,onState,onTranscript,onReply,onTurn,getOpening,onOpening,introduced,setTimer,clearTimer});this.active=false;this.epoch=0;this.recognizer=null;this.controller=null;this.timer=null;this.state='off';this.histories={lumi:[],mori:[],bori:[]};}
  setState(state){this.state=state;this.stateSince=Date.now();this.onState(state,this.active);}
  disconnect(){const r=this.recognizer;this.recognizer=null;if(r){r.onresult=r.onend=r.onerror=r.onspeechstart=r.onspeechend=r.onstart=r.onquiet=r.ontranscribing=r.onaudiorecovering=null;try{r.abort();}catch{}}}
  stopInterrupt(){this.clearTimer(this.interruptTimer);this.interruptTimer=null;const r=this.interruptRecognizer;this.interruptRecognizer=null;if(r){r.onresult=r.onend=r.onerror=null;try{r.abort();}catch{}}}
@@ -46,7 +46,7 @@ export class HandsFreeConversation {
    const data=await response.json();if(!this.active||serial!==this.epoch)return;
    if(!response.ok)throw new Error(data.error||'failed');if(data.soul!==this.soul||typeof data.reply!=='string'||!data.reply.trim())throw new Error('failed');
    this.histories[this.soul].push({role:'user',content:text},{role:'assistant',content:data.reply});this.histories[this.soul]=this.histories[this.soul].slice(-40);
-   this.onReply(data.reply);this.output(data.reply,language,serial);
+   this.onTurn({soul:this.soul,user:text,reply:data.reply});this.onReply(data.reply);this.output(data.reply,language,serial);
   }catch(error){if(this.active&&serial===this.epoch){if(['rate_limited','provider_quota','provider_auth','not_configured','provider_not_activated'].includes(error.message))this.stop(error.message==='provider_quota'?'rate_limited':error.message);else this.recover(serial);}}
   finally{this.clearTimer(timeout);if(this.controller===controller)this.controller=null;}
  }
@@ -108,9 +108,9 @@ Object.assign(HANDS_FREE_COPY.ko,{synthesizing:'목소리를 준비하고 있어
 Object.assign(HANDS_FREE_COPY.en,{synthesizing:'Getting my voice ready…',audio_retry:'Audio needs attention · Still connected',reconnecting:'Reconnecting · Listening will resume automatically'});
 Object.assign(HANDS_FREE_COPY.zh,{synthesizing:'正在生成语音…',audio_retry:'声音暂未播放 · 对话仍然保持',reconnecting:'正在恢复连接 · 稍后自动继续聆听'});
 
-Object.assign(HANDS_FREE_COPY.ko,{start:'대화 시작',stop:'대화 잠시 쉬기',off:'한 번 누르면 계속 함께해요',listening:'듣고 있어요 · 편하게 말해주세요',quiet:'여기 있어요 · 준비되면 말해주세요'});
-Object.assign(HANDS_FREE_COPY.en,{start:'Start conversation',stop:'Pause conversation',off:'Start once. Stay connected.',listening:'Listening · Go ahead',quiet:'Still here · Speak whenever you’re ready'});
-Object.assign(HANDS_FREE_COPY.zh,{start:'开始交流',stop:'暂停交流',off:'开启一次，持续陪伴',listening:'正在听 · 直接说就好',quiet:'我还在 · 随时可以接着说'});
+Object.assign(HANDS_FREE_COPY.ko,{start:'대화 시작',stop:'대화 정지',off:'대화가 멈췄어요',listening:'듣고 있어요 · 편하게 말해주세요',quiet:'여기 있어요 · 준비되면 말해주세요'});
+Object.assign(HANDS_FREE_COPY.en,{start:'Start conversation',stop:'Stop conversation',off:'Conversation stopped',listening:'Listening · Go ahead',quiet:'Still here · Speak whenever you’re ready'});
+Object.assign(HANDS_FREE_COPY.zh,{start:'开始交流',stop:'停止交流',off:'对话已停止',listening:'正在听 · 直接说就好',quiet:'我还在 · 随时可以接着说'});
 
 HANDS_FREE_COPY.ko.notice='말하는 동안 자막이 나타나고 수정돼요. 약 0.5초 쉬면 최종 문장을 보내고 답을 들어요. 연결이 불안정하면 한 문장 단위 인식으로 전환해요. 음성은 서버를 거쳐 Qwen으로 전송하며 녹음은 저장하지 않아요. 답변 중 “잠깐”으로 끊을 수 있어요. 화면을 켜두세요.';
 HANDS_FREE_COPY.en.notice='Words appear and update while you speak. Pause about 0.5 seconds to send the confirmed sentence and hear a reply. If streaming disconnects, sentence recognition takes over. Audio goes through our server to Qwen; recordings are not saved. Say “stop” to interrupt a reply. Keep this page in the foreground.';
