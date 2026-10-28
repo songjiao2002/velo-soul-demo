@@ -2,7 +2,7 @@
 
 App ID: `com.velosoul.companion` · Source version: `0.1.5` · Android 7+ / iOS 15+.
 
-Android 0.1.4 uses the **same owner-controlled release key as 0.1.3** and bundles the cycling AR companions, personality diaries and full-screen ride UI. The public install entry points to the verified 0.1.4 APK. Existing 0.1.3 installations update in place after Android confirmation; do not uninstall them. This is not a Google Play release. The iOS target is a real Xcode project with a simulator build workflow. It is not a signed IPA or a published TestFlight app. The owner does not yet have Apple Developer membership.
+Android 0.1.5 uses the **same owner-controlled release key as 0.1.3/0.1.4** and corrects forward wheel/pedal motion and the default road-facing AR angle. The public install entry points to the verified 0.1.5 APK. Existing 0.1.3/0.1.4 installations update in place after Android confirmation; do not uninstall them. Cycling companions, personality diaries and the full-screen ride UI are retained. This is not a Google Play release. The iOS target is a real Xcode project with a simulator build workflow. It is not a signed IPA or a published TestFlight app. The owner does not yet have Apple Developer membership.
 
 ## What is included
 
@@ -137,3 +137,5 @@ Build `20261028-forward30` corrects two independent issues. The 3D bicycle's fro
 The riding AR overlay now starts facing away from the camera toward the road, using a slight rear three-quarter angle. Portraits and camera-free introductions keep their original facing. Dragging and keyboard rotation still turn through 360 degrees; map/camera switching retains the chosen angle. Zero speed and reduced-motion preferences still pause pedaling. This is camera-overlay presentation, not world-anchored AR navigation.
 
 Android 0.1.5 / code 6 uses the same package and fixed release key as 0.1.3/0.1.4. Diary data and original QR codes are unchanged. Public install metadata advances only after the package and device checks pass and the signed download is verified.
+
+Published 0.1.5 source: `9112d52513018d662fbf7ec55f9fe4b7e2630a6b`. [Package checks](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40624723022), [Android device checks](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40624725966) and [security scan](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40624729220) passed. All 248 automated tests passed. Browser verification showed all three riders facing down the road and preserved cycling during pointer rotation. The production-bundle camera/map/voice/diary flow passed. All 92 packaged assets matched the local build; the fixed signing certificate matched 0.1.4. The public APK SHA-256 and size were verified after publication. The original website/download URLs and all six QR files are unchanged. Physical Samsung headset behavior was not retested.
