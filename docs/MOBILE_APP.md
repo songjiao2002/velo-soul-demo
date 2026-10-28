@@ -1,13 +1,13 @@
 # VELO SOUL mobile preview
 
-App ID: `com.velosoul.companion` · Source version: `0.1.7` · Android 7+ / iOS 15+.
+App ID: `com.velosoul.companion` · Source version: `0.1.8` · Android 7+ / iOS 15+.
 
 Android 0.1.7 uses the **same owner-controlled release key as 0.1.3–0.1.6**. It includes the scanner-first home, directly visible companion descriptions, and transparent conversation captions in camera/map views. The public install entry points to the verified 0.1.7 APK. Existing 0.1.3–0.1.6 installations update in place after Android confirmation; do not uninstall them. Cycling companions, continuous voice, personality diaries and full-screen camera/map views are retained. This is not a Google Play release. The iOS target is a real Xcode project with a simulator build workflow. It is not a signed IPA or a published TestFlight app. The owner does not yet have Apple Developer membership.
 
 ## What is included
 
 - Local bundled startup, all three cel-shaded companions, voice introductions, and original QR images.
-- Scanner-first home with a rear-camera frame and one primary scan button. Companion descriptions appear only after selecting the scanned bicycle. UI/voice preferences and original QR downloads are in Settings; English, Korean and Chinese interfaces remain available.
+- Scanner-first home with a rear-camera frame and one primary scan button. Companion descriptions appear only after selecting the scanned bicycle. UI/voice preferences are in Settings; English, Korean and Chinese interfaces remain available.
 - Rear-camera scanner decodes original `?bike=lumi`, `?bike=bori`, `?bike=mori` QR URLs without replacing the printed codes. Unknown QR URLs are rejected rather than opened.
 - Original character appearance and automatic riding/rest animation. Live ride activity follows GPS. The manual character editor was retired in 0.1.3.
 - Native foreground GPS, WebView camera/microphone, streamed Qwen recognition, cloud speech, and local journey records. First camera and microphone prompts are serialized on native Android.
@@ -151,3 +151,7 @@ Build `20261028-scanhome32d` removes the homepage character list and top navigat
 Build `20261028-caption34` removes the filled background, border, blur and box shadow from both the rider transcript and companion reply in the camera/map ride view. Camera captions use white text with a dark shadow; map captions use dark text with a light shadow. Short companion descriptions remain directly visible after scanning. Android versionCode 8 retains the original signing certificate. The original public download entry now points to the verified 0.1.7 APK.
 
 0.1.7 verification: [package build](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40671062520), [Android camera/QR test](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40671066980) and [security checks](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40671071245) passed for source `3cafa519cc656b2dad59be1b727d056a887fc1fa`. All 248 automated tests passed. Browser CSS inspection confirmed fully transparent backgrounds, no backdrop blur and no panel shadows for both transcript and reply, in camera and map modes. All three scanned companion introductions are directly displayed. Local signing verified 92 packaged assets, unchanged QR images and the original certificate; the public APK was checked against its digest and size. Physical Samsung headset behavior was not retested.
+
+## Preview 0.1.8 study participant flow
+
+Build `20261028-study35` removes QR downloads, camera-free preview, the separate welcome GPS panel and the alternate-entry/permission explanation section from the participant encounter. The main start action still requests the actual camera, microphone and foreground GPS permissions. Companion descriptions remain directly visible. Original QR files and destinations are unchanged. The separate `/manage.html` desktop page provides three original PNG downloads and printable bicycle cards, with an entry in the download page footer. It exposes only public QR material and has no participant-record or configuration access. It is not included in the native bundle. Android versionCode 9 retains the release certificate; the public APK pointer stays on 0.1.7 until validation finishes.

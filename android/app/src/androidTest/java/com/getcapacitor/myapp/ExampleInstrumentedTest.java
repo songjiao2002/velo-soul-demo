@@ -72,6 +72,7 @@ public class ExampleInstrumentedTest {
         js("window.jsQR=()=>({data:'https://velo-soul-demo-production.up.railway.app/?bike=mori'});document.querySelector('#cameraStart').click()");
         awaitTrue("document.body.dataset.screen === 'welcome' && location.search === '?bike=mori'");
         assertEquals("true",js("document.querySelectorAll('.meeting-description').length === 1 && document.querySelector('.meeting-name').textContent === 'Lulu' && document.querySelector('.meeting-description').textContent.length > 30"));
+        assertEquals("0",js("document.querySelectorAll('[download],.settings-qr,[data-action=preview],.meeting-permission,.meeting-options,.meeting-copy [data-gps-panel]').length"));
         js("window.__nativeApi=null;fetch('https://velo-soul-demo-production.up.railway.app/api/chat/status',{cache:'no-store'}).then(r=>window.__nativeApi=r.ok).catch(e=>window.__nativeApi=String(e))");
         awaitTrue("window.__nativeApi === true");
     }
