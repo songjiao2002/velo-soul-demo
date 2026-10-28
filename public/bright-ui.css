@@ -15,7 +15,7 @@ body{background:radial-gradient(ellipse at 4% 4%,#fff0dd90,transparent 38%),radi
 .home-map-stack>.korea-map,.korea-map{border-color:#dce7d5;box-shadow:0 8px 30px #597d4009;background:#fffef9}
 .korea-map .map-title,.korea-map .map-caption,.korea-map .map-privacy{background:#fffef9}.korea-map .map-tools{background:#ffffff;border-color:#e1e9da}
 .map-tools .map-places button{background:#f4f8ee}.gps-connect{border-color:#e2eadb;background:#fcfff8}
-.panel,.post,.ride-primary{border-color:#e1e8dc;background:#fffefb;box-shadow:0 6px 28px #6d7c4d07}.page-footer{background:#ffffff75;border-color:#e8ece5;color:#687b6b}
+.panel,.post,.ride-primary{border-color:#e1e8dc;background:#fffefb;box-shadow:0 6px 28px #6d7c4d07}
 /* The camera view keeps a subtle scrim for scene legibility, with light controls. */
 .camera-fullscreen{color:#34473b;background:#f4f6ed}
 .camera-fullscreen .camera-placeholder{background:radial-gradient(ellipse at 50% 35%,#fff8e9,#dcead9 90%)}

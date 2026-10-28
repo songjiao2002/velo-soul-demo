@@ -1,6 +1,6 @@
 /* Camera and map fill the viewport from entry, without a Fullscreen API prompt. */
 body.camera-open{overflow:hidden;overscroll-behavior:none}
-body.camera-open>.topbar,body.camera-open>.page-footer,body.camera-open>.app-tabbar{display:none!important}
+body.camera-open>.topbar,body.camera-open>.app-tabbar{display:none!important}
 .camera-fullscreen{height:100%;height:100dvh;min-height:0;--ride-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
 .camera-fullscreen .camera-top{padding:calc(12px + env(safe-area-inset-top,0px)) 14px 0;align-items:center;pointer-events:none;background:none}
 .camera-top>*{pointer-events:auto}.camera-fullscreen .camera-name{flex:0;gap:8px;margin-right:auto;padding:8px 12px;border-radius:24px;background:#fffef9ed;box-shadow:0 3px 18px #263d2b12}
