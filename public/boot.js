@@ -1,4 +1,4 @@
-// Keep the server-delivered character cards visible until the interactive app
+// Keep the server-delivered scanner surface visible until the interactive app
 // is ready. A failed module load must never leave an unexplained empty screen.
 (function () {
   var notice = document.getElementById('startupNotice');
@@ -36,7 +36,7 @@
   });
   // One classic bundle avoids a chain of module requests and partial versions.
   var script = document.createElement('script');
-  script.src = '/app.bundle.js?v=20261028-installbar31b';
+  script.src = '/app.bundle.js?v=20261028-scanhome32d';
   // A retry must also bypass a partially cached script, not only the HTML.
   var reload = Number(new URL(window.location.href).searchParams.get('reload'));
   if (Number.isSafeInteger(reload) && reload > 0) script.src += '&reload=' + reload;

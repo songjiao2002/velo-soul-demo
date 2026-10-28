@@ -55,8 +55,8 @@ public class ExampleInstrumentedTest {
         awaitTrue("document.body.dataset.screen === 'home' && document.querySelector('#startupNotice').hidden");
         assertEquals("true",js("window.isSecureContext && Capacitor.isNativePlatform() && !!navigator.mediaDevices?.getUserMedia"));
         assertEquals("3",js("document.querySelectorAll('.app-tabbar button').length"));
-        js("document.querySelector('.app-tabbar [data-action=scan]').click()");
-        awaitTrue("document.body.dataset.screen === 'scan' && !!window.jsQR && !!document.querySelector('#cameraStart')");
+        assertEquals("0",js("document.querySelectorAll('.soul-card,.topbar').length"));
+        awaitTrue("document.body.dataset.screen === 'home' && !!window.jsQR && !!document.querySelector('#cameraStart')");
         assertEquals("true",js("Capacitor.isPluginAvailable('VeloMedia')"));
         // Exercise a real first-use runtime permission and the emulator camera.
         js("document.querySelector('#cameraStart').click()");
@@ -69,7 +69,7 @@ public class ExampleInstrumentedTest {
         awaitTrue("window.__qrCheck === true");
         js("document.querySelector('.app-tabbar [data-nav=home]').click()");
         awaitTrue("document.body.dataset.screen === 'home'");
-        js("document.querySelector('[data-meet=mori]').click()");
+        js("window.jsQR=()=>({data:'https://velo-soul-demo-production.up.railway.app/?bike=mori'});document.querySelector('#cameraStart').click()");
         awaitTrue("document.body.dataset.screen === 'welcome' && location.search === '?bike=mori'");
         js("window.__nativeApi=null;fetch('https://velo-soul-demo-production.up.railway.app/api/chat/status',{cache:'no-store'}).then(r=>window.__nativeApi=r.ok).catch(e=>window.__nativeApi=String(e))");
         awaitTrue("window.__nativeApi === true");

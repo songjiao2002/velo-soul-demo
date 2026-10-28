@@ -1,59 +1,59 @@
 {
-  "version": "20261028-installbar31b",
+  "version": "20261028-scanhome32d",
   "files": {
     "/index.html": {
-      "size": 8422,
-      "sha256": "1e5990031623b2e7f93a56dde11babf8bfd424b83c78c6e39860fb8bbd783433",
+      "size": 9504,
+      "sha256": "b68cfdc2fcefa22231f64d0e60ef951b1949efe4b1d2490008b09f8a7b6f954f",
       "br": {
-        "size": 3055,
-        "sha256": "c953c45885c014aa1bd3efe347970d6b90e3c26cba267466fae531145bd1b981",
+        "size": 3538,
+        "sha256": "4b380c78341f201c000cac0ef419c1c32c24d2ad41946bb09de01c1f7dd8f55f",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 3684,
-        "sha256": "14578d5185ca02a061bbf41214f7277d51a7681a81d86b9c6d1af7f020ca288c",
+        "size": 4168,
+        "sha256": "2dc73ffff74c03f31094891b57810d7cdaa018dcee41dc233bad110d48f2053e",
         "suffix": ".gz"
       }
     },
     "/boot.js": {
-      "size": 2515,
-      "sha256": "4e9d78e9d15ed7a30bc868185740cb3faa5773e1782bd7510cbaeb80b6e25532",
+      "size": 2513,
+      "sha256": "7c5f4f0d980c39b6bcbb8acb12d0ba84ef910f7e4715eb3bc83a4f22fb97ca5c",
       "br": {
-        "size": 948,
-        "sha256": "62da1ff47e12c726d649e2dbd056823648951cb1b65363bddee151a4981be312",
+        "size": 954,
+        "sha256": "0a048099e9939c38a7c69cc0ad5622377922d432cc8aa7f2d6320a4b302d3eb6",
         "suffix": ".br"
       },
       "gzip": {
         "size": 1134,
-        "sha256": "fced2454b7f46e2aaa50ff82dfce419b59bc8fcb510a37ec453c64fd1dd9f6c2",
+        "sha256": "2ac7eadd3cdaa7b90c3b4602787e4ef2c77ff261a452e89e919b38290a2b0e7d",
         "suffix": ".gz"
       }
     },
     "/app.bundle.js": {
-      "size": 336175,
-      "sha256": "0f8f5c92f5b5ba7c2e27ca9ed697d90a34715592bb8cdde5beb8352f3fb796b9",
+      "size": 336401,
+      "sha256": "21bfa327a5abf97b807a4d55065058e1212eff24fc9e78966a58356f8d4ff1d9",
       "br": {
-        "size": 103058,
-        "sha256": "8a8638f00e3a26ea387c7c3fc6ec8537be0278721bda0015d1f3876901e3d2e1",
+        "size": 103474,
+        "sha256": "d7407c7c6d15618a562259107abf8bea5eec62247a4d398865f1e0275214f0fb",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 123550,
-        "sha256": "5733105e081837fc8c703531f1009b994614c29cc7ac51ad2e63ba22acaa957c",
+        "size": 123758,
+        "sha256": "fba248f3e7e669e3a8526589eee6e43ac5e012258f8c2be81e0254dc9fb048e2",
         "suffix": ".gz"
       }
     },
     "/app.css": {
-      "size": 136755,
-      "sha256": "b6ac5fbee09977f9b9b8dc5795795f116cf2ba0e50e8c8f1c06d49705fb94096",
+      "size": 144087,
+      "sha256": "d9fc6965a66c5e1d6445b70a89f30e7c68fbba04d89f5e6ae7512fbc6e40a9a9",
       "br": {
-        "size": 25066,
-        "sha256": "0a52769659194aaea85b390cbc61e6f27a2f48aa057a04e8a7d74960a94afe4d",
+        "size": 26424,
+        "sha256": "309158c7329447ee93cd8ec3dcd6af3ec489eb2bc21bb88f7f1d1949d63a35e0",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 27540,
-        "sha256": "33efee0ebea31808a5e60366cc1b42662bcd606127ae8fc86316762429b630aa",
+        "size": 29082,
+        "sha256": "932d3576f249bfb9f8929dee70c3e6a0c5781182c4507c52872584503bfce1f9",
         "suffix": ".gz"
       }
     },

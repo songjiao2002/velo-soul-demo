@@ -1,6 +1,21 @@
 // Korean is the source language. Translation only touches presentation nodes,
 // so changing language never remounts a camera, ride, or editable note.
 const rows = `
+이 자전거의 친구|This bicycle’s companion|这辆自行车的伙伴
+작은 인사로,|A little hello.|一声招呼，
+시작되는 여정.|A different ride.|开启一段旅程。
+자전거의 QR을 비추고, 오늘의 동반자를 만나세요.|Scan your bicycle’s QR to meet your companion.|扫描自行车二维码，遇见今天的伙伴。
+아직 만나지 않은 작은 친구|A little friend, waiting to meet you|一个小伙伴，正等着与你相遇
+QR을 사각형 안에 맞춰주세요.|Keep the QR inside the frame.|将二维码对准取景框。
+버튼을 누르면 카메라가 켜져요.|Tap to turn on your camera.|点击按钮开启相机。
+나의 라이딩 일기|My ride diary|我的骑行日记
+앱 설정|App settings|应用设置
+설정 닫기|Close settings|关闭设置
+인터페이스 언어|Interface language|界面语言
+음성 언어|Voice language|语音语言
+기존 QR 코드|Original QR codes|原二维码
+프로젝트 소개|About the project|关于项目
+QR 인식을 불러오지 못했어요. 스캔 버튼을 눌러 다시 시도해주세요.|Could not load QR recognition. Tap Scan to try again.|二维码识别未能加载，请点击扫码按钮重试。
 카메라 권한 요청이 지연돼요. 권한 안내를 확인한 뒤 다시 눌러주세요.|The camera permission request is taking longer. Check the permission prompt, then try again.|相机权限请求超时，请检查权限提示后重试。
 카메라 화면을 시작하지 못했어요. 다시 켜기를 눌러주세요.|Could not start the camera preview. Tap to try again.|相机预览未能启动，请点击重试。
 소울 꾸미기|Adjust your Soul|调整角色

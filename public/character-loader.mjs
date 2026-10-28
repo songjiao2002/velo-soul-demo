@@ -4,7 +4,7 @@ let pending=null,toon=null,active=false;
 export function mountCharacters(){
  active=true;flat.mountCharacters();
  // Keep startup and permission UI independent of the optional renderer.
- if(!globalThis.WebGL2RenderingContext)return;
+ if(!globalThis.WebGL2RenderingContext||!document.querySelector('[data-character-toon]'))return;
  pending??=import('/character-toon.bundle.mjs?v='+BUILD).catch(()=>null);
  pending.then(module=>{if(!active||!module)return;toon=module;toon.mountCharacters();});
 }
