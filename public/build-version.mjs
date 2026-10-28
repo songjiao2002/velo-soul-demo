@@ -1,1 +1,1 @@
-export const BUILD='20261028-scanhome32d';
+export const BUILD='20261028-caption34';

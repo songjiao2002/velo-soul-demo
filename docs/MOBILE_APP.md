@@ -1,6 +1,6 @@
 # VELO SOUL mobile preview
 
-App ID: `com.velosoul.companion` · Source version: `0.1.6` · Android 7+ / iOS 15+.
+App ID: `com.velosoul.companion` · Source version: `0.1.7` · Android 7+ / iOS 15+.
 
 Android 0.1.6 uses the **same owner-controlled release key as 0.1.3–0.1.5** and opens directly on the QR scanner. Character information appears only after the bicycle is scanned. The public install entry points to the verified 0.1.6 APK. Existing 0.1.3–0.1.5 installations update in place after Android confirmation; do not uninstall them. Cycling companions, continuous voice, personality diaries and full-screen camera/map views are retained. This is not a Google Play release. The iOS target is a real Xcode project with a simulator build workflow. It is not a signed IPA or a published TestFlight app. The owner does not yet have Apple Developer membership.
 
@@ -145,3 +145,7 @@ Published 0.1.5 source: `9112d52513018d662fbf7ec55f9fe4b7e2630a6b`. [Package che
 Build `20261028-scanhome32d` removes the homepage character list and top navigation. The first screen contains the QR camera frame; camera permission is requested when Scan is tapped. A successful scan displays only that bicycle’s companion name, personality and story. Settings retain UI/voice language and original PNG QR downloads. Small-phone layouts keep the primary button visible. Android versionCode is 7 and uses the existing fixed release certificate; 0.1.3–0.1.5 installations can update in place. The public download metadata now points to the verified 0.1.6 APK. The iPhone Home Screen edition already uses the updated original website.
 
 0.1.6 verification: [package build](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40669490691), [Android camera/QR test](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40669495379) and [security checks](https://github.com/songjiao2002/velo-soul-demo/actions/runs/40669499145) passed for source `f7f7807f744f5b1793a9275e723d0818bf2e5085`. All 248 automated tests passed. Local signing checked packaged assets, unchanged QR images, package identity, increasing versionCode and the original certificate; the public APK download was checked against its SHA-256 and size. Android emulator checks cover actual camera permission/video, all three bundled QR decodes and the selected companion introduction. Real Samsung headset behavior was not retested.
+
+## Preview 0.1.7 transparent conversation captions
+
+Build `20261028-caption34` removes the filled background, border, blur and box shadow from both the rider transcript and companion reply in the camera/map ride view. Camera captions use white text with a dark shadow; map captions use dark text with a light shadow. Short companion descriptions remain directly visible after scanning. Android versionCode 8 retains the original signing certificate. The public download remains on 0.1.6 until the new package is verified.
