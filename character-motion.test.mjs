@@ -19,7 +19,7 @@ test('printed QR identities retain their links while names and exact source art 
 });
 test('motion requires sustained valid GPS and does not flap at traffic lights',()=>{
  let now=100000;const m=new CharacterMotion({now:()=>now});m.enter('lumi');m.sample(12);assert.equal(m.state,'greeting');now+=2500;m.sample(12);assert.equal(m.state,'riding');
- now+=1000;m.sample(0);now+=5000;m.sample(0);assert.equal(m.state,'riding');now+=1000;m.sample(9);assert.equal(m.state,'riding');
+ now+=1000;m.sample(0);now+=1000;m.sample(0);assert.equal(m.state,'riding');now+=1000;m.sample(9);assert.equal(m.state,'riding');
  now+=1000;m.sample(0);now+=8100;m.sample(0);assert.equal(m.state,'resting');
  now+=1000;m.sample(6);assert.equal(m.state,'resting');now+=1600;m.sample(6);assert.equal(m.state,'riding');
  now+=16000;m.tick();assert.equal(m.state,'idle');assert.equal(m.speed,null);
@@ -38,23 +38,32 @@ test('Lulu uses exact good/bad weather lines only with fresh current evidence',(
  const forecast={...base,nextHours:[{at:now+3600000,code:61,precipitationMm:1,probability:90}]};assert.ok(!weatherGreeting(forecast,'mori','ko').startsWith('오늘은 그냥 쉬면 안되?'));assert.match(weatherGreeting(forecast,'mori','en'),/hour/i);
 });
 
-test('ride entry and camera greetings keep cycling without inventing a GPS speed',()=>{
+test('ride entrance pedals for exactly five seconds then waits for movement',()=>{
  for(const soul of ['lumi','bori','mori']){
-  let now=100000;const m=new CharacterMotion({now:()=>now});m.enter(soul);m.setRideMode(true);
-  assert.equal(m.state,'riding');assert.equal(m.snapshot().speed,null);assert.equal(m.snapshot().animationSpeed,12);
-  m.enter(soul);assert.equal(m.state,'riding');now+=5000;m.tick();assert.equal(m.state,'riding');
-  m.pause();assert.equal(m.state,'riding');assert.equal(m.speed,null);
-  m.setRideMode(false);assert.equal(m.state,'idle');assert.equal(m.snapshot().animationSpeed,0);
-  m.enter(soul);assert.equal(m.state,'greeting');
+  let now=100000;const m=new CharacterMotion({now:()=>now});m.setRideMode(true);
+  assert.equal(m.state,'riding');assert.equal(m.speed,null);assert.equal(m.snapshot().animationSpeed,12);
+  m.sample(0);now+=4999;m.enter(soul);assert.equal(m.state,'riding');assert.equal(m.snapshot().animationSpeed,12);
+  now++;m.tick();assert.equal(m.state,'resting');assert.equal(m.snapshot().animationSpeed,0);
+  m.enter(soul);m.setRideMode(true);assert.equal(m.state,'resting','camera reopen does not restart the demo');
+  m.pause();assert.equal(m.state,'resting');m.setRideMode(false);assert.equal(m.state,'idle');
+  m.setRideMode(true);assert.equal(m.state,'riding','a new ride has its own entrance');
  }
 });
 
-test('real ride stops pause pedals, sustained stops rest, and GPS loss keeps the ride animation',()=>{
- let now=100000;const m=new CharacterMotion({now:()=>now});m.setRideMode(true);
- m.sample(0);assert.equal(m.state,'riding');assert.equal(m.snapshot().animationSpeed,0);
- now+=8100;m.sample(0);assert.equal(m.state,'resting');
- now+=1000;m.sample(12);now+=1600;m.sample(12);assert.equal(m.state,'riding');assert.equal(m.snapshot().animationSpeed,12);
- now+=16000;m.tick();assert.equal(m.state,'riding');assert.equal(m.speed,null);
- m.sample(0,{accuracy:80});assert.equal(m.state,'riding');assert.equal(m.speed,null);
- m.setRideMode(false);assert.equal(m.state,'idle');
+test('ride follows valid movement and stops pedaling on stationary or lost GPS',()=>{
+ let now=100000;const m=new CharacterMotion({now:()=>now});m.setRideMode(true);now+=5000;m.tick();assert.equal(m.state,'resting');
+ m.sample(8);now+=1100;m.sample(8);assert.equal(m.state,'riding');
+ now+=1000;m.sample(0);assert.equal(m.snapshot().animationSpeed,0);now+=2100;m.sample(0);assert.equal(m.state,'resting');
+ now+=1000;m.sample(12);now+=1100;m.sample(12);assert.equal(m.state,'riding');
+ now+=8100;m.tick();assert.equal(m.state,'resting');assert.equal(m.speed,null);assert.equal(m.snapshot().animationSpeed,0);
+ m.sample(0,{accuracy:80});assert.equal(m.state,'resting');m.setRideMode(false);assert.equal(m.state,'idle');
+});
+
+test('missing native speed uses accurate GPS displacement without treating drift as riding',()=>{
+ let now=100000;const m=new CharacterMotion({now:()=>now});m.setRideMode(true);now+=5000;
+ const point=(lat,accuracy=3)=>({lat,lon:127,accuracy,time:now});
+ m.position(point(37),null);now+=2000;m.position(point(37.00006),null);now+=1500;m.position(point(37.00011),null);assert.equal(m.state,'riding');assert.ok(m.speed>8);
+ const before=m.speed;m.position({...point(38),time:now-100},null);assert.equal(m.speed,before,'late fixes cannot jump the character');
+ now+=1000;m.position(point(37.00011,90),null);assert.equal(m.state,'resting');
+ for(let i=0;i<10;i++){now+=1000;m.position(point(37+(i%2)*.00001,12),null);}assert.equal(m.state,'resting');assert.equal(m.snapshot().animationSpeed,0);
 });

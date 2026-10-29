@@ -126,10 +126,10 @@ export class MicrophoneInput {
 }
 
 export function createMicrophoneRecognition({input = new MicrophoneInput(), Socket, location = globalThis.location, fetchImpl = appFetch,
-  toBase64 = s => globalThis.btoa(s), setTimer = (...args) => globalThis.setTimeout(...args), clearTimer = (...args) => globalThis.clearTimeout(...args)} = {}) {
+  toBase64 = s => globalThis.btoa(s), now=Date.now, setTimer = (...args) => globalThis.setTimeout(...args), clearTimer = (...args) => globalThis.clearTimeout(...args)} = {}) {
   let streamDisabledUntil=0;
   return class MicrophoneRecognition {
-    constructor() { this.active = false; this.chunks = []; this.preroll = []; this.noise = .002; this.total = this.quiet = this.candidate = this.voiced = 0; }
+    constructor() { this.active = false; this.chunks = []; this.preroll = []; this.noise = .002; this.total = this.quiet = this.candidate = this.voiced = 0; this.startTimeoutMs=isNative()?100000:50000; }
     start() {
       this.active = true;
       input.attach(this).catch(error => { if (this.active) this.fail(error.name === 'NotAllowedError' ? 'not-allowed' : error.message === 'unsupported' ? 'unsupported' : 'audio-capture'); });
@@ -138,6 +138,14 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
       if(!this.active||this.finalizing)return;
       this.stream?.close();this.stream=null;this.chunks=[];this.preroll=[];this.total=this.quiet=this.candidate=this.voiced=0;
       this.speech=false;this.started=false;this.quietReported=false;this.noise=.002;this.onaudiorecovering?.();
+    }
+    watchCapture(){
+      clearTimer(this.captureTimer);
+      this.captureTimer=setTimer(()=>{
+        if(!this.active||this.finalizing)return;
+        if(now()-this.lastSampleAt>=6000)return this.fail('audio-capture');
+        this.watchCapture();
+      },6000);
     }
     openStream(){
       if(Socket&&location&&Date.now()>=streamDisabledUntil){
@@ -150,6 +158,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
     }
     samples(data, rate) {
       if (!this.active || this.finalizing) return;
+      this.lastSampleAt=now();if(!this.captureTimer)this.watchCapture();
       if (!this.started) { this.started = true; this.onstart?.(); if(!this.active)return; }
       this.rate = rate;
       const ms = data.length / rate * 1000;
@@ -178,6 +187,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
       if (!this.active || this.finalizing) return;
       if (!this.speech || this.voiced < 160) { this.abort(); this.onerror?.({error:'no-speech'}); return; }
       this.finalizing = true; input.detach(this); this.onspeechend?.(); this.ontranscribing?.();
+      clearTimer(this.captureTimer);this.captureTimer=null;
       if(this.stream&&!this.stream.closed){this.stream.finish();return;}
       return this.transcribe();
     }
@@ -203,6 +213,6 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
       finally { clearTimer(this.timer); }
     }
     fail(error) { this.abort(); this.onerror?.({error}); }
-    abort() { this.active = false; this.stream?.close();this.stream=null; input.detach(this); this.controller?.abort(); clearTimer(this.timer); this.chunks = []; this.preroll = []; }
+    abort() { this.active = false; this.stream?.close();this.stream=null; input.detach(this); this.controller?.abort(); clearTimer(this.timer);clearTimer(this.captureTimer);this.captureTimer=null; this.chunks = []; this.preroll = []; }
   };
 }

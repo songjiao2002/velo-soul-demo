@@ -112,3 +112,14 @@ test('cloud interruption uses recognized stop commands and aborts late monitor r
 test('end of speech submits within half a second while shorter pauses remain in the same turn',async()=>{
  const a=recorder(),r=new a.Recognition();r.start();await flush();a.feed(.08,700);a.feed(0,300);assert.equal(a.calls.length,0);a.feed(.08,300);a.feed(0,400);assert.equal(a.calls.length,0);a.feed(0,100);assert.equal(a.calls.length,1);r.abort();
 });
+
+test('silent PCM stays listening, but a stalled capture graph fails and releases its watchdog',async()=>{
+ let now=0,id=0;const timers=new Map(),errors=[];
+ const input={attach:async()=>{},detach(){},onLevel(){}};
+ const Recognition=createMicrophoneRecognition({input,now:()=>now,setTimer:(fn,ms)=>{timers.set(++id,{fn,ms});return id;},clearTimer:id=>timers.delete(id)});
+ const r=new Recognition();r.onerror=e=>errors.push(e.error);r.start();await flush();assert.equal(r.startTimeoutMs,50000);
+ const feed=()=>r.samples(new Float32Array(1600),16000),run=()=>{const [id,t]=[...timers.entries()].find(([,t])=>t.ms===6000);timers.delete(id);t.fn();};
+ feed();now=5000;feed();now=6000;run();assert.deepEqual(errors,[]);assert.equal(r.active,true);
+ now=12000;run();assert.deepEqual(errors,['audio-capture']);assert.equal(r.active,false);assert.equal(timers.size,0);
+ r.abort();assert.equal(timers.size,0);
+});

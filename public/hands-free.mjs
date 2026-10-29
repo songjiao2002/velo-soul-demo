@@ -2,6 +2,16 @@ import {appFetch} from './app-network.mjs';
 import {replyLanguage,needsCamera} from './input-language.mjs';
 import {outputLanguage} from './seoul-places.mjs';
 
+function replyEcho(text,spokenText){
+ const normalize=t=>t.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
+ const heard=normalize(text),spoken=normalize(spokenText);
+ if(!heard)return true;
+ if(spoken.includes(heard))return true;
+ if(heard.length<8)return false;
+ let matches=0;for(let i=0;i<=heard.length-3;i++)if(spoken.includes(heard.slice(i,i+3)))matches++;
+ return matches/(heard.length-2)>=.85;
+}
+
 export const HANDS_FREE_COPY={
  ko:{start:'음성 대화 켜기',stop:'음성 대화 끄기',listening:'듣고 있어요 · 말하면 자동으로 보내요',hearing:'말씀을 듣고 있어요…',thinking:'소울이 답을 생각하고 있어요…',speaking:'소울이 말하는 중 · 끝나면 다시 들어요',off:'음성 대화 꺼짐',unsupported:'이 브라우저는 연속 음성 대화를 지원하지 않아요. 글로 대화할 수 있어요.',denied:'마이크 권한을 허용한 뒤 음성 대화를 다시 켜주세요.',network:'음성 인식 연결이 끊겼어요. 연결을 확인하고 다시 켜주세요.',audio:'목소리를 재생하지 못해 대화를 멈췄어요. ♪ 버튼으로 소리를 확인해주세요.',failed:'대화 연결이 끊겼어요. 다시 켜서 이어갈 수 있어요.',rate_limited:'체험 한도에 도달해 음성 대화를 멈췄어요.',notice:'말하면 자동 전송 → 음성 답변 → 다시 듣기. “대화 멈춰”로 종료해요. 화면을 켜둬야 해요. 음성 인식은 브라우저 서비스가 처리할 수 있어요.'},
  en:{start:'Start voice conversation',stop:'Stop voice conversation',listening:'Listening · Speak to send automatically',hearing:'I’m listening…',thinking:'Your Soul is thinking…',speaking:'Your Soul is speaking · Listening resumes after',off:'Voice conversation off',unsupported:'This browser does not support continuous voice conversation. You can type instead.',denied:'Allow microphone access, then start voice conversation again.',network:'Speech recognition disconnected. Check your connection and start again.',audio:'Conversation paused because speech could not play. Tap ♪ to check the voice.',failed:'Conversation disconnected. Start again to continue.',rate_limited:'The demo limit was reached. Voice conversation stopped.',notice:'Speak → automatic send → spoken reply → listen again. Say “stop listening” to end. Keep this page in the foreground. Recognition may use your browser provider’s service.'},
@@ -31,8 +41,9 @@ export class HandsFreeConversation {
   r.onresult=e=>{if(!valid())return;let interim='';const finals=[];for(const result of Array.from(e.results)){const text=result[0]?.transcript||'';if(result.isFinal)finals.push(text);else interim+=text;}finalText=finals.join(' ').trim().slice(0,1000);this.onTranscript(finalText||interim,Boolean(finalText));if(finalText){this.retryCount=0;send();}};
   r.onspeechend=()=>{if(valid())try{r.stop();}catch{send();}};
   r.onend=send;
-  r.onerror=e=>{if(!valid())return;if(e.error==='no-speech'){this.disconnect();this.setState('listening');this.resumeAfter(serial,1000);}else if(e.error==='aborted'){this.disconnect();this.resumeAfter(serial);}else if(['network','asr_timeout','timeout','provider_unavailable','invalid_response'].includes(e.error))this.recover(serial);else this.stop(['not-allowed','service-not-allowed'].includes(e.error)?'denied':['rate_limited','provider_quota'].includes(e.error)?'rate_limited':['audio-capture','unsupported','not_configured','provider_auth','provider_not_activated'].includes(e.error)?e.error:'network');};
-  this.setState('starting');try{this.timer=this.setTimer(()=>{if(valid()&&!started)this.stop('start_timeout');},12000);r.start();}catch{this.stop('denied');}
+  r.onerror=e=>{if(!valid())return;if(e.error==='no-speech'){this.disconnect();this.setState('listening');this.resumeAfter(serial,1000);}else if(e.error==='aborted'){this.disconnect();this.resumeAfter(serial);}else if(e.error==='audio-capture')this.recover(serial,true);else if(['network','asr_timeout','timeout','provider_unavailable','invalid_response'].includes(e.error))this.recover(serial);else this.stop(['not-allowed','service-not-allowed'].includes(e.error)?'denied':['rate_limited','provider_quota'].includes(e.error)?'rate_limited':['unsupported','not_configured','provider_auth','provider_not_activated'].includes(e.error)?e.error:'network');};
+  const startTimeout=Number.isFinite(r.startTimeoutMs)?Math.max(12000,Math.min(r.startTimeoutMs,100000)):12000;
+  this.setState('starting');try{this.timer=this.setTimer(()=>{if(valid()&&!started)this.stop('start_timeout');},startTimeout);r.start();}catch{this.stop('denied');}
  }
  async submit(text,serial){
   if(!this.active||serial!==this.epoch)return;
@@ -60,19 +71,21 @@ export class HandsFreeConversation {
   const listen=()=>{
    if(!stillSpeaking())return;
    const r=new this.Recognition();this.interruptRecognizer=r;
-   r.inputLanguage=this.language;r.lang={en:'en-US',ko:'ko-KR',zh:'zh-CN'}[this.language]||'en-US';r.continuous=false;r.interimResults=false;
+   r.inputLanguage=this.language;r.lang={en:'en-US',ko:'ko-KR',zh:'zh-CN'}[this.language]||'en-US';r.continuous=false;r.interimResults=true;
    const valid=()=>stillSpeaking()&&this.interruptRecognizer===r;
    const repeat=()=>{if(!valid())return;this.stopInterrupt();this.interruptTimer=this.setTimer(listen,300);};
    r.onresult=e=>{
     if(!valid())return;
-    const text=Array.from(e.results).filter(x=>x.isFinal).map(x=>x[0]?.transcript||'').join(' ').trim();
+    const results=Array.from(e.results),text=results.map(x=>x[0]?.transcript||'').join(' ').trim(),final=results.some(x=>x.isFinal);
+    if(!text)return;
+    if(!final){if(!replyEcho(text,spokenText))this.onTranscript(text,false);return;}
     if(/^(stop listening|stop (the )?(voice )?conversation|停止(语音)?对话|停止聆听|대화\s*멈춰|음성\s*대화\s*(종료|그만))[.!?。！\s]*$/i.test(text)){this.stop();return;}
     const command=text.match(/^(?:(?:hey\s+)?(?:lumi|mori|bori)[,\s]+)?(stop\b(?:\s+(?:talking|speaking))?|wait\b(?:\s+a\s+(?:second|moment))?|等一下|等一等|停一下|暂停|잠깐만(?:요)?|잠깐|그만)(?:[\s,，.。!！?？:：]*)(.*)$/i);
-    if(!command)return;
-    // Reject a recognizer echo of a longer phrase from the current reply.
-    const normalize=t=>t.toLowerCase().replace(/[\s.,!?，。！？]/g,'');
-    if(text.length>8&&normalize(spokenText).includes(normalize(text)))return;
-    const rest=command[2]?.trim();const nextSerial=++this.epoch;
+    // Accept a new question without requiring a special wake/stop phrase.
+    // Echo cancellation is enabled at capture; also reject recognizable
+    // playback echoes here so the character does not converse with itself.
+    if((!command||text.length>8)&&replyEcho(text,spokenText))return;
+    const rest=command?command[2]?.trim():text;const nextSerial=++this.epoch;
     this.stopInterrupt();this.stopSpeech();this.setState('listening');
     if(rest){this.onTranscript(rest);this.submit(rest.slice(0,1000),nextSerial);}else this.resumeAfter(nextSerial,150);
    };
@@ -81,7 +94,7 @@ export class HandsFreeConversation {
   };
   this.interruptTimer=this.setTimer(listen,150);
  }
- recover(serial){this.disconnect();this.clearTimer(this.timer);if(++this.retryCount>3){this.stop('network');return;}this.setState('reconnecting');this.resumeAfter(serial,Math.min(1500*this.retryCount,4500));}
+ recover(serial,capture=false){this.disconnect();this.clearTimer(this.timer);if(capture)this.releaseInput();if(++this.retryCount>3){this.stop(capture?'audio-capture':'network');return;}this.setState(capture?'audio_reconnecting':'reconnecting');this.resumeAfter(serial,Math.min(1500*this.retryCount,4500));}
  announce(text,language,onState=()=>{}){if(!this.active||this.isBusy())return false;const serial=++this.epoch;this.disconnect();return this.output(text,language,serial,onState);}
 }
 
@@ -119,3 +132,7 @@ HANDS_FREE_COPY.zh.notice='说话时文字会逐步出现并修正，停顿约0.
 Object.assign(HANDS_FREE_COPY.ko,{audio_reconnecting:'오디오 연결을 복구하고 있어요…','audio-capture':'오디오 연결을 복구하지 못했어요. 이어폰 연결을 확인하고 대화를 다시 켜주세요.'});
 Object.assign(HANDS_FREE_COPY.en,{audio_reconnecting:'Restoring the audio connection…','audio-capture':'Audio could not reconnect. Check your headset connection and start the conversation again.'});
 Object.assign(HANDS_FREE_COPY.zh,{audio_reconnecting:'正在恢复音频连接…','audio-capture':'音频连接未能恢复。请检查耳机连接，再点击开始交流。'});
+
+Object.assign(HANDS_FREE_COPY.ko,{speaking:'소울이 말하는 중 · 말하면 끼어들 수 있어요',speaking_no_interrupt:'말하는 중 · 듣기는 답변 후 다시 시작해요',notice:'말하는 동안 자막이 나타나요. 답변 중에도 새 질문을 할 수 있고, “잠깐”으로 멈출 수 있어요. 연결 오류는 자동으로 복구하며, 마이크 권한이 없으면 화면에 알려드려요. 음성은 서버를 거쳐 Qwen으로 전송하며 녹음은 저장하지 않아요.'});
+Object.assign(HANDS_FREE_COPY.en,{speaking:'Speaking · You can interrupt with a question',speaking_no_interrupt:'Speaking · Listening will resume after this reply',notice:'Words appear while you speak. Ask a new question during a reply, or say “stop” to interrupt. Connection errors retry automatically; microphone permission errors are shown. Audio goes through our server to Qwen; recordings are not saved.'});
+Object.assign(HANDS_FREE_COPY.zh,{speaking:'正在回答 · 直接说话可以打断',speaking_no_interrupt:'正在回答 · 回答结束后继续聆听',notice:'说话时字幕会逐步出现。回答中可直接提出新问题，也可说“等一下”打断。连接异常会自动重试，麦克风权限问题会显示提示。音频经服务器传给千问，不保存录音。'});

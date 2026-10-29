@@ -72,3 +72,8 @@ body.camera-open>.topbar,body.camera-open>.app-tabbar{display:none!important}
 .post .diary-cover{display:block;aspect-ratio:4/3;overflow:hidden;background:var(--tint)}.post .diary-cover img{display:block;width:100%;height:100%;object-fit:cover}.diary-cover-empty{display:grid;place-items:center;padding:30px;background:var(--tint)}.diary-cover-empty .character-artwork{width:150px;height:150px}.diary-generation{font-size:12px;color:#718068;line-height:1.6;margin:0 0 20px}.diary-generation p{font-size:12px}.post .diary-body{line-height:1.9;letter-spacing:.01em;text-wrap:pretty}
 .diary-finish{align-items:start}.diary-finish>.post{min-width:0}@media(max-width:800px){.diary-finish{display:flex;flex-direction:column;grid-template-columns:minmax(0,1fr)}.diary-finish>.post{order:0}.diary-finish>.finish-copy{order:1}}
 
+
+/* Small live status leaves the existing ride controls and captions in place. */
+.camera-fullscreen .ride-listening-status{position:absolute;left:20px;top:calc(124px + env(safe-area-inset-top,0px));max-width:calc(100vw - 90px);font-size:11px;line-height:1.4;font-weight:500;letter-spacing:.01em;color:#fff;text-shadow:0 1px 3px #000d,0 1px 7px #0008;background:none;border:0;box-shadow:none;pointer-events:none}
+.camera-fullscreen[data-scene-mode=map] .ride-listening-status{color:#294633;text-shadow:0 1px 2px #fff,0 0 6px #fffd}
+.camera-fullscreen .scene-map-layer .map-caption{top:calc(150px + env(safe-area-inset-top,0px))}

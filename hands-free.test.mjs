@@ -18,7 +18,7 @@ test('spoken input sends automatically with context, replies aloud, then resumes
 test('reply-time monitoring accepts Chinese, English and Korean interruption without forwarding the command',async()=>{
  for(const [language,command] of [['zh','等一下'],['en','stop'],['ko','잠깐']]){
   const a=setup();a.session.start('bori',language);a.recognizers[0].hear('Hello');await flush();const old=a.voices[0];old.callback('playing');a.run(150);
-  const monitor=a.recognizers.at(-1);assert.equal(monitor.interimResults,false);assert.equal(a.recognizers[0].active,false);
+  const monitor=a.recognizers.at(-1);assert.equal(monitor.interimResults,true);assert.equal(a.recognizers[0].active,false);
   monitor.hear(command);assert.equal(monitor.active,false);assert.equal(a.calls.length,1);assert.equal(a.session.state,'listening');
   old.callback('ended');a.run(150);assert.equal(a.recognizers.at(-1).interimResults,true);assert.equal(a.timers.size,1);a.session.stop();
  }
@@ -57,4 +57,26 @@ test('introduction plays before any chat/GPS request, resumes listening and does
 test('failed or cancelled introduction cannot restart after exit and is retryable',()=>{
  const a=setup(null,{getOpening:()=>({text:'Hello!',language:'en'})});a.session.start('bori','en');const callback=a.voices[0].callback;a.session.stop();callback('playing');callback('ended');assert.equal(a.session.active,false);assert.equal(a.timers.size,0);assert.equal(a.session.introduced.size,0);
  a.session.start('bori','en');assert.equal(a.voices.length,2);a.voices[1].callback('blocked');assert.equal(a.session.audioIssue,true);a.session.stop();
+});
+
+test('a new spoken question interrupts the introduction; playback echoes and late events do not',async()=>{
+ const transcripts=[],a=setup(null,{getOpening:()=>({text:'Hello, I am Popo. What can we discover today?',language:'en'}),onTranscript:(text,final)=>transcripts.push({text,final})});
+ a.session.start('bori','en');const first=a.voices[0];first.callback('playing');a.run(150);const monitor=a.recognizers.at(-1);
+ monitor.onresult({results:[{0:{transcript:'What can we discover today'},isFinal:true}]});await flush();assert.equal(a.calls.length,0);
+ monitor.onresult({results:[{0:{transcript:'Can you hear'},isFinal:false}]});assert.deepEqual(transcripts.at(-1),{text:'Can you hear',final:false});assert.equal(a.calls.length,0);
+ monitor.hear('Can you hear me clearly?');await flush();assert.equal(a.calls.length,1);assert.equal(a.calls[0].body.messages.at(-1).content,'Can you hear me clearly?');assert.equal(a.voices.length,2);
+ first.callback('ended');assert.equal(a.session.state,'synthesizing');a.session.stop();assert.equal(a.timers.size,0);
+});
+
+test('microphone capture failures reacquire input with bounded retries, permissions do not loop',()=>{
+ let releases=0;const a=setup(null,{releaseInput:()=>releases++});a.session.start('bori','en');const baseline=releases;
+ for(const delay of [1500,3000,4500]){a.recognizers.at(-1).onerror({error:'audio-capture'});assert.equal(a.session.state,'audio_reconnecting');a.run(delay);}
+ a.recognizers.at(-1).onerror({error:'audio-capture'});assert.equal(a.session.state,'audio-capture');assert.equal(a.session.active,false);assert.ok(releases>baseline);
+ a.session.start('bori','en');a.recognizers.at(-1).onerror({error:'not-allowed'});assert.equal(a.session.state,'denied');assert.equal(a.timers.size,0);
+});
+
+test('permission startup honors the recorder deadline and still cancels late callbacks',()=>{
+ let r;class SlowPermission{constructor(){r=this;this.startTimeoutMs=50000;}start(){}abort(){}}
+ const a=setup(null,{Recognition:SlowPermission});a.session.start('bori','en');assert.ok([...a.timers.values()].some(t=>t.ms===50000));assert.ok(![...a.timers.values()].some(t=>t.ms===12000));
+ r.onstart();assert.equal(a.session.state,'listening');const late=r.onresult;a.session.stop();late({results:[{0:{transcript:'late'},isFinal:true}]});assert.equal(a.calls.length,0);assert.equal(a.timers.size,0);
 });
