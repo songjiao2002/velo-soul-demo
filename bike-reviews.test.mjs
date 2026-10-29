@@ -46,7 +46,7 @@ test('scanning creates a stable local nickname without posting; edits survive a 
  first.onInput({target:{name:'nickname',value:'Sunday walker',closest:()=>true}});const third=client({storage:first.storage});await third.select('mori');assert.equal(third.profile.nickname,'Sunday walker');for(const c of [first,second,third])c.dispose();
 });
 test('failed posts preserve text and owner identity; retry and later edits do not duplicate reviews',async()=>{
- const bodies=[];let reject=true;const c=client({fetchImpl:async(_,o={})=>{if(!o.method)return Response.json({available:true,reviews:[]});const body=JSON.parse(o.body);bodies.push(body);if(reject)throw Error('offline');return Response.json({review:{...body,createdAt:Date.now()}});}});
+ const bodies=[];let reject=true;const c=client({fetchImpl:async(url,o={})=>{if(!o.method)return Response.json({available:true,reviews:[]});const body=JSON.parse(o.body);if(url.endsWith('/nickname'))return Response.json({nickname:body.nickname});bodies.push(body);if(reject)throw Error('offline');return Response.json({review:{...body,createdAt:Date.now()}});}});
  await c.select('lumi');Object.assign(c.draft(),{nickname:'하루',rating:3,text:'느긋한 시간이었어요.'});await c.submit();assert.equal(c.status,'failed');assert.equal(c.draft().text,'느긋한 시간이었어요.');reject=false;await c.submit();assert.equal(bodies[0].id,bodies[1].id);assert.equal(bodies[0].token,bodies[1].token);assert.equal(c.reviews.length,1);c.draft().rating=4;await c.submit();assert.equal(bodies[2].id,bodies[0].id);assert.equal(c.reviews.length,1);assert.equal(c.reviews[0].rating,4);c.dispose();
 });
 test('storage failure blocks posting before it loses the local edit/delete token',async()=>{
@@ -65,3 +65,158 @@ test('review markup escapes visitor content; samples stay labelled with three na
  for(const bike of ['lumi','bori','mori']){assert.equal(RIDER_REVIEWS[bike].length,3);for(const lang of ['en','ko','zh']){const html=riderReviewsMarkup(bike,lang);assert.doesNotMatch(html,/Rider 0\d|라이더 0\d|骑行者 0\d/);assert.match(html,/Preset notes|미리 작성한 글|预设留言/);}}
  assert.doesNotMatch(readFileSync(new URL('./diary-service.mjs',import.meta.url),'utf8'),/bike-reviews|RIDER_REVIEWS/);c.dispose();
 });
+
+
+const reply=(parent,patch={})=>({...review(),authorToken:randomBytes(32).toString('hex'),parentId:parent.id,replyToId:null,...patch});
+const storeFetch=store=>async(url,o={})=>{
+ const u=new URL(url,'https://test.example'),body=o.body?JSON.parse(o.body):null;
+ try{
+  if(u.pathname.endsWith('/nickname'))return Response.json(store.rename(body));
+  if(u.pathname.endsWith('/replies')){
+   if(o.method==='POST')return Response.json({reply:store.putReply(body)});
+   if(o.method==='DELETE'){store.remove(body,true);return Response.json({removed:true});}
+   return Response.json({available:true,replies:store.replies(u.searchParams.get('bike'),u.searchParams.get('id'))});
+  }
+  if(o.method==='POST')return Response.json({review:store.put(body)});
+  if(o.method==='DELETE'){store.remove(body);return Response.json({removed:true});}
+  return Response.json({available:true,reviews:store.list(u.searchParams.get('bike'))});
+ }catch(error){return Response.json({error:error.code||'failed'},{status:error.status||500});}
+};
+test('nickname migration updates all proven legacy reviews and replies, never a same-name stranger',()=>{
+ const db=new DatabaseSync(':memory:'),store=new BikeReviewStore(db),token=randomBytes(32).toString('hex');
+ try{
+  const a=review(),b=review({bike:'bori'}),stranger=review();for(const r of [a,b,stranger])store.put(r);
+  const self=reply(a,{authorToken:token});store.putReply(self);
+  store.rename({authorToken:token,nickname:'산책하는 하루',proofs:[a,b]});
+  assert.equal(store.list('bori')[0].nickname,'산책하는 하루');
+  assert.equal(store.list('lumi').find(r=>r.id===a.id).nickname,'산책하는 하루');
+  assert.equal(store.list('lumi').find(r=>r.id===stranger.id).nickname,'민서');
+  assert.equal(store.replies('lumi',a.id)[0].nickname,'산책하는 하루');
+  const writes=db.prepare('SELECT COUNT(*) AS n FROM review_writes').get().n;
+  store.rename({authorToken:token,nickname:'산책하는 하루',proofs:[a,b]});
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM review_writes').get().n,writes);
+  assert.doesNotMatch(JSON.stringify(store.list('lumi'))+JSON.stringify(store.replies('lumi',a.id)),/authorHash|tokenHash|authorToken/);
+ }finally{db.close();}
+});
+test('one bad nickname proof rejects the whole change; expired proofs and empty identity do not create records',()=>{
+ const db=new DatabaseSync(':memory:'),store=new BikeReviewStore(db),token=randomBytes(32).toString('hex'),a=review(),b=review({bike:'bori'});
+ try{
+  store.put(a);store.put(b);
+  assert.throws(()=>store.rename({authorToken:token,nickname:'New name',proofs:[a,{...b,token:'0'.repeat(64)}]}),{code:'review_forbidden'});
+  assert.equal(store.list('lumi')[0].nickname,'민서');assert.equal(db.prepare('SELECT COUNT(*) AS n FROM review_authors').get().n,0);
+  assert.throws(()=>store.rename({authorToken:token,nickname:'New name',proofs:[a,a]}),{code:'invalid_review'});
+  store.rename({authorToken:token,nickname:'New name',proofs:[review()]});
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM review_authors').get().n,0);
+ }finally{db.close();}
+});
+test('replies support self replies and replies to others with owner-only edits and same-thread targets',()=>{
+ const db=new DatabaseSync(':memory:'),store=new BikeReviewStore(db),a=review({authorToken:randomBytes(32).toString('hex')}),b=review();
+ try{
+  store.put(a);store.put(b);
+  const self=reply(a,{authorToken:a.authorToken}),other=reply(a,{replyToId:self.id,nickname:'Jae'});
+  store.putReply(self);store.putReply(other);store.putReply(other);
+  assert.equal(store.replies('lumi',a.id).length,2);assert.equal(store.list('lumi').find(r=>r.id===a.id).replyCount,2);
+  assert.equal(store.replies('lumi',a.id).find(r=>r.id===other.id).replyToNickname,'민서');
+  assert.throws(()=>store.putReply({...other,token:'0'.repeat(64),text:'Hijack'}),{code:'review_forbidden'});
+  assert.throws(()=>store.remove({...other,token:'0'.repeat(64)},true),{code:'review_forbidden'});
+  assert.throws(()=>store.putReply(reply(b,{replyToId:self.id})),{code:'review_missing'});
+  assert.throws(()=>store.putReply({...other,parentId:b.id}),{code:'review_forbidden'});
+  assert.throws(()=>store.putReply(reply(a,{consent:false})),{code:'invalid_review'});
+  assert.throws(()=>store.putReply(reply(a,{text:'https://spam.example'})),{code:'review_contact'});
+  store.putReply({...other,text:'Another thought'});
+  assert.equal(store.replies('lumi',a.id).find(r=>r.id===other.id).text,'Another thought');
+  store.rename({authorToken:a.authorToken,nickname:'Cloud',proofs:[a]});
+  assert.equal(store.replies('lumi',a.id).find(r=>r.id===other.id).replyToNickname,'Cloud');
+  store.remove(self,true);
+  assert.equal(store.replies('lumi',a.id)[0].replyToId,null);
+  store.remove(a);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM review_replies').get().n,0);
+ }finally{db.close();}
+});
+test('reply caps, parent expiry and schema upgrade preserve the old database',()=>{
+ let now=Date.now();const db=new DatabaseSync(':memory:');
+ db.exec('CREATE TABLE reviews (id TEXT PRIMARY KEY,bike TEXT NOT NULL,nickname TEXT NOT NULL,text TEXT NOT NULL,rating INTEGER NOT NULL,created INTEGER NOT NULL,updated INTEGER NOT NULL,tokenHash TEXT NOT NULL)');
+ const store=new BikeReviewStore(db,{now:()=>now}),a=review();
+ try{
+  store.put(a);new BikeReviewStore(db);
+  for(let i=0;i<50;i++){now+=61000;store.putReply(reply(a));}
+  now+=61000;assert.throws(()=>store.putReply(reply(a)),{code:'thread_full'});
+  assert.equal(store.replies('lumi',a.id).length,50);
+  now+=31*86400000;assert.throws(()=>store.replies('lumi',a.id),{code:'review_missing'});
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM review_replies').get().n,0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM review_authors').get().n,0);
+ }finally{db.close();}
+});
+test('reply and nickname HTTP endpoints enforce origin, method, payload and ownership',async()=>{
+ const db=new DatabaseSync(':memory:'),store=new BikeReviewStore(db),handler=createReviewHandler(store);
+ const server=http.createServer((req,res)=>void handler(req,res));await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;
+ try{
+  const a=review();store.put(a);const r=reply(a);
+  const send=(route,body,origin=base)=>fetch(base+'/api/bike-reviews/'+route,{method:'POST',headers:{'content-type':'application/json',origin},body:JSON.stringify(body)});
+  assert.equal((await send('replies',r,'https://bad.example')).status,403);
+  assert.equal((await send('replies',r,'capacitor://localhost')).status,200);
+  assert.equal((await send('nickname',{authorToken:r.authorToken,nickname:'Haru',proofs:[]})).status,200);
+  assert.equal((await send('nickname',{authorToken:r.authorToken,nickname:'x'.repeat(5000)})).status,413);
+  assert.equal((await fetch(base+'/api/bike-reviews/nickname')).status,405);
+  const result=await (await fetch(base+'/api/bike-reviews/replies?bike=lumi&id='+a.id)).json();
+  assert.equal(result.replies[0].nickname,'Haru');assert.equal(JSON.stringify(result).includes(r.token),false);
+ }finally{await new Promise(r=>server.close(r));db.close();}
+});
+test('random nickname always changes, stays local until saved, and sync survives a reload across bikes',async()=>{
+ const db=new DatabaseSync(':memory:'),store=new BikeReviewStore(db),fetchImpl=storeFetch(store),c=client({fetchImpl});
+ try{
+  await c.select('lumi');Object.assign(c.draft(),{nickname:'River Moon',text:'A nice ride',rating:5});await c.submit();
+  await c.select('bori');Object.assign(c.draft(),{text:'Bread',rating:4});await c.submit();
+  const old=c.profile.nickname;
+  for(let i=0;i<300;i++)assert.notEqual(c.randomName(old),old);
+  const stranger=review({nickname:old});store.put(stranger);
+  c.onClick({target:{closest:()=>({dataset:{reviewAction:'random'}})}});
+  const desired=c.profile.nickname;assert.notEqual(desired,old);assert.equal(store.list('bori')[0].nickname,old);
+  await c.rename();assert.equal(c.status,'nameSaved');
+  assert.equal(store.list('bori')[0].nickname,desired);assert.equal(store.list('lumi').find(r=>r.id===stranger.id).nickname,old);
+  const reloaded=client({storage:c.storage,fetchImpl});await reloaded.select('lumi');assert.equal(reloaded.profile.nickname,desired);assert.equal(reloaded.draft().nickname,desired);reloaded.dispose();
+ }finally{c.dispose();db.close();}
+});
+test('client can reply to a stranger and itself, edit, rename its previous replies, then delete',async()=>{
+ const db=new DatabaseSync(':memory:'),store=new BikeReviewStore(db),root=review();store.put(root);const c=client({fetchImpl:storeFetch(store)});
+ try{
+  await c.select('lumi');c.startReply(root.id);c.replyDraft().text='안녕!';await c.submitReply();
+  assert.equal(c.status,'replySaved');assert.equal(store.replies('lumi',root.id).length,1);
+  const first=store.replies('lumi',root.id)[0];
+  c.startReply(root.id,first.id);c.replyDraft().text='One more thing';await c.submitReply();
+  assert.equal(store.replies('lumi',root.id).length,2);
+  c.startReply(root.id,null,first.id);c.replyDraft().text='Hello again';await c.submitReply();
+  assert.equal(store.replies('lumi',root.id).find(r=>r.id===first.id).text,'Hello again');
+  c.setName('Quiet Clover');await c.rename();
+  assert.ok(store.replies('lumi',root.id).every(r=>r.nickname==='Quiet Clover'));
+  assert.equal(store.list('lumi')[0].nickname,'민서');
+  assert.equal(store.replies('lumi',root.id).find(r=>r.replyToId===first.id).replyToNickname,'Quiet Clover');
+  await c.removeReply(first.id);assert.equal(store.replies('lumi',root.id).length,1);assert.equal(c.profile.ownedReplies[first.id],undefined);
+ }finally{c.dispose();db.close();}
+});
+test('failed nickname sync preserves draft and old public name; reply retries reuse identity after reload',async()=>{
+ const db=new DatabaseSync(':memory:'),store=new BikeReviewStore(db),root=review();store.put(root);let offline=false,loseReply=false;
+ const api=storeFetch(store),fetchImpl=async(url,o)=>{if(offline&&o?.method)throw Error('offline');const result=await api(url,o);if(loseReply&&o?.method==='POST'&&url.endsWith('/replies'))throw Error('lost response');return result;};
+ const c=client({fetchImpl});let restored;
+ try{
+  await c.select('lumi');c.startReply(root.id);c.replyDraft().text='Still here';loseReply=true;await c.submitReply();assert.equal(c.status,'failed');
+  const firstId=Object.keys(c.profile.ownedReplies)[0];assert.equal(store.replies('lumi',root.id).length,1);
+  loseReply=false;restored=client({fetchImpl,storage:c.storage});await restored.select('lumi');restored.startReply(root.id);assert.equal(restored.replyDraft().record.id,firstId);assert.equal(restored.replyDraft().text,'Still here');await restored.submitReply();assert.equal(store.replies('lumi',root.id).length,1);
+  const old=store.replies('lumi',root.id)[0].nickname;offline=true;restored.setName('New Cloud');await restored.rename();assert.equal(restored.status,'nameFailed');assert.equal(store.replies('lumi',root.id)[0].nickname,old);
+  offline=false;await restored.rename();assert.equal(store.replies('lumi',root.id)[0].nickname,'New Cloud');
+ }finally{c.dispose();restored?.dispose();db.close();}
+});
+test('reply markup escapes mentions; own reviews use the same Reply action and random controls never submit',async()=>{
+ const section={dataset:{riderReviews:'welcome'},contains(){return false;},innerHTML:''},document={addEventListener(){},removeEventListener(){},querySelectorAll(){return [section];}};
+ const db=new DatabaseSync(':memory:'),store=new BikeReviewStore(db),c=client({document,fetchImpl:storeFetch(store)});
+ try{
+  await c.select('lumi');Object.assign(c.draft(),{text:'Sunny ride',rating:4});await c.submit();
+  const root=c.reviews[0];c.startReply(root.id);await c.loadReplies(root.id);
+  assert.match(section.innerHTML,/data-review-action="reply"/);assert.doesNotMatch(section.innerHTML,/follow.up|追评|추가 후기/i);
+  c.replyDraft().text='<img src=x>';await c.submitReply();
+  c.threads.get(root.id).rows[0].replyToNickname='<script>bad</script>';c.render();
+  assert.match(section.innerHTML,/@&lt;script&gt;/);assert.doesNotMatch(section.innerHTML,/<script>|<img src=x>/);
+  c.open=true;c.replyForm=null;c.render();assert.match(section.innerHTML,/type="button" class="review-random"/);
+ }finally{c.dispose();db.close();}
+});
+

@@ -80,6 +80,8 @@ public class ExampleInstrumentedTest {
         assertEquals("3",js("document.querySelectorAll('.sample-reviews .rider-reviews li').length"));
         js("document.querySelector('[data-review-action=open]').click()");
         assertEquals("true",js("document.querySelector('[name=nickname]').value.length > 0 && document.querySelectorAll('[name=rating]').length === 5"));
+        js("window.__oldNickname=document.querySelector(\'[name=nickname]\').value;document.querySelector(\'[data-review-action=random]\').click()");
+        assertEquals("true",js("document.querySelector(\'[name=nickname]\').value !== window.__oldNickname && document.querySelector(\'[data-review-form]\') !== null"));
         js("window.__nativeApi=null;fetch('https://velo-soul-demo-production.up.railway.app/api/chat/status',{cache:'no-store'}).then(r=>window.__nativeApi=r.ok).catch(e=>window.__nativeApi=String(e))");
         awaitTrue("window.__nativeApi === true");
     }
