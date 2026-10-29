@@ -36,7 +36,7 @@
   });
   // One classic bundle avoids a chain of module requests and partial versions.
   var script = document.createElement('script');
-  script.src = '/app.bundle.js?v=20261028-study38';
+  script.src = '/app.bundle.js?v=20261029-reviews39';
   // A retry must also bypass a partially cached script, not only the HTML.
   var reload = Number(new URL(window.location.href).searchParams.get('reload'));
   if (Number.isSafeInteger(reload) && reload > 0) script.src += '&reload=' + reload;

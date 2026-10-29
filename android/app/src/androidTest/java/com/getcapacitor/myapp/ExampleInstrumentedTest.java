@@ -77,7 +77,9 @@ public class ExampleInstrumentedTest {
         awaitTrue("document.body.dataset.screen === 'welcome' && location.search === '?bike=mori'");
         assertEquals("true",js("document.querySelectorAll('.meeting-description').length === 1 && document.querySelector('.meeting-name').textContent === 'Lulu' && document.querySelector('.meeting-description').textContent.length > 30"));
         assertEquals("0",js("document.querySelectorAll('[download],.settings-qr,[data-action=preview],.meeting-permission,.meeting-options,.meeting-copy [data-gps-panel]').length"));
-        assertEquals("5",js("document.querySelectorAll('.rider-reviews li').length"));
+        assertEquals("3",js("document.querySelectorAll('.sample-reviews .rider-reviews li').length"));
+        js("document.querySelector('[data-review-action=open]').click()");
+        assertEquals("true",js("document.querySelector('[name=nickname]').value.length > 0 && document.querySelectorAll('[name=rating]').length === 5"));
         js("window.__nativeApi=null;fetch('https://velo-soul-demo-production.up.railway.app/api/chat/status',{cache:'no-store'}).then(r=>window.__nativeApi=r.ok).catch(e=>window.__nativeApi=String(e))");
         awaitTrue("window.__nativeApi === true");
     }

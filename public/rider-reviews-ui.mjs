@@ -1,0 +1,66 @@
+import {appFetch} from './app-network.mjs';
+import {BIKE_IDS} from './bike-memory-core.mjs';
+import {riderReviewsMarkup} from './rider-reviews.mjs';
+const KEY='velo-soul-review-profile-v1';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export const REVIEW_COPY={
+ en:{title:'Rider reviews',empty:'Leave the first little trace.',loading:'Loading rider reviews…',unavailable:'Reviews could not load.',retry:'Try again',write:'Leave a review',edit:'Edit your review',name:'Your name',nameHint:'Saved on this device. You can change it.',rating:'Your rating',stars:n=>`${n} out of 5 stars`,text:'Your review',placeholder:'What was it like riding together?',notice:'Your name, rating and review will be public for up to 30 days. Avoid personal information.',post:'Post review',update:'Update review',cancel:'Cancel',remove:'Delete my review',saving:'Posting…',saved:'Your review is now shared.',deleted:'Your review was deleted.',failed:'Could not save. Your words are still here; try again.',required:'Add a name, a rating and a review.',contact:'Please leave out links, email addresses and phone numbers.',localFail:'Allow local storage to post and manage your review on this device.',rate:'Too many reviews just now. Please try again later.',you:'You',more:'More reviews'},
+ ko:{title:'라이더 후기',empty:'첫 여운을 남겨주세요.',loading:'라이더 후기를 불러오는 중…',unavailable:'후기를 불러오지 못했어요.',retry:'다시 시도',write:'후기 남기기',edit:'내 후기 수정',name:'닉네임',nameHint:'이 기기에 저장돼요. 자유롭게 바꿀 수 있어요.',rating:'별점',stars:n=>`별점 5점 중 ${n}점`,text:'나의 후기',placeholder:'함께 달린 시간은 어땠나요?',notice:'닉네임, 별점과 후기는 최대 30일간 공개돼요. 개인정보는 적지 마세요.',post:'후기 게시',update:'후기 수정',cancel:'취소',remove:'내 후기 삭제',saving:'게시 중…',saved:'후기를 공유했어요.',deleted:'후기를 삭제했어요.',failed:'저장하지 못했어요. 작성한 내용은 그대로예요. 다시 시도해주세요.',required:'닉네임, 별점과 후기를 입력해주세요.',contact:'링크, 이메일과 전화번호는 빼주세요.',localFail:'후기 게시와 관리를 위해 이 기기의 저장소를 허용해주세요.',rate:'잠시 후 다시 시도해주세요.',you:'나',more:'후기 더 보기'},
+ zh:{title:'游客评论',empty:'留下第一份感受吧。',loading:'正在读取游客评论…',unavailable:'评论暂时无法加载。',retry:'重试',write:'写一条评论',edit:'编辑我的评论',name:'你的昵称',nameHint:'保存在这台设备上，可以自行修改。',rating:'你的评分',stars:n=>`评分 ${n} / 5`,text:'你的评论',placeholder:'和它一起骑行，感觉怎么样？',notice:'昵称、星级和评论将公开显示，最多保留30天。请勿填写个人隐私。',post:'发表评论',update:'更新评论',cancel:'取消',remove:'删除我的评论',saving:'正在发布…',saved:'评论已发布。',deleted:'评论已删除。',failed:'暂时未能保存，内容已保留，请重试。',required:'请填写昵称、星级和评论。',contact:'请去掉链接、邮箱和电话号码。',localFail:'请允许本机存储，以便发布并管理自己的评论。',rate:'评论提交较频繁，请稍后再试。',you:'你',more:'更多评论'}
+};
+const names={en:[['Little','Sunny','Quiet','Wandering','River','Silver','Mellow','Evening'],['Willow','Cloud','Fern','Pebble','Maple','Robin','Clover','Moon']],ko:[['작은','느린','노란','초록','고요한','산책하는','웃는','잠든'],['구름','달','바람','나무','클로버','고양이','참새','조약돌']],zh:[['散步的','慢悠悠的','微笑的','河边的','晒太阳的','听风的','贪睡的','旅行的'],['云朵','小猫','月亮','叶子','小熊','橘子','麻雀','石头']]};
+const validReview=(r,bike)=>r&&typeof r.id==='string'&&r.bike===bike&&typeof r.nickname==='string'&&r.nickname.length<=48&&typeof r.text==='string'&&r.text.length<=560&&Number.isInteger(r.rating)&&r.rating>=1&&r.rating<=5&&Number.isFinite(r.createdAt);
+export class RiderReviewsUI{
+ constructor({document=globalThis.document,storage,fetchImpl=appFetch,getLanguage=()=> 'en',crypto=globalThis.crypto}={}){
+  Object.assign(this,{document,storage,fetchImpl,getLanguage,crypto});this.bike=null;this.epoch=0;this.reviews=[];this.state='loading';this.open=false;this.busy=false;this.status='';this.limit=5;this.drafts=new Map();
+  this.onInput=e=>{if(!e.target.closest?.('[data-review-form]'))return;const draft=this.draft();if(e.target.name==='nickname'){draft.nickname=e.target.value;this.profile.nickname=draft.nickname;try{this.persist();}catch{}}if(e.target.name==='text')draft.text=e.target.value;if(e.target.name==='rating'){draft.rating=Number(e.target.value);for(const star of this.document.querySelectorAll('[data-review-star]'))star.textContent=Number(star.dataset.reviewStar)<=draft.rating?'★':'☆';}};
+  this.onSubmit=e=>{if(e.target.matches?.('[data-review-form]')){e.preventDefault();void this.submit();}};
+  this.onClick=e=>{const b=e.target.closest?.('[data-review-action]');if(!b)return;const action=b.dataset.reviewAction;if(action==='retry')void this.load();if(action==='more'){this.limit+=5;this.render();}if(action==='open'){this.open=true;this.status='';this.render();}if(action==='cancel'){this.open=false;this.status='';this.render();}if(action==='delete')void this.remove();};
+  document.addEventListener('input',this.onInput);document.addEventListener('change',this.onInput);document.addEventListener('submit',this.onSubmit);document.addEventListener('click',this.onClick);
+ }
+ copy(){return REVIEW_COPY[this.getLanguage()]||REVIEW_COPY.en;}
+ ensureProfile(){
+  if(this.profile)return;let raw;try{this.storage??=globalThis.localStorage;raw=JSON.parse(this.storage.getItem(KEY)||'null');}catch{}
+  const parts=names[this.getLanguage()]||names.en,bytes=this.crypto.getRandomValues(new Uint8Array(2));
+  const nickname=typeof raw?.nickname==='string'&&raw.nickname.trim()&&raw.nickname.length<=48?raw.nickname:parts[0][bytes[0]%8]+(this.getLanguage()==='zh'?'':' ')+parts[1][bytes[1]%8];
+  const owned={};for(const bike of BIKE_IDS){const r=raw?.owned?.[bike];if(r&&validReview(r,bike)&&/^[a-f0-9-]{36}$/.test(r.id)&&/^[a-f0-9]{64}$/.test(r.token)&&Date.now()-r.createdAt<30*86400000)owned[bike]=r;}
+  this.profile={nickname,owned};try{this.persist();}catch{}
+ }
+ persist(){this.storage.setItem(KEY,JSON.stringify(this.profile));}
+ draft(){this.ensureProfile();if(!this.drafts.has(this.bike)){const own=this.profile.owned[this.bike];this.drafts.set(this.bike,{nickname:this.profile.nickname,text:own?.text||'',rating:own?.rating||0});}return this.drafts.get(this.bike);}
+ markup(mode='welcome'){return `<section class="bike-memory rider-review-section ${mode}" data-rider-reviews="${mode}" data-no-translate aria-label="${esc(this.copy().title)}"></section>`;}
+ select(bike){if(!BIKE_IDS.includes(bike))return;this.ensureProfile();this.bike=bike;this.open=false;this.limit=5;this.status='';this.reviews=[];return this.load();}
+ async load(){
+  const bike=this.bike,serial=++this.epoch;this.controller?.abort();const controller=new AbortController();this.controller=controller;const timer=setTimeout(()=>controller.abort(),8000);this.state='loading';this.render();
+  try{const response=await this.fetchImpl('/api/bike-reviews?bike='+bike,{signal:controller.signal});const data=await response.json();if(serial!==this.epoch)return;if(!response.ok||data.available!==true||!Array.isArray(data.reviews))throw Error();this.reviews=data.reviews.filter(r=>validReview(r,bike)).slice(0,50);this.state='ready';}
+  catch{if(serial===this.epoch)this.state='unavailable';}finally{clearTimeout(timer);if(serial===this.epoch)this.render();}
+ }
+ render(){
+  if(!this.bike)return;const c=this.copy(),draft=this.draft(),own=this.profile.owned[this.bike],disabled=this.busy?'disabled':'';
+  for(const el of this.document.querySelectorAll('[data-rider-reviews]')){
+   const focused=el.contains(this.document.activeElement)?this.document.activeElement:null,focusName=focused?.name,selection=focused?.type!=='radio'?[focused?.selectionStart,focused?.selectionEnd]:null;
+   const list=el.dataset.riderReviews==='welcome'?(this.state==='ready'?this.reviews.length?`<ul class="rider-reviews real-reviews">${this.reviews.slice(0,this.limit).map(r=>`<li><div class="rider-review-meta"><span class="review-author">${esc(r.nickname)}${r.id===own?.id?` <small>· ${c.you}</small>`:''}</span><span class="rider-review-stars" role="img" aria-label="${c.stars(r.rating)}"><span aria-hidden="true">${'★'.repeat(r.rating)}<span class="empty-stars">${'☆'.repeat(5-r.rating)}</span></span></span></div><p>${esc(r.text)}</p></li>`).join('')}</ul>${this.reviews.length>this.limit?`<button class="text-button" data-review-action="more">${c.more}</button>`:''}`:`<p class="review-empty">${c.empty}</p>`:`<p class="review-empty" role="status">${this.state==='loading'?c.loading:c.unavailable}</p>${this.state==='unavailable'?`<button class="text-button" data-review-action="retry">${c.retry}</button>`:''}`):'';
+   const form=this.open?`<form data-review-form class="review-form"><label>${c.name}<input name="nickname" autocomplete="nickname" maxlength="24" required value="${esc(draft.nickname)}" ${disabled}></label><small>${c.nameHint}</small><fieldset ${disabled}><legend>${c.rating}</legend><div class="review-rating">${[1,2,3,4,5].map(n=>`<label><input type="radio" name="rating" value="${n}" aria-label="${c.stars(n)}" ${draft.rating===n?'checked':''} required><span data-review-star="${n}" aria-hidden="true">${n<=draft.rating?'★':'☆'}</span></label>`).join('')}</div></fieldset><label>${c.text}<textarea name="text" maxlength="280" rows="3" required placeholder="${esc(c.placeholder)}" ${disabled}>${esc(draft.text)}</textarea></label><small class="review-disclosure">${c.notice}</small><div class="review-form-actions"><button class="primary" type="submit" ${disabled}>${this.busy?c.saving:own&&!own.pending?c.update:c.post}</button><button class="text-button" type="button" data-review-action="cancel" ${disabled}>${c.cancel}</button></div></form>`:`<button class="secondary review-write" data-review-action="open" ${disabled}>${own&&!own.pending?c.edit:c.write}</button>`;
+   el.innerHTML=`<div class="rider-reviews-heading"><span class="eyebrow">${c.title}</span></div>${list}${form}${own?`<button class="text-button review-remove" data-review-action="delete" ${disabled}>${c.remove}</button>`:''}<p class="small review-status" role="status">${esc(c[this.status]||'')}</p>${el.dataset.riderReviews==='welcome'?`<div class="sample-reviews">${riderReviewsMarkup(this.bike,this.getLanguage())}</div>`:''}`;
+   if(focusName){const input=el.querySelector(`[name="${focusName}"]${focused.type==='radio'?`[value="${focused.value}"]`:''}`);input?.focus({preventScroll:true});if(selection&&selection[0]!=null)input?.setSelectionRange(...selection);}
+  }
+ }
+ error(error){return error.message==='rate_limited'?'rate':error.message==='review_contact'?'contact':error.message==='invalid_review'?'required':'failed';}
+ async submit(){
+  if(this.busy)return;const bike=this.bike,draft=this.draft(),nickname=draft.nickname.trim(),text=draft.text.trim();
+  if(!nickname||!text||nickname.length>24||text.length>280||![1,2,3,4,5].includes(draft.rating)){this.status='required';this.render();return;}
+  const previous=this.profile.owned[bike];const record={...previous,id:previous?.id||this.crypto.randomUUID(),token:previous?.token||Array.from(this.crypto.getRandomValues(new Uint8Array(32)),n=>n.toString(16).padStart(2,'0')).join(''),bike,nickname,text,rating:draft.rating,createdAt:previous?.createdAt||Date.now(),pending:true};
+  this.profile.nickname=nickname;this.profile.owned[bike]=record;
+  try{this.persist();}catch{this.profile.owned[bike]=previous;this.status='localFail';this.render();return;}
+  const serial=++this.epoch;this.controller?.abort();if(this.state==='loading')this.state='unavailable';this.busy=true;this.status='';this.render();const controller=new AbortController();this.writeController=controller;const timer=setTimeout(()=>controller.abort(),8000);
+  try{const response=await this.fetchImpl('/api/bike-reviews',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...record,consent:true}),signal:controller.signal});const data=await response.json();if(!response.ok)throw Error(data.error);if(!validReview(data.review,bike)||data.review.id!==record.id)throw Error('invalid_response');Object.assign(record,data.review,{pending:false});try{this.persist();}catch{}
+   if(this.bike===bike&&serial===this.epoch){this.reviews=[data.review,...this.reviews.filter(r=>r.id!==record.id)].slice(0,50);this.state='ready';this.status='saved';this.open=false;}
+  }catch(error){if(this.bike===bike&&serial===this.epoch)this.status=this.error(error);}finally{clearTimeout(timer);this.busy=false;this.render();}
+ }
+ async remove(){
+  if(this.busy)return;const bike=this.bike,record=this.profile.owned[bike];if(!record)return;const serial=++this.epoch;this.controller?.abort();if(this.state==='loading')this.state='unavailable';this.busy=true;this.status='';this.render();const controller=new AbortController();this.writeController=controller;const timer=setTimeout(()=>controller.abort(),8000);
+  try{const r=await this.fetchImpl('/api/bike-reviews',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:record.id,token:record.token,bike}),signal:controller.signal});if(!r.ok)throw Error();delete this.profile.owned[bike];try{this.persist();}catch{}this.drafts.delete(bike);if(this.bike===bike&&serial===this.epoch){this.reviews=this.reviews.filter(r=>r.id!==record.id);this.open=false;this.status='deleted';}}
+  catch{if(this.bike===bike&&serial===this.epoch)this.status='failed';}finally{clearTimeout(timer);this.busy=false;this.render();}
+ }
+ dispose(){this.controller?.abort();this.writeController?.abort();this.document.removeEventListener('input',this.onInput);this.document.removeEventListener('change',this.onInput);this.document.removeEventListener('submit',this.onSubmit);this.document.removeEventListener('click',this.onClick);}
+}

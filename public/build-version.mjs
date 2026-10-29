@@ -1,1 +1,1 @@
-export const BUILD='20261028-study38';
+export const BUILD='20261029-reviews39';

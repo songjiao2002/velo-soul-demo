@@ -1,6 +1,7 @@
 import {nativeCors} from './native-origin.mjs';
 import http from 'node:http';
 import {openBikeMemory,createMemoryHandler} from './bike-memory.mjs';
+import {BikeReviewStore,createReviewHandler} from './bike-reviews.mjs';
 import {attachRealtimeAsr} from './asr-realtime.mjs';
 import { createReadStream, existsSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
@@ -21,6 +22,7 @@ const weatherService=createWeatherService();
 const handleWeather=createWeatherHandler(weatherService);
 const bikeMemories=openBikeMemory();
 const handleMemory=createMemoryHandler(bikeMemories);
+const handleReviews=createReviewHandler(bikeMemories?new BikeReviewStore(bikeMemories.db):null);
 const handleChat=createChatHandler({getWeather:id=>weatherService.resolve(id),getBikeMemory:id=>bikeMemories?.latest(id)});
 
 const root = fileURLToPath(new URL('./public/', import.meta.url));
@@ -52,7 +54,7 @@ export const server = http.createServer(async (req, res) => {
     // An invalid absolute request target must not reject this async listener.
     new URL(req.url, 'http://localhost');
     if(nativeCors(req,res))return;
-    if(await handleMemory(req,res)||await handleWeather(req,res)||await handleChat(req,res))return;
+    if(await handleReviews(req,res)||await handleMemory(req,res)||await handleWeather(req,res)||await handleChat(req,res))return;
     if (!['GET','HEAD'].includes(req.method)) {
       res.setHeader('Allow', 'GET, HEAD');
       return send(405, 'Method not allowed');
