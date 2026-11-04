@@ -2,9 +2,9 @@
 
 App ID: `com.velosoul.companion` · Source version: `0.1.14` · Android 7+ / iOS 15+.
 
-Android 0.1.13 uses the **same owner-controlled release key as 0.1.3–0.1.12**. The participant encounter shows the scanned companion and main start action. QR printing/downloads are on the separate desktop management page, linked quietly from the download-page footer. Camera-free preview and welcome permission/alternate-entry explanations are removed. The public install entry points to the verified 0.1.13 APK. Existing 0.1.3–0.1.12 installations update in place after Android confirmation; do not uninstall them. Camera/GPS permission requests, continuous voice and cycling companions are retained. Riding uses play/stop icons with transparent, shadowed live subtitles. Each companion has three clearly separated preset notes with natural nicknames, plus actual visitor reviews. Three dedicated diary skills generate photo-led character letters from captured photos, actual conversation and camera impressions; GPS recaps are omitted. The diary skills keep each character independent: no routing, taste profiling, hidden recommendations or refusal scorekeeping. An evidence selection stage excludes negotiations and checks quoted excerpts against the current ride. This is not a Google Play release. The iOS target is a real Xcode project with a simulator build workflow. It is not a signed IPA or a published TestFlight app. The owner does not yet have Apple Developer membership.
+Android 0.1.14 uses the **same owner-controlled release key as 0.1.3–0.1.13**. The verified public download installs over those versions after Android confirmation; do not uninstall the old app. Original website and printed QR URLs are unchanged. Camera/GPS permission requests, continuous voice, cycling companions and transparent subtitles remain.
 
-The 0.1.9 interface removes the participant-page footer (Install / Update, tagline and copyright) and its spacing. The bottom Home / Scan QR / Diaries navigation remains. Installation is still available from Settings, the dismissible top banner and the original download page.
+This is a research preview, not a Google Play release. The iOS Xcode project supports simulator builds but is not a signed IPA or published TestFlight app. iPhone users open the original website in Safari and may use Share → Add to Home Screen. The owner does not yet have Apple Developer membership.
 
 ## 0.1.14 source changes
 
@@ -13,7 +13,7 @@ The 0.1.9 interface removes the participant-page footer (Install / Update, tagli
 - Each companion stores up to six recent conversation pairs on this installation. At most three past pairs accompany a future Qwen chat. Separate character histories, bounded validation, no preference adaptation or refusal score, and individual clearing in Settings. No cross-device identity or sync.
 - The last diary section is a local route image with a distance line and markers for photos captured with fresh GPS. The cover remains a real ride photo. Old diaries retain existing routes without invented photo markers; unrecorded routes are stated explicitly. Card image export includes the route at the end.
 
-The public download remains on the previous verified APK until the new signed package passes release checks.
+The public download points to the verified 0.1.14 APK. Validation includes 285 tests, a clean dependency audit, mobile browser checks and Android emulator checks on the release source. Build-only glob/minimatch dependencies were updated to patched versions.
 
 ## What is included
 
