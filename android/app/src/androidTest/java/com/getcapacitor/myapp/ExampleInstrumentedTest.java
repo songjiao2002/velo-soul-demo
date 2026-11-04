@@ -58,7 +58,8 @@ public class ExampleInstrumentedTest {
         assertEquals("com.velosoul.companion",InstrumentationRegistry.getInstrumentation().getTargetContext().getPackageName());
         awaitTrue("document.body.dataset.screen === 'home' && document.querySelector('#startupNotice').hidden");
         assertEquals("true",js("window.isSecureContext && Capacitor.isNativePlatform() && !!navigator.mediaDevices?.getUserMedia"));
-        assertEquals("3",js("document.querySelectorAll('.app-tabbar button').length"));
+        assertEquals("2",js("document.querySelectorAll('.app-tabbar button').length"));
+        assertEquals("0",js("document.querySelectorAll('.app-tabbar [data-nav=home]').length"));
         assertEquals("0",js("document.querySelectorAll('.soul-card,.topbar').length"));
         awaitTrue("document.body.dataset.screen === 'home' && !!window.jsQR && !!document.querySelector('#cameraStart')");
         assertEquals("true",js("Capacitor.isPluginAvailable('VeloMedia')"));
@@ -71,11 +72,11 @@ public class ExampleInstrumentedTest {
         awaitTrue("window.__cameraTrack.readyState === 'ended' && !document.querySelector('#cameraVideo').srcObject");
         js("window.__qrCheck=null;(async()=>{try{const answers=[];for(const id of ['lumi','bori','mori']){const image=new Image();image.src='/qr-'+id+'.png';await image.decode();const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);const code=jsQR(pixels.data,canvas.width,canvas.height);answers.push(code?.data==='https://velo-soul-demo-production.up.railway.app/?bike='+id);}window.__qrCheck=answers.every(Boolean);}catch(e){window.__qrCheck=String(e);}})()");
         awaitTrue("window.__qrCheck === true");
-        js("document.querySelector('.app-tabbar [data-nav=home]').click()");
-        awaitTrue("document.body.dataset.screen === 'home'");
+        js("document.querySelector('.app-tabbar [data-action=scan]').click()");
+        awaitTrue("document.body.dataset.screen === 'scan'");
         js("window.jsQR=()=>({data:'https://velo-soul-demo-production.up.railway.app/?bike=mori'});document.querySelector('#cameraStart').click()");
         awaitTrue("document.body.dataset.screen === 'welcome' && location.search === '?bike=mori'");
-        assertEquals("true",js("document.querySelectorAll('.meeting-description').length === 1 && document.querySelector('.meeting-name').textContent === 'Lulu' && document.querySelector('.meeting-description').textContent.length > 30"));
+        assertEquals("true",js("document.querySelectorAll('.meeting-description').length === 1 && document.querySelector('.encounter-name').textContent === 'Lulu' && document.querySelector('.meeting-description').textContent.length > 30"));
         assertEquals("0",js("document.querySelectorAll('[download],.settings-qr,[data-action=preview],.meeting-permission,.meeting-options,.meeting-copy [data-gps-panel]').length"));
         assertEquals("3",js("document.querySelectorAll('.sample-reviews .rider-reviews li').length"));
         js("document.querySelector('[data-review-action=open]').click()");

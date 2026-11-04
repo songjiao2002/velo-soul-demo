@@ -86,5 +86,5 @@ export function createSoulChat({audioSession,onOpen=()=>{},onTurn=()=>{},getInpu
   function setInputLanguage(value){const active=voiceSession.active;stopRecognition();stopSpeech();inputLanguage=value;const select=find('#chatInputLanguage');if(select)select.value=value;if(active)recognize();}
   function canAnnounceWeather(){return dialog.open&&shareContext&&autoRead&&!voiceSession.audioIssue&&voiceSession.active&&['listening','quiet'].includes(voiceSession.state)&&Date.now()-voiceSession.stateSince>250;}
   function announceWeather(line,lang){if(!canAnnounceWeather())return false;const ok=voiceSession.announce(line,lang);if(ok){latestReply=line;find('#chatLog').append(message('assistant',line));find('#chatListen').disabled=false;}return ok;}
-  return {voiceActive:()=>voiceSession.active,open,setInputLanguage,canAnnounceWeather,announceWeather,isOpen(){return dialog.open;},close(){cancel();if(dialog.open)dialog.close();}};
+  return {forget(id){if(!Object.hasOwn(histories,id))return;if(soul===id){cancel();latestReply='';if(dialog.open)dialog.close();}histories[id]=[];introduced.delete(id);},voiceActive:()=>voiceSession.active,open,setInputLanguage,canAnnounceWeather,announceWeather,isOpen(){return dialog.open;},close(){cancel();if(dialog.open)dialog.close();}};
 }

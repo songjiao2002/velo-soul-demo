@@ -26,7 +26,15 @@ function createView(host){
  const canvas=host.querySelector('.toon-canvas'),context=canvas?.getContext('2d');if(!context)return;
  try{
   const model=createCharacterModel(host.dataset.soul),scene=new T.Scene();scene.add(model.root);
-  scene.add(new T.AmbientLight(0xffffff,.85));const key=new T.DirectionalLight(0xffffff,2.25);key.position.set(-3,6,5);scene.add(key);
+  if(host.closest('.encounter-portrait')){
+   // Soft studio light for the white/blue encounter surface. Keep the original
+   // material colors, outline, geometry and two-band cel shading intact.
+   scene.add(new T.HemisphereLight(0xf4f9ff,0xd6dce6,1.05));
+   const key=new T.DirectionalLight(0xfff9f1,1.45);key.position.set(-3,6,5);scene.add(key);
+   const fill=new T.DirectionalLight(0xe5f0ff,.28);fill.position.set(4,2,3);scene.add(fill);
+  }else{
+   scene.add(new T.AmbientLight(0xffffff,.85));const key=new T.DirectionalLight(0xffffff,2.25);key.position.set(-3,6,5);scene.add(key);
+  }
   const heading=host.closest('[data-ride-direction="forward"]')?CHARACTER_FACING.ride:CHARACTER_FACING.portrait;
   const view={model,scene,canvas,context,yaw:heading,target:heading,drag:false,x:0,y:0,down:false,facing:null};views.set(host,view);
   host.addEventListener('pointerdown',view.start=e=>{if(!host.hasAttribute('data-turnable')||e.button>0)return;view.down=true;view.drag=false;view.x=e.clientX;view.y=e.clientY;});

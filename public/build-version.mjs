@@ -1,1 +1,1 @@
-export const BUILD='20261029-autoride42';
+export const BUILD='20261104-companion43';

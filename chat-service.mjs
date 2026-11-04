@@ -1,3 +1,4 @@
+import {validateDeviceMemory,describeDeviceMemory} from './public/device-memory.mjs';
 import {loadDiarySkills,validateDiary,diaryRequest,diaryResult,diaryPhotoRequest,diaryPhotoResult} from './diary-service.mjs';
 import {allowedRequestOrigin} from './native-origin.mjs';
 import {memoryContext} from './public/bike-memory-core.mjs';
@@ -44,7 +45,7 @@ export function validateChat(body,now=Date.now()){
   const location=validateLocationContext(body.context?.location,now);
   const image=body.image===undefined?null:validateImage(body.image);
   const weatherId=typeof body.context?.weatherId==='string'&&/^[a-f0-9-]{36}$/.test(body.context.weatherId)?body.context.weatherId:null;
-  return {voice:body.voice===true,soul:body.soul,language:body.language==='zh'?'en':body.language,messages,event,location,image,weatherId};
+  return {voice:body.voice===true,soul:body.soul,language:body.language==='zh'?'en':body.language,messages,event,location,image,weatherId,deviceMemory:validateDeviceMemory(body.context?.deviceMemory,body.soul,now)};
 }
 
 export async function loadSoulSkills(){
@@ -186,6 +187,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
         }
         requestBody.messages[0].content+='\n\n'+describeWeather(weather,now());
         if(!vision){const memory=getBikeMemory(payload.soul);if(memory?.bike===payload.soul)requestBody.messages[0].content+='\n\n'+memoryContext(memory);}
+        if(!vision&&payload.deviceMemory)requestBody.messages[0].content+='\n\n'+describeDeviceMemory(payload.deviceMemory);
         if(payload.voice&&!vision){requestBody.max_tokens=100;requestBody.messages[0].content+='\nVOICE MODE: Reply in one short, complete sentence first; at most two sentences, 24 English words or 65 Korean characters. Do not introduce yourself again unless the rider asks who you are. No emoji, Markdown or long lists. Leave room for the rider to respond. The requested output language is mandatory, including greetings and short acknowledgements.';}
         const data=await complete(requestBody,config,signal),choice=data?.choices?.[0],reply=choice?.message?.content;
         if(typeof reply!=='string'||!reply.trim()||reply.length>10000)throw new ChatError('invalid_response',502);

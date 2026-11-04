@@ -1,10 +1,19 @@
 # VELO SOUL mobile preview
 
-App ID: `com.velosoul.companion` · Source version: `0.1.13` · Android 7+ / iOS 15+.
+App ID: `com.velosoul.companion` · Source version: `0.1.14` · Android 7+ / iOS 15+.
 
 Android 0.1.13 uses the **same owner-controlled release key as 0.1.3–0.1.12**. The participant encounter shows the scanned companion and main start action. QR printing/downloads are on the separate desktop management page, linked quietly from the download-page footer. Camera-free preview and welcome permission/alternate-entry explanations are removed. The public install entry points to the verified 0.1.13 APK. Existing 0.1.3–0.1.12 installations update in place after Android confirmation; do not uninstall them. Camera/GPS permission requests, continuous voice and cycling companions are retained. Riding uses play/stop icons with transparent, shadowed live subtitles. Each companion has three clearly separated preset notes with natural nicknames, plus actual visitor reviews. Three dedicated diary skills generate photo-led character letters from captured photos, actual conversation and camera impressions; GPS recaps are omitted. The diary skills keep each character independent: no routing, taste profiling, hidden recommendations or refusal scorekeeping. An evidence selection stage excludes negotiations and checks quoted excerpts against the current ride. This is not a Google Play release. The iOS target is a real Xcode project with a simulator build workflow. It is not a signed IPA or a published TestFlight app. The owner does not yet have Apple Developer membership.
 
 The 0.1.9 interface removes the participant-page footer (Install / Update, tagline and copyright) and its spacing. The bottom Home / Scan QR / Diaries navigation remains. Installation is still available from Settings, the dismissible top banner and the original download page.
+
+## 0.1.14 source changes
+
+- Light scanner/encounter UI with a frosted-glass companion card and a muted background and softer portrait lighting. Original character materials, riding UI and printed QR links stay intact.
+- Bottom navigation has Scan QR and Diaries; the old Home tab is removed. Export to Notes is removed from both finished and saved diaries; Copy diary, Save card image and Delete diary remain.
+- Each companion stores up to six recent conversation pairs on this installation. At most three past pairs accompany a future Qwen chat. Separate character histories, bounded validation, no preference adaptation or refusal score, and individual clearing in Settings. No cross-device identity or sync.
+- The last diary section is a local route image with a distance line and markers for photos captured with fresh GPS. The cover remains a real ride photo. Old diaries retain existing routes without invented photo markers; unrecorded routes are stated explicitly. Card image export includes the route at the end.
+
+The public download remains on the previous verified APK until the new signed package passes release checks.
 
 ## What is included
 

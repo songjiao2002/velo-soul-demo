@@ -77,3 +77,6 @@ body.camera-open>.topbar,body.camera-open>.app-tabbar{display:none!important}
 .camera-fullscreen .ride-listening-status{position:absolute;left:20px;top:calc(124px + env(safe-area-inset-top,0px));max-width:calc(100vw - 90px);font-size:11px;line-height:1.4;font-weight:500;letter-spacing:.01em;color:#fff;text-shadow:0 1px 3px #000d,0 1px 7px #0008;background:none;border:0;box-shadow:none;pointer-events:none}
 .camera-fullscreen[data-scene-mode=map] .ride-listening-status{color:#294633;text-shadow:0 1px 2px #fff,0 0 6px #fffd}
 .camera-fullscreen .scene-map-layer .map-caption{top:calc(150px + env(safe-area-inset-top,0px))}
+
+/* A route is the diary’s last image, never its cover. */
+.post-body .diary-route{margin:30px 0 0;padding-top:22px;border-top:1px solid #e5eadf}.diary-route figcaption{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;color:#52654b;font-size:13px;font-weight:500}.diary-route figcaption small{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:400;color:#76846f}.diary-route figcaption i{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:none}.diary-route-image{display:block;width:100%;height:auto}.post-body .diary-route-empty{margin:0;color:#7a8679;font-size:13px;line-height:1.6}
