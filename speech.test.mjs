@@ -15,11 +15,11 @@ test('speech validates bounded text and restricts provider audio URLs',()=>{
 });
 test('cloud speech returns real audio, uses persona voices and never forwards credentials to storage',async()=>{
  const voices=[];let downloads=0;const service=createChatService({env,fetchImpl:async(url,options)=>{
-  if(url.endsWith('/generation')){assert.equal(options.headers.Authorization,'Bearer test-private-key');const body=JSON.parse(options.body);voices.push(body.input.voice);assert.equal(body.model,'qwen3-tts-flash');return new Response(JSON.stringify({output:{audio:{url:'https://dashscope-result-sgp.oss-ap-southeast-1.aliyuncs.com/file.wav'}}}));}
+  if(url.endsWith('/generation')||url.endsWith('/SpeechSynthesizer')){assert.equal(options.headers.Authorization,'Bearer test-private-key');const body=JSON.parse(options.body);voices.push(body.input.voice);assert.equal(body.model,url.endsWith('/SpeechSynthesizer')?'qwen-audio-3.1-tts-flash':'qwen3-tts-flash');return new Response(JSON.stringify({output:{audio:{url:'https://dashscope-result-sgp.oss-ap-southeast-1.aliyuncs.com/file.wav'}}}));}
   downloads++;assert.equal(options.headers,undefined);assert.equal(options.redirect,'error');return new Response(wav);
  }});
  for(const soul of ['lumi','mori','bori'])assert.deepEqual(await service.speech({...input,soul}),wav);
- assert.deepEqual(voices,['Cherry','Serena','Chelsie']);assert.equal(downloads,3);
+ assert.deepEqual(voices,['Cherry','qwen-audio-3.1-tts-flash-soulpanda-78d14264357345dbb7c5a417bfc4d8df','Chelsie']);assert.equal(downloads,3);
 });
 test('speech HTTP route serves non-cacheable WAV and enforces origins and shared budget',async t=>{
  const handler=createChatHandler({env:{...env,QWEN_MAX_DAILY_REQUESTS:'1'},fetchImpl:async url=>url.endsWith('/generation')?new Response(JSON.stringify({output:{audio:{url:'https://dashscope-result-sgp.oss-ap-southeast-1.aliyuncs.com/a.wav'}}})):new Response(wav)});

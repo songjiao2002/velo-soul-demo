@@ -1,1 +1,1 @@
-export const BUILD='20261104-companion43';
+export const BUILD='20261112-pandavoice44';

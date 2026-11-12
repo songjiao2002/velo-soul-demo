@@ -95,6 +95,13 @@ export function speechAudioURL(value){
  u.protocol='https:';return u.href;
 }
 
+// Lulu is the panda; its legacy bicycle/QR ID is mori.
+const PANDA_VOICE='qwen-audio-3.1-tts-flash-soulpanda-78d14264357345dbb7c5a417bfc4d8df';
+function speechRequest(payload,config){
+  if(payload.soul==='mori')return {model:'qwen-audio-3.1-tts-flash',input:{text:payload.text,voice:PANDA_VOICE,format:'wav',sample_rate:24000,instruction:`Speak in ${payload.language}. Use a relaxed, friendly delivery.`}};
+  return {model:config.ttsModel,input:{text:payload.text,voice:{lumi:'Cherry',bori:'Chelsie'}[payload.soul],language_type:payload.language}};
+}
+
 export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,timeoutMs=30000,getWeather=()=>null,getBikeMemory=()=>null}={}){
   const skills=loadSoulSkills(),diarySkills=loadDiarySkills();
   // A shared demo budget deliberately covers all visitors and cannot be bypassed with new cookies.
@@ -113,7 +120,8 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
       if(signal?.aborted)abort();else signal?.addEventListener('abort',abort,{once:true});
       const timer=setTimeout(abort,timeoutMs);
       try {
-        const response=await fetchImpl(speech?config.baseURL.replace('/compatible-mode/v1','/api/v1/services/aigc/multimodal-generation/generation'):config.baseURL+'/chat/completions',{
+        const speechPath=requestBody.model==='qwen-audio-3.1-tts-flash'?'/api/v1/services/audio/tts/SpeechSynthesizer':'/api/v1/services/aigc/multimodal-generation/generation';
+        const response=await fetchImpl(speech?config.baseURL.replace('/compatible-mode/v1',speechPath):config.baseURL+'/chat/completions',{
           method:'POST',headers:{'Authorization':'Bearer '+config.apiKey,'Content-Type':'application/json',...(stream?{'X-DashScope-SSE':'enable'}:{})},signal:controller.signal,redirect:'error',
           body:JSON.stringify(requestBody)
         });
@@ -138,13 +146,11 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
     status(){const c=chatConfig(env);return {configured:c.configured,provider:'Qwen',model:c.model,visionModel:c.visionModel,asrModel:c.asrModel,ttsModel:c.ttsModel,skills:SOUL_IDS};},
     async speechStream(input,{signal,emit}={}){
       const payload=validateSpeech(input),config=chatConfig(env);if(!config.configured)throw new ChatError('not_configured',503);
-      const voice={lumi:'Cherry',mori:'Serena',bori:'Chelsie'}[payload.soul];
-      return complete({model:config.ttsModel,input:{text:payload.text,voice,language_type:payload.language}},config,signal,{speech:true,stream:true,readResponse:response=>relaySpeech(response,emit)});
+      return complete(speechRequest(payload,config),config,signal,{speech:true,stream:true,readResponse:response=>relaySpeech(response,emit)});
     },
     async speech(input,{signal}={}){
       const payload=validateSpeech(input),config=chatConfig(env);if(!config.configured)throw new ChatError('not_configured',503);
-      const voice={lumi:'Cherry',mori:'Serena',bori:'Chelsie'}[payload.soul];
-      return complete({model:config.ttsModel,input:{text:payload.text,voice,language_type:payload.language}},config,signal,{speech:true,readResult:async(data,requestSignal)=>{
+      return complete(speechRequest(payload,config),config,signal,{speech:true,readResult:async(data,requestSignal)=>{
         const url=speechAudioURL(data?.output?.audio?.url);
         // Fetch only the provider's audio object; authorization is never forwarded to OSS.
         const response=await fetchImpl(url,{signal:requestSignal,redirect:'error'});
