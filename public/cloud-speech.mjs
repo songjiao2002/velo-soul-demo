@@ -44,7 +44,7 @@ export class CloudSpeechPlayer {
  async playStream(response,{soul,valid,report,received}){
   const context=this.context,reader=response.body.getReader(),decoder=new TextDecoder(),nodes=new Set();
   const rate=soul==='mori'?.94:soul==='bori'?1.04:1;
-  let pending='',bytes=0,carry=null,done=false,played=false,next=context.currentTime+.08,tailTimer,resolveTail,mouthToken;
+  let pending='',bytes=0,carry=null,done=false,played=false,next=context.currentTime+.03,tailTimer,resolveTail,mouthToken;
   let samplesToCache=[],sampleCount=0;
   const tail=new Promise(resolve=>resolveTail=resolve);
   const cleanup=()=>{if(mouthToken!==undefined)this.mouth?.stop(mouthToken);this.clearTimer(tailTimer);reader.cancel().catch(()=>{});for(const source of nodes){source.onended=null;try{source.stop();source.disconnect();}catch{}}nodes.clear();resolveTail();if(this.streamStop===cleanup)this.streamStop=null;};

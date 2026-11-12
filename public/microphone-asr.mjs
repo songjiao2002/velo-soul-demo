@@ -190,7 +190,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
       }
       this.chunks.push(data); this.total += ms; this.stream?.write(data,rate);
       this.quiet = loud ? 0 : this.quiet + ms; if (loud) this.voiced += ms;
-      if (this.quiet >= 350 || this.total >= 15000) this.stop();
+      if (this.quiet >= 320 || this.total >= 15000) this.stop();
     }
     async stop() {
       if (!this.active || this.finalizing) return;
