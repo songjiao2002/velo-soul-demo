@@ -72,7 +72,7 @@ export class MicrophoneInput {
     if(serial!==this.serial)return;
     const source=context.createMediaStreamSource(stream);this.source=source;let node;
     if(context.audioWorklet&&this.WorkletNode){node=new this.WorkletNode(context,'soul-mic');node.port.onmessage=e=>this.samples(e.data,context.sampleRate);}
-    else{node=context.createScriptProcessor(2048,1,1);node.onaudioprocess=e=>this.samples(new Float32Array(e.inputBuffer.getChannelData(0)),context.sampleRate);}
+    else{node=context.createScriptProcessor(1024,1,1);node.onaudioprocess=e=>this.samples(new Float32Array(e.inputBuffer.getChannelData(0)),context.sampleRate);}
     this.node=node;const mute=context.createGain();this.mute=mute;mute.gain.value=0;source.connect(node);node.connect(mute);mute.connect(context.destination);
     for(const track of stream.getTracks()){
       const valid=()=>serial===this.serial&&stream===this.stream;
@@ -148,12 +148,13 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
       },6000);
     }
     openStream(){
-      if(Socket&&location&&Date.now()>=streamDisabledUntil){
+      if(this.stream)return;
+      if(Socket&&location&&now()>=streamDisabledUntil){
         const url=speechSocketURL(location);url.searchParams.set('language',this.language());
         this.stream=new StreamingTranscriber({Socket,url:url.href,setTimer,clearTimer,
           onPartial:text=>{if(this.active)this.onresult?.({results:[{0:{transcript:text},isFinal:false}]});},
           onFinal:text=>{if(this.active)this.deliver(text);},
-          onUnavailable:error=>{this.stream=null;streamDisabledUntil=Date.now()+60000;if(!this.active)return;if(['rate_limited','provider_quota'].includes(error))return this.fail(error);if(this.finalizing)this.transcribe();}});
+          onUnavailable:error=>{this.stream=null;streamDisabledUntil=now()+(['provider_auth','not_configured','rate_limited','provider_quota'].includes(error)?60000:5000);if(!this.active)return;if(['rate_limited','provider_quota'].includes(error))return this.fail(error);if(this.finalizing)this.transcribe();}});
       }
     }
     samples(data, rate) {
@@ -171,6 +172,9 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
         this.candidate = loud ? this.candidate + ms : 0;
         if (!loud) this.noise = Math.max(.001, Math.min(.025, this.noise * .95 + rms * .05));
         this.quiet += ms;
+        // Start the connection while confirming speech, retaining the click filter.
+        if(this.candidate>=80&&!this.stream)this.openStream();
+        if(!loud&&this.stream){this.stream.close();this.stream=null;}
         if (this.candidate >= 120) {
           this.speech = true; this.chunks = this.preroll; this.preroll = []; this.quiet = 0; this.voiced = this.candidate;
           this.total = this.chunks.reduce((n, c) => n + c.length, 0) / rate * 1000; this.onspeechstart?.();
@@ -181,7 +185,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
       }
       this.chunks.push(data); this.total += ms; this.stream?.write(data,rate);
       this.quiet = loud ? 0 : this.quiet + ms; if (loud) this.voiced += ms;
-      if (this.quiet >= 450 || this.total >= 15000) this.stop();
+      if (this.quiet >= 350 || this.total >= 15000) this.stop();
     }
     async stop() {
       if (!this.active || this.finalizing) return;

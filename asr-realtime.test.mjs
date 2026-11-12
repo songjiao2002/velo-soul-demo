@@ -75,11 +75,11 @@ test('streaming resampler preserves 16kHz duration across uneven 44.1/48kHz chun
  for(const rate of [44100,48000,16000]){const encode=createPcm16Encoder();let bytes=0;for(let i=0;i<rate;i+=2048){const frame=encode(new Float32Array(Math.min(2048,rate-i)).fill(.5),rate);bytes+=frame.length;for(let j=0;j<frame.length;j+=2)assert.ok(Math.abs(new DataView(frame.buffer).getInt16(j,true)-16384)<=1);}assert.equal(bytes,32000);}
 });
 
-function client(){
+function client(now=Date.now){
  const sockets=[],uploads=[];
  class Socket{constructor(url){this.url=url;this.readyState=0;this.bufferedAmount=0;this.sent=[];sockets.push(this);}send(data){this.sent.push(data);}close(){this.readyState=3;}open(){this.readyState=1;this.onopen?.();this.event({type:'ready'});}event(event){this.onmessage?.({data:JSON.stringify(event)});}}
  const input={onLevel(){},attach:async r=>input.receiver=r,detach:r=>{if(input.receiver===r)input.receiver=null;},release(){input.receiver=null;}};
- const Recognition=createMicrophoneRecognition({Socket,location:new URL('https://demo.example/?bike=lumi'),input,fetchImpl:async(url,options)=>{uploads.push({url,options});return new Response(JSON.stringify({text:'Fallback complete sentence'}));}});
+ const Recognition=createMicrophoneRecognition({now,Socket,location:new URL('https://demo.example/?bike=lumi'),input,fetchImpl:async(url,options)=>{uploads.push({url,options});return new Response(JSON.stringify({text:'Fallback complete sentence'}));}});
  const feed=(level,ms)=>{for(let i=0;i<ms/100;i++)input.receiver?.samples(new Float32Array(1600).fill(level),16000);};
  return {Recognition,sockets,uploads,feed,input};
 }
@@ -108,4 +108,21 @@ test('malformed browser streaming responses fall back once without losing the ut
   assert.equal(a.uploads.length,1);assert.equal(events.length,1);assert.equal(events[0].isFinal,true);assert.equal(events[0][0].transcript,'Fallback complete sentence');
   late({data:JSON.stringify({type:'final',text:'stale'})});assert.equal(events.length,1);r.abort();
  }
+});
+
+
+test('speech starts streaming after 80ms and finalizes at 350ms without cutting a 300ms pause',async()=>{
+ const a=client(),r=new a.Recognition();r.start();await tick();
+ a.input.receiver.samples(new Float32Array(1280).fill(.1),16000);
+ assert.equal(a.sockets.length,1);const ws=a.sockets[0];ws.open();
+ a.feed(.1,300);a.feed(0,300);
+ assert.ok(!ws.sent.some(x=>typeof x==='string'&&JSON.parse(x).type==='finish'));
+ a.feed(.1,200);a.input.receiver.samples(new Float32Array(5600),16000);
+ assert.equal(JSON.parse(ws.sent.at(-1)).type,'finish');r.abort();
+});
+
+test('temporary streaming failure retries after five seconds instead of blocking the next minute',async()=>{
+ let time=0;const a=client(()=>time),r=new a.Recognition();r.start();await tick();a.feed(.1,300);a.sockets[0].open();a.sockets[0].onerror();r.abort();
+ time=4000;const waiting=new a.Recognition();waiting.start();await tick();a.feed(.1,300);assert.equal(a.sockets.length,1);waiting.abort();
+ time=5001;const retry=new a.Recognition();retry.start();await tick();a.feed(.1,300);assert.equal(a.sockets.length,2);retry.abort();
 });

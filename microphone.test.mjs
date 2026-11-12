@@ -110,7 +110,7 @@ test('cloud interruption uses recognized stop commands and aborts late monitor r
 });
 
 test('end of speech submits within half a second while shorter pauses remain in the same turn',async()=>{
- const a=recorder(),r=new a.Recognition();r.start();await flush();a.feed(.08,700);a.feed(0,300);assert.equal(a.calls.length,0);a.feed(.08,300);a.feed(0,400);assert.equal(a.calls.length,0);a.feed(0,100);assert.equal(a.calls.length,1);r.abort();
+ const a=recorder(),r=new a.Recognition();r.start();await flush();a.feed(.08,700);a.feed(0,300);assert.equal(a.calls.length,0);a.feed(.08,300);a.feed(0,300);assert.equal(a.calls.length,0);a.feed(0,100);assert.equal(a.calls.length,1);r.abort();
 });
 
 test('silent PCM stays listening, but a stalled capture graph fails and releases its watchdog',async()=>{
