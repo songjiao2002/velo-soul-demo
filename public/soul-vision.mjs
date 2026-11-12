@@ -33,7 +33,7 @@ export class SoulVisionObserver {
   finally{this.clearTimer(timer);if(this.controller===controller)this.controller=null;}
  }
  async start(soul,language){
-  this.stop();this.active=true;this.soul=soul;this.language=outputLanguage(language);const serial=this.epoch;this.onState('checking');
+  this.stop();this.active=true;this.soul=soul;this.language=outputLanguage(language,soul);const serial=this.epoch;this.onState('checking');
   try{const status=await this.request('/api/chat/status',{cache:'no-store'},serial);if(!status.configured)throw new Error('not_configured');if(serial===this.epoch)await this.tick(serial);}
   catch(e){if(serial===this.epoch){this.stop();this.onState(e.message);}}
  }

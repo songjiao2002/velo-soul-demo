@@ -7,7 +7,7 @@ export const SEOUL_PLACES=[
 ];
 const radians=n=>n*Math.PI/180;
 export function metersBetween(a,b){const t=Math.sin(radians(b.lat-a.lat)/2)**2+Math.cos(radians(a.lat))*Math.cos(radians(b.lat))*Math.sin(radians(b.lon-a.lon)/2)**2;return 6371000*2*Math.atan2(Math.sqrt(t),Math.sqrt(Math.max(0,1-t)));}
-export function outputLanguage(input){return input==='ko'?'ko':'en';}
+export function outputLanguage(input,soul){return input==='zh'&&soul==='mori'?'zh':input==='ko'?'ko':'en';}
 export class PlaceFence {
  constructor({places=SEOUL_PLACES,dwellMs=5000,cooldownMs=120000}={}){this.places=places;this.dwellMs=dwellMs;this.cooldownMs=cooldownMs;this.seen=new Set();this.candidate=null;this.lastTrigger=-Infinity;this.lastPoint=null;}
  pause(){this.candidate=null;this.lastPoint=null;}
@@ -25,6 +25,7 @@ export class PlaceFence {
 }
 export function placeFallback(place,soul,language){
  const ko=language==='ko',name=place.name[ko?'ko':'en'];
+ if(language==='zh'&&soul==='mori')return `好像到${place.name.zh||name}附近了，想歇就歇一会儿。`;
  if(ko){if(soul==='lumi')return `위치상 ${name} 근처에 와 있나 봐. 안전하게 멈출 수 있다면, 어떤 작은 디테일이 눈에 들어오는지 같이 찾아볼까?`;if(soul==='mori')return `${name} 근처에 온 것 같아. 쉬고 싶다면 잠깐 멈춰도 좋아. 나는 네 속도에 맞출게.`;return place.kind==='cafe'?`${name} 근처에 온 것 같아! 쉬고 싶다면 카페에 들르는 건 어때? 문을 열었는지는 먼저 확인해보자.`:`${name} 근처에 왔나 봐. 오늘 이야기에 새로운 장소가 하나 더 생겼네!`;}
  if(soul==='lumi')return `Location suggests we're near ${name}. If you stop somewhere safe, what little detail would you like to discover together?`;
  if(soul==='mori')return `We seem to be near ${name}. If you'd like a pause, there's no rush. I'll keep you company at your pace.`;

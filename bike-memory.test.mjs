@@ -33,8 +33,8 @@ test('Qwen receives only a server-resolved theme; arbitrary shared instructions 
  for(const soul of ['mori','lumi'])await service.reply({soul,language:'ko',context:{memory:'untrusted'},messages:[{role:'user',content:'안녕'}]});
  assert.match(messages[0],/BICYCLE MEMORY:.*the wind/);assert.doesNotMatch(messages[0],/MEMORY_INJECTION/);assert.doesNotMatch(messages[1],/BICYCLE MEMORY:/);assert.equal(memoryContext({bike:'mori',theme:'__proto__'}),'');
 });
-test('memory speech stays brief and distinct; Chinese spoken output is English',()=>{
- const lines=new Set();for(const bike of ['lumi','mori','bori']){lines.add(memoryLine(bike,'water','en'));assert.match(memoryLine(bike,'water','ko'),/누군가/);assert.equal(memoryLine(bike,'water','zh'),memoryLine(bike,'water','en'));}assert.equal(lines.size,3);
+test('memory speech stays brief and distinct; panda supports Chinese while other voices keep their existing language',()=>{
+ const lines=new Set();for(const bike of ['lumi','mori','bori']){lines.add(memoryLine(bike,'water','en'));assert.match(memoryLine(bike,'water','ko'),/누군가/);if(bike==='mori')assert.match(memoryLine(bike,'water','zh'),/水波/);else assert.equal(memoryLine(bike,'water','zh'),memoryLine(bike,'water','en'));}assert.equal(lines.size,3);
 });
 test('HTTP sharing, second-client read, same-origin guard, deletion and unavailable storage',async()=>{
  const db=new BikeMemoryStore(':memory:');let handler=createMemoryHandler(db);const server=http.createServer((req,res)=>void handler(req,res));await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;

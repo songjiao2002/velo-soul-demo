@@ -8,6 +8,7 @@ const patterns={wind:/바람|wind|breeze|风/u,water:/강물|강변|물결|river
 export function memoryTheme(text){return Object.keys(patterns).find(key=>patterns[key].test(text.toLowerCase()))||'moment';}
 export function memoryLine(bike,theme,language='en'){
  const t=THEMES[theme]||THEMES.moment;
+ if(language==='zh'&&bike==='mori')return `有人留下了关于${t[2]}的回忆，今天咱们慢慢走。`;
  const suffix=language==='ko'?{lumi:'오늘은 어떤 작은 발견이 기다릴까.',mori:'그 여운을 품고, 오늘은 너와 천천히 함께할게.',bori:'나는 그 이야기를 작은 간식처럼 아껴 두고 있어.'}:{lumi:'I wonder what little discovery today will bring.',mori:'I can carry that thought quietly alongside you.',bori:'I keep that story like a little treat for the road.'};
  return (language==='ko'?`누군가 이 자전거에 ${t[0]}에 관한 한마디를 남겼어. `:`Someone left this bicycle a thought about ${t[1]}. `)+(suffix[bike]||suffix.lumi);
 }

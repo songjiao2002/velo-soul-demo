@@ -29,7 +29,7 @@ export class DeviceCompanionMemory{
  meet(soul){if(!IDS.includes(soul)||this.met.has(soul))return false;this.prior(soul);const old=this.read(soul);const saved=this.persist(soul,{...old,visits:Math.min(1000000,old.visits+1),lastSeen:this.now()});if(saved)this.met.add(soul);return saved;}
  remember({soul,user,reply}={}){if(!IDS.includes(soul))return false;const u=clean(user),r=clean(reply);this.meet(soul);if(!memoryExchangeAllowed(u,r))return false;const old=this.read(soul);return this.persist(soul,{...old,visits:Math.max(1,old.visits),lastSeen:this.now(),exchanges:[...old.exchanges.filter(x=>x.user!==u||x.reply!==r),{at:this.now(),user:u,reply:r}].slice(-6)});}
  context(soul){const old=this.prior(soul);return old.visits?{soul,...old,exchanges:old.exchanges.slice(-3)}:null;}
- greeting(soul,language='en',fallback='en'){if(!this.prior(soul).visits)return null;const locale=(language==='auto'?fallback:language)==='ko'?'ko':'en';return {text:GREETINGS[locale][soul],language:locale};}
+ greeting(soul,language='en',fallback='en'){if(!this.prior(soul).visits)return null;const requested=language==='auto'?fallback:language;const locale=requested==='zh'&&soul==='mori'?'zh':requested==='ko'?'ko':'en';return {text:GREETINGS[locale][soul],language:locale};}
  welcome(soul,language='en'){return this.prior(soul).visits?(GREETINGS[language]||GREETINGS.en)[soul]:null;}
  forget(soul){if(!IDS.includes(soul))return false;try{this.storage.removeItem(KEY+soul);this.before.set(soul,blank());this.met.delete(soul);return true;}catch{this.available=false;return false;}}
 }

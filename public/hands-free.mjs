@@ -49,7 +49,7 @@ export class HandsFreeConversation {
  async submit(text,serial){
   if(!this.active||serial!==this.epoch)return;
   if(/^(stop listening|stop (the )?(voice )?conversation|停止(语音)?对话|停止聆听|대화\s*멈춰|음성\s*대화\s*(종료|그만))[.!?。！\s]*$/i.test(text)){this.stop();return;}
-  const language=replyLanguage(text,this.language);
+  const language=replyLanguage(text,this.language,this.soul);
   if(/^(repeat that|say that again|再说一次|重复一遍|다시\s*말해)[.!?。！\s]*$/i.test(text)&&this.histories[this.soul].length){this.output(this.histories[this.soul].at(-1).content,language,serial);return;}
   this.setState('thinking');const controller=new AbortController();this.controller=controller;const timeout=this.setTimer(()=>controller.abort(),35000);
   try{

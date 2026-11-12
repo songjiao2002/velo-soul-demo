@@ -53,6 +53,7 @@ Object.assign(warnings.en,{forecast_snow:'Snow is possible in the next two hours
 Object.assign(warnings.ko,{forecast_storm:'앞으로 두 시간 안에 뇌우가 올 가능성이 있어. 시작되기 전에 안전한 실내에서 쉴 계획을 세우자.',forecast_ice:'앞으로 두 시간 안에 어는 비가 올 가능성이 있어. 노면이 얼 수 있으니 그 전에 안전하게 라이딩을 멈출 계획을 세우자.'});
 Object.assign(warnings.zh,{forecast_storm:'未来两小时可能出现雷雨，提前计划在安全的室内停下休息吧。',forecast_ice:'未来两小时可能出现冻雨，路面可能结冰，提前计划安全停止骑行吧。'});
 export function weatherLine(w,soul,language='en',risk=weatherRisk(w)){
+ if(language==='zh'&&soul==='mori'){if(risk)return '咱们慢慢来。'+weatherWarning(risk,'zh');return `附近${conditions.zh[condition(w.code)]}，约${Math.round(w.temperatureC)}度，舒服地骑就好。`;}
  const ko=language==='ko';if(risk){const lead=ko?{lumi:'작은 날씨 소식이 있어. ',mori:'우리 여유 있게 가자. ',bori:'따뜻한 간식보다 먼저, 우리 안전부터 챙기자. '}:{lumi:'A little weather heads-up. ',mori:'Let’s take our time. ',bori:'Before any snack plans, let’s take care of you. '};return lead[soul]+weatherWarning(risk,ko?'ko':'en');}
  const temp=Math.round(w.temperatureC),c=conditions[ko?'ko':'en'][condition(w.code)];
  if(ko)return `주변 날씨 정보는 ${c}, 기온은 약 ${temp}도야. `+({lumi:'이런 날엔 어떤 작은 풍경이 눈에 들어올까?',mori:temp<8?'쌀쌀하네. 몸이 편한 속도로 함께 가자.':'바람은 편안하게 느껴져? 오늘은 네 속도에 맞출게.',bori:temp<12?'나중에 안전하게 쉬면서 따뜻한 간식 이야기할까?':'오늘 쉬는 시간엔 어떤 간식이 당겨?'}[soul]);

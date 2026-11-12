@@ -1,6 +1,7 @@
 export function detectInputLanguage(text,fallback='en'){return /[\uac00-\ud7af]/.test(text)?'ko':/[\u3400-\u9fff]/.test(text)?'zh':/[a-z]/i.test(text)?'en':fallback;}
-export function replyLanguage(text,preferred='auto'){
+export function replyLanguage(text,preferred='auto',soul){
  const detected=detectInputLanguage(text,'en');
+ if(soul==='mori')return ['en','ko','zh'].includes(preferred)?preferred:detected;
  // Preserve the project's Chinese-to-English policy; an explicit Korean
  // preference also keeps short ambiguous acknowledgements in Korean.
  return detected==='zh'?'en':['en','ko'].includes(preferred)?preferred:detected==='ko'?'ko':'en';

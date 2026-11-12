@@ -2,6 +2,19 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {translate} from './public/i18n.mjs';
 import {chooseEnglishVoice,phrasePlan,EnglishVoicePlayer} from './public/voice-engine.mjs';
+test('panda Chinese selection stays Chinese from opening through reply and synthesis',async()=>{
+ const {replyLanguage}=await import('./public/input-language.mjs');
+ const {soulIntroduction,introductionClip}=await import('./public/soul-intro.mjs');
+ const {encounterScreen}=await import('./public/encounter-screen.mjs');
+ const {validateChat,validateSpeech,createChatService}=await import('./chat-service.mjs');
+ assert.equal(replyLanguage('你好','auto','mori'),'zh');assert.equal(replyLanguage('OK','zh','mori'),'zh');
+ assert.equal(replyLanguage('你好','auto','lumi'),'en');
+ const intro=soulIntroduction('mori','zh');assert.equal(intro.language,'zh');assert.match(intro.text,/露露/);assert.match(introductionClip(intro.text,'mori','zh'),/mori-zh\.wav/);
+ const page=encounterScreen({id:'mori',language:'zh',voiceLanguage:'zh',puppet:'',reviews:''});assert.match(page,/value="zh" selected>中文/);assert.match(page,/encounterVoiceLanguage/);
+ const payload={soul:'mori',language:'zh',messages:[{role:'user',content:'你好'}]};assert.equal(validateChat(payload).language,'zh');assert.equal(validateSpeech({soul:'mori',language:'zh',text:intro.text}).language,'Chinese');
+ const service=createChatService({env:{DASHSCOPE_API_KEY:'test'},fetchImpl:async(_,o)=>{const body=JSON.parse(o.body);assert.match(body.messages[0].content,/Simplified Chinese/);assert.doesNotMatch(body.messages[0].content,/Chinese input currently receives English/);return new Response(JSON.stringify({choices:[{message:{content:'咱们慢慢走吧。'}}]}));}});
+ assert.equal((await service.reply(payload)).reply,'咱们慢慢走吧。');
+});
 test('translation preserves brands and numeric data while translating dynamic UI',()=>{
  for(const lang of ['ko','en','zh']){assert.equal(translate('VELO SOUL',lang),'VELO SOUL');assert.equal(translate('03:19',lang),'03:19');}
  assert.equal(translate('모리 만나기 ↗','en'),'Meet Mori ↗');assert.equal(translate('루루와 출발하기 →','zh'),'和露露一起出发 →');assert.equal(translate('카메라 켜기','ko'),'카메라 켜기');

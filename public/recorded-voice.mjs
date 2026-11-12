@@ -10,7 +10,7 @@ export const VOICE_PROFILES={
 export const BASE_KEYS=['hello','start','during','pause','end'];
 export function voiceFile(language,id,key,line){
  if(!Object.hasOwn(VOICE_PROFILES,id))return null;
- if(key==='hello'&&['ko','en'].includes(language))return introductionClip(SOUL_INTRO[id][language],id,language);
+ if(key==='hello'&&(['ko','en'].includes(language)||(id==='mori'&&language==='zh')))return introductionClip(SOUL_INTRO[id][language],id,language);
  if(language==='ko')return BASE_KEYS.includes(key)?(id==='mori'?`audio/${id}-${key}.wav?v=${BUILD}`:`audio/${id}-${key}.mp3`):null;
  if(language!=='en')return null;
  const scene=SCENARIOS[id].find(s=>s.line===line);
