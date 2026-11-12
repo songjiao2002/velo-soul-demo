@@ -92,6 +92,19 @@ test('streamed answer speaks its first sentence before completion and queues lat
  a.voices[0].callback('ended');assert.equal(a.voices.length,2);assert.equal(a.voices[1].text,'Let us ride.');a.voices[1].callback('ended');a.run(100);assert.equal(a.recognizers.at(-1).active,true);a.session.stop();
 });
 
+test('English and Korean first clauses start TTS before the rest arrives without repeating text',async()=>{
+ for(const [language,first,rest] of [['en','I am feeling cozy,',' let us ride!'],['ko','오늘은 기분이 좋아,',' 같이 달리자!']]){
+  let stream;const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}));
+  a.session.start('mori',language);a.recognizers[0].hear(language==='ko'?'오늘 기분 어때?':'How are you?');await flush();
+  const emit=frame=>stream.enqueue(new TextEncoder().encode(JSON.stringify(frame)+'\n'));
+  emit({type:'delta',text:first});await flush();assert.equal(a.voices[0].text,first);assert.equal(a.session.histories.mori.length,0);
+  emit({type:'delta',text:rest});await flush();assert.equal(a.voices.length,1);
+  a.voices[0].callback('ended');assert.equal(a.voices[1].text,rest.trim());
+  emit({type:'complete',soul:'mori',reply:first+rest});await flush();assert.equal(a.voices.length,2);
+  a.voices[1].callback('ended');a.session.stop();
+ }
+});
+
 test('a broken streamed answer stops already started speech and does not save a partial turn',async()=>{
  let stream;const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}));
  a.session.start('bori','en');a.recognizers[0].hear('Hello');await flush();stream.enqueue(new TextEncoder().encode(JSON.stringify({type:'delta',text:'Hello there. '})+'\n'));await flush();assert.equal(a.voices.length,1);const before=a.stops;stream.close();await flush();assert.ok(a.stops>before);assert.equal(a.session.histories.bori.length,0);a.session.stop();

@@ -17,9 +17,17 @@ export async function readProviderChat(response,onDelta){
 export async function readVoiceReply(response,{soul,onText,onSentence}){
  const reader=response.body.getReader(),decoder=new TextDecoder();let pending='',text='',spoken=0,result;
  const sentences=final=>{
-  const remaining=text.slice(spoken);const pattern=/[^.!?。！？]+(?:[。！？]|[.!?](?=\s))/g;let match;
+  const remaining=text.slice(spoken);const pattern=/[^.!?。！？]+(?:[。！？!?]|[.](?=\s))/g;let match;
   let consumed=0;while((match=pattern.exec(remaining))){onSentence(match[0].trim());consumed=match.index+match[0].length;}
   spoken+=consumed;
+  // Send a meaningful first clause to TTS while the model writes the rest.
+  // Do this only once, at punctuation, to preserve words and avoid tiny requests.
+  if(!final&&spoken===0){
+   const clause=text.match(/^(.+?[,，;；:：])(?:\s|$)/u);
+   if(clause){const part=clause[1].trim(),letters=part.replace(/[^\p{L}\p{N}]/gu,'');
+    if(letters.length>=12||(/[가-힣]/u.test(part)&&letters.length>=6)){onSentence(part);spoken=clause[1].length;}
+   }
+  }
   if(final&&text.slice(spoken).trim()){onSentence(text.slice(spoken).trim());spoken=text.length;}
  };
  const line=raw=>{
