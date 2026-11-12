@@ -98,7 +98,7 @@ export function speechAudioURL(value){
 // Lulu is the panda; its legacy bicycle/QR ID is mori.
 const PANDA_VOICE='qwen-audio-3.1-tts-flash-soulpanda-78d14264357345dbb7c5a417bfc4d8df';
 function speechRequest(payload,config){
-  if(payload.soul==='mori')return {model:'qwen-audio-3.1-tts-flash',input:{text:payload.text,voice:PANDA_VOICE,format:'wav',sample_rate:24000,instruction:`Speak in ${payload.language}. Use a relaxed, friendly delivery.`}};
+  if(payload.soul==='mori')return {model:'qwen-audio-3.1-tts-flash',input:{text:payload.text,voice:PANDA_VOICE,format:'wav',sample_rate:24000,instruction:`Speak in ${payload.language}. Use a relaxed, friendly voice with a subtle just-stretched feeling: lightly breathy, comfortably loose, with soft warm sentence endings. Keep a normal conversational pace and crisp words. Preserve the original voice. Do not add yawns, extra words or long pauses.`}};
   return {model:config.ttsModel,input:{text:payload.text,voice:{lumi:'Cherry',bori:'Chelsie'}[payload.soul],language_type:payload.language}};
 }
 
