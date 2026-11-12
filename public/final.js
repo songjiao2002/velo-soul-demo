@@ -1,3 +1,4 @@
+import {IdlePurr} from './idle-purr.mjs';
 import {DeviceCompanionMemory} from './device-memory.mjs';
 import {mountDeviceMemorySettings} from './device-memory-ui.mjs';
 import {encounterScreen} from './encounter-screen.mjs';
@@ -59,7 +60,7 @@ let handsFree=null,resumeRideVoice=false,wakeLock=null,gpsPoint=null,gpsSpeed=nu
 let activeVoiceSoul='lumi',encounterPhotos=[],companionPending=false,latestPhoto=null;
 let selected='lumi',screen='home',camera=null,camState='off',scanTimer=null,timer=null,toastTimer,voiceTimer,voiceSerial=0,ride=null,draft=null,watch=null,gpsEpoch=0,voiceOn=true,currentLine=null;
 const characterMotion=new CharacterMotion({onChange:snapshot=>paintCharacterMotion(document,snapshot,getLanguage())});
-const characterTimer=setInterval(()=>characterMotion.tick(),250);
+const characterTimer=setInterval(()=>{characterMotion.tick();idlePurr.tick();},250);
 const journeyStore=new JourneyStore(),journeyPager=new JourneyPager(journeyStore);
 const koreanMap=new KoreaMap({getLanguage});
 const rideView=new RideView({getLanguage,getPoints:()=>ride?.route?.length?ride.route:gpsPoint&&gpsPoint.accuracy<=60?[gpsPoint]:[],isCameraLive:()=>camState==='live'});
@@ -75,10 +76,11 @@ const recordedVoice=new RecordedVoicePlayer({audio,onState:state=>{audioSession.
  voiceStatus(messages[state]);
 }});
 const audioSession=new ConversationAudioSession();
+const idlePurr=new IdlePurr({session:audioSession,canPlay:()=>selected==='mori'&&voiceOn&&!document.hidden&&!!handsFree?.active&&['listening','quiet'].includes(handsFree.state)&&!soulChat.isOpen()&&!document.body.classList.contains('voice-playing')});
 const audioDevices=new AudioDevices({session:audioSession});
 const liveSpeech=new CloudSpeechPlayer({audioSession,onMouth:frame=>paintSoulMouth(document,frame)});
 function preloadIntro(id=selected){const intro=companionOpening(id,inputLanguage());if(intro)liveSpeech.preload(intro.text,{soul:id,language:intro.language,source:introductionClip(intro.text,id,intro.language)});}
-function stopVoice(){audioSession.setPlayback(recordedVoice,false);paintSoulExpression(document,"rest");liveSpeech.stop();recordedVoice.stop();voiceSerial++;clearTimeout(voiceTimer);document.body.classList.remove('voice-playing');}
+function stopVoice(){idlePurr.activity();audioSession.setPlayback(recordedVoice,false);paintSoulExpression(document,"rest");liveSpeech.stop();recordedVoice.stop();voiceSerial++;clearTimeout(voiceTimer);document.body.classList.remove('voice-playing');}
 function speak(line,key,id=selected){
  handsFree?.stop();stopVoice();activeVoiceSoul=id;currentLine={line,key,id};
  if(!voiceOn){voiceStatus('목소리를 쉬고 있어요.');return;}
@@ -260,7 +262,7 @@ window.addEventListener('pagehide',()=>{for(const job of diaryJobs.values())job.
 function routeFromURL(){const p=new URLSearchParams(location.search),id=p.get('bike');if(p.get('view')==='journeys')journal();else if(p.get('view')==='scan')scanner();else if(Object.hasOwn(SOULS,id)){theme(id);p.get('view')==='camera'?encounter():welcome(id);}else home();}
 startLanguageUI();$('voiceSelect').value=voiceLanguage;$('voiceSelect').addEventListener('change',e=>{const active=handsFree?.active;liveSpeech.prepare();setSpokenLanguage(e.target.value);soulChat.setInputLanguage(e.target.value);if(active){handsFree.start(selected,inputLanguage());requestWakeLock();}else if(!soulChat.isOpen()&&['welcome','camera'].includes(screen)){voiceOn=true;speak(SOULS[selected].hello,'hello');}});
 $('languageSelect').addEventListener('change',()=>{bikeMemory.render();riderReviews.render();koreanMap.language();rideView.language();updateGPSUI();document.querySelectorAll('[data-weather-card]').forEach(e=>e.outerHTML=weatherMarkup(getLanguage()));paintWeatherUI();handsFree?.stop();visionObserver?.stop();const panel=$('visionPanel');if(panel)panel.outerHTML=visionMarkup();if($('visionToggle'))$('visionToggle').disabled=camState!=='live';if(screen==='journal')void journal();});
-const microphoneInput=new MicrophoneInput({audioSession,onLevel:level=>{document.querySelectorAll('[data-mic-level]').forEach(m=>{m.value=level;m.setAttribute('aria-valuetext',Math.round(level*100)+'%');});}});
+const microphoneInput=new MicrophoneInput({audioSession,onLevel:level=>{if(level>.1)idlePurr.activity();document.querySelectorAll('[data-mic-level]').forEach(m=>{m.value=level;m.setAttribute('aria-valuetext',Math.round(level*100)+'%');});}});
 const CloudRecognition=createMicrophoneRecognition({input:microphoneInput,Socket:globalThis.WebSocket});
 handsFree=new HandsFreeConversation({onTurn:rememberInteraction,introduced:introducedSouls,getOpening:companionOpening,onOpening:text=>{if($('cameraCaption'))$('cameraCaption').textContent=text;},Recognition:CloudRecognition,releaseInput:()=>microphoneInput.release(),getContext:chatSensorContext,speak:playLiveVoice,stopSpeech:stopVoice,onState:paintHandsFree,onTranscript:(text,final=true)=>{if($('cameraCaption'))$('cameraCaption').textContent='';for(const id of ['heardText']){const el=$(id);if(el){el.textContent=text;el.dataset.transcriptState=final?'confirmed':'interim';}}},onReply:text=>{if($('rideQuote')){$('rideQuote').dataset.noTranslate='';$('rideQuote').textContent=text;$('quoteTitle').textContent='VOICE · Qwen';}}});
 document.addEventListener('change',e=>{if(e.target.id==='liveInputLanguage'){const lang=e.target.value;setSpokenLanguage(lang);if(handsFree.active){handsFree.start(selected,lang);requestWakeLock();}}});
@@ -285,7 +287,7 @@ async function startLiveCompanion(){if(companionPending)return;if(!ride)startRid
 function sayLive(line,lang,id=selected,onState=()=>{}){if(handsFree?.active)return handsFree.announce(line,lang,onState);return playLiveVoice(line,lang,id,onState);}
 async function requestWakeLock(){try{if(!document.hidden&&navigator.wakeLock&&!wakeLock){const lock=await navigator.wakeLock.request('screen');if(document.hidden||!handsFree?.active){await lock.release();return;}wakeLock=lock;lock.addEventListener('release',()=>{if(wakeLock===lock)wakeLock=null;});}}catch{}}
 function releaseWakeLock(){wakeLock?.release().catch(()=>{});wakeLock=null;}
-function paintHandsFree(state){paintSoulExpression(document,['thinking','transcribing','synthesizing'].includes(state)?'thinking':state==='speaking'?'talking':['listening','hearing','quiet'].includes(state)?'listening':'rest');if(state==='listening')setTimeout(()=>flushCompanionMemories(),350);paintRideVoiceControls(document,getLanguage(),!!handsFree?.active,state);document.querySelectorAll('.camera-conversation').forEach(e=>e.dataset.voiceState=state);document.querySelectorAll('[data-action="audio-unlock"]').forEach(e=>e.hidden=!handsFree?.audioIssue);if(!handsFree?.active)releaseWakeLock();}
+function paintHandsFree(state){if(!['listening','quiet'].includes(state))idlePurr.activity();paintSoulExpression(document,['thinking','transcribing','synthesizing'].includes(state)?'thinking':state==='speaking'?'talking':['listening','hearing','quiet'].includes(state)?'listening':'rest');if(state==='listening')setTimeout(()=>flushCompanionMemories(),350);paintRideVoiceControls(document,getLanguage(),!!handsFree?.active,state);document.querySelectorAll('.camera-conversation').forEach(e=>e.dataset.voiceState=state);document.querySelectorAll('[data-action="audio-unlock"]').forEach(e=>e.hidden=!handsFree?.audioIssue);if(!handsFree?.active)releaseWakeLock();}
 function inputLanguage(){try{const saved=localStorage.getItem('velo-soul-input-language');if(['en','ko','zh','auto'].includes(saved))return saved;}catch{}return voiceLanguage;}
 function setSpokenLanguage(lang){voiceLanguage=lang==='ko'?'ko':'en';try{localStorage.setItem('velo-soul-input-language',lang);localStorage.setItem('velo-soul-voice-language',voiceLanguage);}catch{}$('voiceSelect').value=voiceLanguage;const select=$('liveInputLanguage');if(select)select.value=lang;preloadIntro();if(visionObserver?.active)visionObserver.start(selected,voiceLanguage);}
 function startHandsFree(){resumeRideVoice=false;if(handsFree?.active)return;stopPlaceTalk();stopVoice();voiceOn=true;preloadIntro();liveSpeech.prepare();const lang=$('liveInputLanguage')?.value||inputLanguage();handsFree.start(selected,lang);requestWakeLock();}

@@ -3,10 +3,20 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import {MicrophoneInput,createMicrophoneRecognition,encodeWav} from './public/microphone-asr.mjs';
 import {HandsFreeConversation} from './public/hands-free.mjs';
+import {IdlePurr} from './public/idle-purr.mjs';
 import {validateAudio,createChatService,createChatHandler} from './chat-service.mjs';
 const flush=()=>new Promise(r=>setImmediate(r));
 const audio=()=> 'data:audio/wav;base64,'+Buffer.from(encodeWav([new Float32Array(16000).fill(.1)],16000)).toString('base64');
 const env={DASHSCOPE_API_KEY:'private-test-key'};
+test('idle purr waits for silence, stays sparse and stops immediately on activity or leaving',()=>{
+ let time=0,allowed=true;const sources=[];
+ const context={state:'running',sampleRate:24000,createBuffer:(_,length)=>({getChannelData:()=>new Float32Array(length)}),createBufferSource:()=>{const source={connect(){},disconnect(){},start(){this.started=true;},stop(){this.stopped=true;}};sources.push(source);return source;}};
+ const purr=new IdlePurr({session:{context,getOutput:()=>({})},canPlay:()=>allowed,now:()=>time,random:()=>0});
+ time=29999;purr.tick();assert.equal(sources.length,0);time=30000;purr.tick();assert.equal(sources.length,1);
+ purr.activity();assert.equal(sources[0].stopped,true);time=60000;purr.tick();assert.equal(sources.length,1);
+ time=105000;purr.tick();assert.equal(sources.length,2);allowed=false;purr.tick();assert.equal(sources[1].stopped,true);
+ time=300000;purr.tick();assert.equal(sources.length,2);allowed=true;purr.tick();assert.equal(sources.length,2);
+});
 const success=text=>new Response(JSON.stringify({choices:[{message:{content:text}}]}));
 
 test('recorder WAV resampling produces bounded PCM and server rejects remote or malformed audio',()=>{

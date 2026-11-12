@@ -99,7 +99,7 @@ export function speechAudioURL(value){
 // Lulu is the panda; its legacy bicycle/QR ID is mori.
 const PANDA_VOICE='qwen-audio-3.1-tts-flash-soulpanda-78d14264357345dbb7c5a417bfc4d8df';
 function speechRequest(payload,config){
-  if(payload.soul==='mori')return {model:'qwen-audio-3.1-tts-flash',input:{text:payload.text,voice:PANDA_VOICE,format:'wav',sample_rate:24000,instruction:`Speak in ${payload.language}. Give a warm animated-character performance, like a comfortable stretch: a light breathy effort, a small pitch lift and then a relaxed fall. Add playful rhythmic variation and a slight lengthening of occasional sentence endings. Keep the overall pace conversational and words clear. Preserve the original voice. Avoid long pauses or adding extra words.`}};
+  if(payload.soul==='mori')return {model:'qwen-audio-3.1-tts-flash',input:{text:payload.text,voice:PANDA_VOICE,format:'wav',sample_rate:24000,instruction:`Speak in ${payload.language}. Give a warm animated-character performance, like a comfortable stretch: a light breathy effort, a small pitch lift and then a relaxed fall. Add playful rhythmic variation and a slight lengthening of occasional sentence endings. Add a very subtle, soft low rumble in the throat on occasional relaxed phrase endings, like a tiny sleepy purr. Keep it brief and quiet, with no separate snoring sounds. Keep the overall pace conversational and words clear. Preserve the original voice. Avoid long pauses or adding extra words.`}};
   return {model:config.ttsModel,input:{text:payload.text,voice:{lumi:'Cherry',bori:'Chelsie'}[payload.soul],language_type:payload.language}};
 }
 
