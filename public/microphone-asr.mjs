@@ -152,7 +152,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
       if(Socket&&location&&now()>=streamDisabledUntil){
         const url=speechSocketURL(location);url.searchParams.set('language',this.language());
         this.stream=new StreamingTranscriber({Socket,url:url.href,setTimer,clearTimer,
-          onPartial:text=>{if(this.active)this.onresult?.({results:[{0:{transcript:text},isFinal:false}]});},
+          onPartial:text=>{if(this.active&&this.speech&&this.voiced>=160)this.onresult?.({results:[{0:{transcript:text},isFinal:false}]});},
           onFinal:text=>{if(this.active)this.deliver(text);},
           onUnavailable:error=>{this.stream=null;streamDisabledUntil=now()+(['provider_auth','not_configured','rate_limited','provider_quota'].includes(error)?60000:5000);if(!this.active)return;if(['rate_limited','provider_quota'].includes(error))return this.fail(error);if(this.finalizing)this.transcribe();}});
       }
@@ -165,7 +165,12 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
       const ms = data.length / rate * 1000;
       const rms = Math.sqrt(data.reduce((sum, v) => sum + v * v, 0) / data.length);
       input.onLevel(Math.min(1, rms * 12));
-      const loud = rms > Math.max(.008, this.noise * 2.8);
+      // Amplitude alone also admits fan hiss and amplified microphone noise.
+      // Very frequent sign changes indicate broadband hiss, not a voiced onset.
+      let crossings=0;
+      for(let i=1;i<data.length;i++)if((data[i]>=0)!==(data[i-1]>=0))crossings++;
+      const hiss=crossings/Math.max(1,data.length-1)>.35;
+      const loud = !hiss && rms > Math.max(.015, this.noise * 2.8);
       if (!this.speech) {
         this.preroll.push(data);
         while (this.preroll.length > Math.ceil(rate * .35 / data.length)) this.preroll.shift();
@@ -197,7 +202,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
     }
     language(){return this.inputLanguage||({'ko-KR':'ko','en-US':'en','zh-CN':'zh'}[this.lang])||'auto';}
     deliver(text){
-      if(!text.trim()){this.fail('no-speech');return;}
+      if(!this.speech||this.voiced<160||!text.trim()){this.fail('no-speech');return;}
       this.onresult?.({results:[{0:{transcript:text},isFinal:true}]});
       if(this.active){this.abort();this.onend?.();}
     }

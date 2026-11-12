@@ -75,6 +75,26 @@ test('cloud recognition completes the hands-free loop without browser SpeechReco
  session.stop();assert.equal(a.input.receiver,null);
 });
 
+test('background hum and broadband hiss never upload hallucinated thanks; spoken thanks remains valid',async()=>{
+ const a=recorder(async()=>new Response(JSON.stringify({text:'Thank you.'}))),r=new a.Recognition(),results=[];
+ r.onresult=e=>results.push(e.results[0][0].transcript);r.start();await flush();
+ a.feed(.012,16000);
+ let seed=42;
+ for(let n=0;n<160;n++){
+  const data=Float32Array.from({length:1600},()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return (seed/4294967296*2-1)*.07;});
+  a.input.receiver?.samples(data,16000);
+ }
+ a.feed(0,1000);assert.equal(a.calls.length,0);assert.deepEqual(results,[]);
+ // A voiced utterance with a varying envelope must still reach the recognizer.
+ for(let n=0;n<6;n++)a.input.receiver?.samples(Float32Array.from({length:1600},(_,i)=>Math.sin(2*Math.PI*180*i/16000)*(.06+n*.008)),16000);
+ a.feed(0,400);await flush();assert.equal(a.calls.length,1);assert.deepEqual(results,['Thank you.']);r.abort();
+});
+
+test('a provider result without confirmed speech cannot become a user message',async()=>{
+ const a=recorder(),r=new a.Recognition(),results=[],errors=[];r.onresult=e=>results.push(e);r.onerror=e=>errors.push(e.error);
+ r.start();await flush();a.feed(0,500);r.deliver('Thank you.');assert.deepEqual(results,[]);assert.deepEqual(errors,['no-speech']);
+});
+
 function fakeAudio(){
  const contexts=[],tracks=[],processors=[];
  class Context{constructor(){this.state='running';this.sampleRate=48000;this.destination={};contexts.push(this);}resume(){return Promise.resolve();}close(){this.closed=true;return Promise.resolve();}createMediaStreamSource(){return {connect(){},disconnect(){}};}createGain(){return {gain:{},connect(){},disconnect(){}};}createScriptProcessor(){const p={connect(){},disconnect(){this.disconnected=true;}};processors.push(p);return p;}}

@@ -44,7 +44,7 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
    const endpoint=new URL(config.baseURL);endpoint.protocol='wss:';endpoint.pathname='/api-ws/v1/realtime';endpoint.searchParams.set('model',env.QWEN_ASR_REALTIME_MODEL||'qwen3-asr-flash-realtime');
    upstream=connect(endpoint.href,{headers:{Authorization:'Bearer '+config.apiKey},handshakeTimeout:8000,maxPayload:131072,perMessageDeflate:false});
   }catch{return fail('network');}
-  upstream.on('open',()=>emit({type:'session.update',session:{input_audio_format:'pcm',sample_rate:16000,input_audio_transcription:{...(language==='auto'?{}:{language})},turn_detection:{type:'server_vad',threshold:0,silence_duration_ms:400}}}));
+  upstream.on('open',()=>emit({type:'session.update',session:{input_audio_format:'pcm',sample_rate:16000,input_audio_transcription:{...(language==='auto'?{}:{language})},turn_detection:{type:'server_vad',threshold:0.2,silence_duration_ms:400}}}));
   upstream.on('error',()=>fail('network'));
   upstream.on('close',()=>{if(!closed)fail('network');});
   upstream.on('message',raw=>{
