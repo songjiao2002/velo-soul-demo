@@ -1,3 +1,4 @@
+import {readVoiceReply} from './chat-stream.mjs';
 import {appFetch} from './app-network.mjs';
 import {replyLanguage,needsCamera} from './input-language.mjs';
 import {outputLanguage} from './seoul-places.mjs';
@@ -53,17 +54,21 @@ export class HandsFreeConversation {
   this.setState('thinking');const controller=new AbortController();this.controller=controller;const timeout=this.setTimer(()=>controller.abort(),35000);
   try{
    const extra=this.getContext(needsCamera(text)),messages=[...this.histories[this.soul].slice(-10),{role:'user',content:text}];
-   const response=await this.fetchImpl(extra.image?'/api/chat/scene':'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({voice:true,soul:this.soul,language,messages,context:extra.context,image:extra.image})});
-   const data=await response.json();if(!this.active||serial!==this.epoch)return;
+   const response=await this.fetchImpl(extra.image?'/api/chat/scene':'/api/chat',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/x-ndjson'},signal:controller.signal,body:JSON.stringify({voice:true,soul:this.soul,language,messages,context:extra.context,image:extra.image})});
+   const valid=()=>this.active&&serial===this.epoch;
+   const streamed=response.ok&&response.headers.get('content-type')?.includes('application/x-ndjson');
+   let speaking=false,complete=false;const queue=[];
+   const drain=()=>{if(!valid()||speaking)return;const sentence=queue.shift();if(sentence){speaking=true;this.output(sentence,language,serial,()=>{},()=>{speaking=false;drain();});}else if(complete){this.setState('listening');this.resumeAfter(serial,100);}};
+   const data=streamed?await readVoiceReply(response,{soul:this.soul,onText:value=>{if(valid())this.onReply(value);},onSentence:value=>{if(valid()){queue.push(value);drain();}}}):await response.json();if(!valid())return;
    if(!response.ok)throw new Error(data.error||'failed');if(data.soul!==this.soul||typeof data.reply!=='string'||!data.reply.trim())throw new Error('failed');
    this.histories[this.soul].push({role:'user',content:text},{role:'assistant',content:data.reply});this.histories[this.soul]=this.histories[this.soul].slice(-40);
-   this.onTurn({soul:this.soul,user:text,reply:data.reply});this.onReply(data.reply);this.output(data.reply,language,serial);
-  }catch(error){if(this.active&&serial===this.epoch){if(['rate_limited','provider_quota','provider_auth','not_configured','provider_not_activated'].includes(error.message))this.stop(error.message==='provider_quota'?'rate_limited':error.message);else this.recover(serial);}}
+   this.onTurn({soul:this.soul,user:text,reply:data.reply});this.onReply(data.reply);if(streamed){complete=true;drain();}else this.output(data.reply,language,serial);
+  }catch(error){if(this.active&&serial===this.epoch){this.stopSpeech();this.stopInterrupt();if(['rate_limited','provider_quota','provider_auth','not_configured','provider_not_activated'].includes(error.message))this.stop(error.message==='provider_quota'?'rate_limited':error.message);else this.recover(serial);}}
   finally{this.clearTimer(timeout);if(this.controller===controller)this.controller=null;}
  }
- output(text,language,serial,onState=()=>{}){
+ output(text,language,serial,onState=()=>{},onEnded){
   if(!this.active||serial!==this.epoch)return false;this.disconnect();this.clearTimer(this.timer);this.setState('synthesizing');
-  this.speak(text,language,this.soul,state=>{if(!this.active||serial!==this.epoch)return;onState(state);if(state==='playing'){this.audioIssue=false;this.setState('speaking');this.monitorInterrupt(serial,text);}else if(state==='ended'){this.stopInterrupt();this.setState('listening');this.resumeAfter(serial,250);}else if(['blocked','unavailable'].includes(state)){this.audioIssue=true;this.stopInterrupt();this.setState('audio_retry');this.resumeAfter(serial,1500);}});return true;
+  this.speak(text,language,this.soul,state=>{if(!this.active||serial!==this.epoch)return;onState(state);if(state==='playing'){this.audioIssue=false;this.setState('speaking');this.monitorInterrupt(serial,text);}else if(state==='ended'){this.stopInterrupt();if(onEnded){this.setState('synthesizing');onEnded();}else{this.setState('listening');this.resumeAfter(serial,100);}}else if(['blocked','unavailable'].includes(state)){this.audioIssue=true;this.stopInterrupt();this.setState('audio_retry');this.resumeAfter(serial,1500);}});return true;
  }
  monitorInterrupt(serial,spokenText){
   this.stopInterrupt();
@@ -85,7 +90,7 @@ export class HandsFreeConversation {
     // Echo cancellation is enabled at capture; also reject recognizable
     // playback echoes here so the character does not converse with itself.
     if((!command||text.length>8)&&replyEcho(text,spokenText))return;
-    const rest=command?command[2]?.trim():text;const nextSerial=++this.epoch;
+    const rest=command?command[2]?.trim():text;this.controller?.abort();const nextSerial=++this.epoch;
     this.stopInterrupt();this.stopSpeech();this.setState('listening');
     if(rest){this.onTranscript(rest);this.submit(rest.slice(0,1000),nextSerial);}else this.resumeAfter(nextSerial,150);
    };

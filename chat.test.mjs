@@ -84,3 +84,14 @@ test('voice conversation uses a fast configurable model while text and vision re
  const calls=[],service=createChatService({env:{DASHSCOPE_API_KEY:'test-secret-only'},fetchImpl:async(url,o)=>{calls.push(JSON.parse(o.body));return Response.json({choices:[{message:{content:'곁에 있을게.'}}]});}});
  await service.reply({soul:'mori',language:'ko',voice:true,messages:[{role:'user',content:'피곤해'}]});await service.reply({soul:'mori',language:'ko',messages:[{role:'user',content:'피곤해'}]});assert.equal(calls[0].model,'qwen-flash');assert.equal(calls[0].enable_thinking,false);assert.equal(calls[1].model,'qwen-plus');assert.match(calls[0].messages[0].content,/Do not introduce yourself again/);
 });
+
+
+test('voice reply streams provider text before completion without exposing reasoning',async()=>{
+ let upstream,body;const deltas=[];
+ const service=createChatService({env:{DASHSCOPE_API_KEY:'test'},fetchImpl:async(url,opts)=>{body=JSON.parse(opts.body);return new Response(new ReadableStream({start(c){upstream=c;}}),{headers:{'Content-Type':'text/event-stream'}});}});
+ const task=service.reply({soul:'mori',language:'en',voice:true,messages:[{role:'user',content:'Hello'}]},{onDelta:text=>deltas.push(text)});
+ for(let i=0;i<100&&!upstream;i++)await new Promise(r=>setTimeout(r,5));assert.equal(body.stream,true);
+ const emit=choice=>upstream.enqueue(new TextEncoder().encode('data: '+JSON.stringify({choices:[choice]})+'\n\n'));
+ emit({delta:{reasoning_content:'private',content:'Hello. '}});await new Promise(r=>setImmediate(r));assert.deepEqual(deltas,['Hello. ']);
+ emit({delta:{content:'Let us ride.'},finish_reason:'stop'});const result=await task;assert.equal(result.reply,'Hello. Let us ride.');assert.ok(!JSON.stringify(deltas).includes('private'));
+});

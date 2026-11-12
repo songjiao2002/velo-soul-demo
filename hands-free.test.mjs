@@ -12,7 +12,7 @@ function setup(fetchImpl,options={}){
 test('spoken input sends automatically with context, replies aloud, then resumes and preserves history',async()=>{
  const a=setup();a.session.start('bori','zh');assert.equal(a.recognizers[0].lang,'zh-CN');
  a.recognizers[0].hear('你看到什么？');await flush();assert.equal(a.calls.length,1);assert.equal(a.calls[0].url,'/api/chat/scene');assert.equal(a.calls[0].body.language,'en');assert.equal(a.voices.length,1);
- assert.equal(a.recognizers[0].active,false);a.voices[0].callback('ended');a.run(250);assert.equal(a.recognizers.at(-1).active,true);
+ assert.equal(a.recognizers[0].active,false);a.voices[0].callback('ended');a.run(100);assert.equal(a.recognizers.at(-1).active,true);
  a.recognizers.at(-1).hear('Tell me more');await flush();assert.equal(a.calls[1].body.messages.length,3);a.session.stop();assert.equal(a.timers.size,0);
 });
 test('reply-time monitoring accepts Chinese, English and Korean interruption without forwarding the command',async()=>{
@@ -50,7 +50,7 @@ test('temporary recognition failures reconnect automatically with a bounded retr
 test('introduction plays before any chat/GPS request, resumes listening and does not repeat on pause',async()=>{
  const shared=new Set(),a=setup(null,{introduced:shared,getOpening:()=>({text:'안녕, 나는 포포야.',language:'ko'})});
  a.session.start('bori','ko');assert.equal(a.calls.length,0);assert.equal(a.voices[0].text,'안녕, 나는 포포야.');assert.equal(a.session.state,'synthesizing');
- assert.equal(a.session.announce('Weather','ko'),false);a.voices[0].callback('playing');assert.ok(shared.has('bori'));a.voices[0].callback('ended');a.run(250);assert.equal(a.session.state,'listening');
+ assert.equal(a.session.announce('Weather','ko'),false);a.voices[0].callback('playing');assert.ok(shared.has('bori'));a.voices[0].callback('ended');a.run(100);assert.equal(a.session.state,'listening');
  a.recognizers.at(-1).hear('안녕');await flush();assert.equal(a.calls.length,1);a.voices.at(-1).callback('ended');a.session.stop();a.session.start('bori','ko');assert.equal(a.session.state,'listening');assert.equal(a.voices.length,2);a.session.stop();
  const b=setup(null,{introduced:shared,getOpening:()=>({text:'No repeated introduction',language:'ko'})});b.session.start('bori','ko');assert.equal(b.voices.length,0);b.session.stop();
 });
@@ -79,4 +79,20 @@ test('permission startup honors the recorder deadline and still cancels late cal
  let r;class SlowPermission{constructor(){r=this;this.startTimeoutMs=50000;}start(){}abort(){}}
  const a=setup(null,{Recognition:SlowPermission});a.session.start('bori','en');assert.ok([...a.timers.values()].some(t=>t.ms===50000));assert.ok(![...a.timers.values()].some(t=>t.ms===12000));
  r.onstart();assert.equal(a.session.state,'listening');const late=r.onresult;a.session.stop();late({results:[{0:{transcript:'late'},isFinal:true}]});assert.equal(a.calls.length,0);assert.equal(a.timers.size,0);
+});
+
+
+test('streamed answer speaks its first sentence before completion and queues later speech without overlap',async()=>{
+ let stream;const replies=[];const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}),{onReply:text=>replies.push(text)});
+ a.session.start('bori','en');a.recognizers[0].hear('Hello');await flush();
+ const emit=frame=>stream.enqueue(new TextEncoder().encode(JSON.stringify(frame)+'\n'));
+ emit({type:'delta',text:'Hello there. '});await flush();assert.equal(a.voices.length,1);assert.equal(a.voices[0].text,'Hello there.');assert.equal(a.session.histories.bori.length,0);
+ emit({type:'delta',text:'Let us ride.'});await flush();assert.equal(a.voices.length,1);assert.equal(replies.at(-1),'Hello there. Let us ride.');
+ emit({type:'complete',soul:'bori',reply:'Hello there. Let us ride.'});await flush();assert.equal(a.session.histories.bori.length,2);assert.equal(a.voices.length,1);
+ a.voices[0].callback('ended');assert.equal(a.voices.length,2);assert.equal(a.voices[1].text,'Let us ride.');a.voices[1].callback('ended');a.run(100);assert.equal(a.recognizers.at(-1).active,true);a.session.stop();
+});
+
+test('a broken streamed answer stops already started speech and does not save a partial turn',async()=>{
+ let stream;const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}));
+ a.session.start('bori','en');a.recognizers[0].hear('Hello');await flush();stream.enqueue(new TextEncoder().encode(JSON.stringify({type:'delta',text:'Hello there. '})+'\n'));await flush();assert.equal(a.voices.length,1);const before=a.stops;stream.close();await flush();assert.ok(a.stops>before);assert.equal(a.session.histories.bori.length,0);a.session.stop();
 });

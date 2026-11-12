@@ -1,3 +1,4 @@
+import {readProviderChat} from './public/chat-stream.mjs';
 import {validateDeviceMemory,describeDeviceMemory} from './public/device-memory.mjs';
 import {loadDiarySkills,validateDiary,diaryRequest,diaryResult,diaryPhotoRequest,diaryPhotoResult} from './diary-service.mjs';
 import {allowedRequestOrigin} from './native-origin.mjs';
@@ -98,7 +99,7 @@ export function speechAudioURL(value){
 // Lulu is the panda; its legacy bicycle/QR ID is mori.
 const PANDA_VOICE='qwen-audio-3.1-tts-flash-soulpanda-78d14264357345dbb7c5a417bfc4d8df';
 function speechRequest(payload,config){
-  if(payload.soul==='mori')return {model:'qwen-audio-3.1-tts-flash',input:{text:payload.text,voice:PANDA_VOICE,format:'wav',sample_rate:24000,instruction:`Speak in ${payload.language}. Use a relaxed, friendly voice with a subtle just-stretched feeling: lightly breathy, comfortably loose, with soft warm sentence endings. Keep a normal conversational pace and crisp words. Preserve the original voice. Do not add yawns, extra words or long pauses.`}};
+  if(payload.soul==='mori')return {model:'qwen-audio-3.1-tts-flash',input:{text:payload.text,voice:PANDA_VOICE,format:'wav',sample_rate:24000,instruction:`Speak in ${payload.language}. Give a warm animated-character performance, like a comfortable stretch: a light breathy effort, a small pitch lift and then a relaxed fall. Add playful rhythmic variation and a slight lengthening of occasional sentence endings. Keep the overall pace conversational and words clear. Preserve the original voice. Avoid long pauses or adding extra words.`}};
   return {model:config.ttsModel,input:{text:payload.text,voice:{lumi:'Cherry',bori:'Chelsie'}[payload.soul],language_type:payload.language}};
 }
 
@@ -177,7 +178,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
       const request=diaryRequest(payload,(await diarySkills)[payload.soul],model);
       return complete(request,config,signal,{readResult:data=>diaryResult(data,payload,{ChatError,model})});
     },
-    async reply(input,{signal,vision=false}={}){
+    async reply(input,{signal,vision=false,onDelta}={}){
       const payload=vision?validateVision(input):validateChat(input,now()),config=chatConfig(env);
       if(!config.configured)throw new ChatError('not_configured',503);
       const persona=(await skills)[payload.soul],weather=getWeather(payload.weatherId);
@@ -195,7 +196,8 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
         if(!vision){const memory=getBikeMemory(payload.soul);if(memory?.bike===payload.soul)requestBody.messages[0].content+='\n\n'+memoryContext(memory);}
         if(!vision&&payload.deviceMemory)requestBody.messages[0].content+='\n\n'+describeDeviceMemory(payload.deviceMemory);
         if(payload.voice&&!vision){requestBody.max_tokens=100;requestBody.messages[0].content+='\nVOICE MODE: Reply in one short, complete sentence first; at most two sentences, 24 English words or 65 Korean characters. Do not introduce yourself again unless the rider asks who you are. No emoji, Markdown or long lists. Leave room for the rider to respond. The requested output language is mandatory, including greetings and short acknowledgements.';}
-        const data=await complete(requestBody,config,signal),choice=data?.choices?.[0],reply=choice?.message?.content;
+        if(onDelta&&!vision)requestBody.stream=true;
+        const data=await complete(requestBody,config,signal,onDelta&&!vision?{readResponse:response=>readProviderChat(response,onDelta)}:{}),choice=data?.choices?.[0],reply=choice?.message?.content;
         if(typeof reply!=='string'||!reply.trim()||reply.length>10000)throw new ChatError('invalid_response',502);
         if(vision)return parseObservation(reply,payload.soul,model);
         return {reply:reply.trim().slice(0,2000),soul:payload.soul,provider:'Qwen',model,truncated:choice.finish_reason==='length'||reply.trim().length>2000};
@@ -232,6 +234,10 @@ export function createChatHandler(options={}){
           if(!res.headersSent){res.writeHead(200,{'Content-Type':'application/x-ndjson','Cache-Control':'no-store, no-transform','X-Accel-Buffering':'no'});res.flushHeaders();}
           if(!res.write(JSON.stringify(frame)+'\n'))await once(res,'drain',{signal:controller.signal});
         }});res.end();
+      }
+      else if(['/api/chat','/api/chat/scene'].includes(pathname)&&payload.voice===true&&req.headers.accept?.includes('application/x-ndjson')){
+        const emit=async frame=>{if(res.destroyed)throw new ChatError('cancelled',499);if(!res.headersSent){res.writeHead(200,{'Content-Type':'application/x-ndjson','Cache-Control':'no-store, no-transform','X-Accel-Buffering':'no'});res.flushHeaders();}if(!res.write(JSON.stringify(frame)+'\n'))await once(res,'drain',{signal:controller.signal});};
+        const reply=await service.reply(payload,{signal:controller.signal,onDelta:text=>emit({type:'delta',text})});await emit({type:'complete',...reply});res.end();
       }
       else if(speech){const audio=await service.speech(payload,{signal:controller.signal});if(!res.destroyed){res.writeHead(200,{'Content-Type':'audio/wav','Content-Length':audio.length,'Cache-Control':'no-store'});res.end(audio);}}
       else if(pathname==='/api/diary')send(200,await service.diary(payload,{signal:controller.signal}));
