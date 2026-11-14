@@ -20,12 +20,18 @@ export async function readVoiceReply(response,{soul,onText,onSentence}){
   const remaining=text.slice(spoken);const pattern=/[^.!?。！？]+(?:[。！？!?]|[.](?=\s))/g;let match;
   let consumed=0;while((match=pattern.exec(remaining))){onSentence(match[0].trim());consumed=match.index+match[0].length;}
   spoken+=consumed;
-  // Send a meaningful first clause to TTS while the model writes the rest.
-  // Do this only once, at punctuation, to preserve words and avoid tiny requests.
+  // Start the first audio request as soon as five spoken characters exist.
+  // CJK can split by character; Latin/Hangul words finish at a word boundary.
   if(!final&&spoken===0){
-   const clause=text.match(/^(.+?[,，;；:：])(?:\s|$)/u);
-   if(clause){const part=clause[1].trim(),letters=part.replace(/[^\p{L}\p{N}]/gu,'');
-    if(letters.length>=12||(/[가-힣]/u.test(part)&&letters.length>=6)){onSentence(part);spoken=clause[1].length;}
+   let letters=0,end=0;
+   const chars=Array.from(text);
+   for(let i=0;i<chars.length;i++){
+    const ch=chars[i];end+=ch.length;if(/[\p{L}\p{N}]/u.test(ch))letters++;
+    const boundary=/[\s,，;；:：.!?。！？]/u.test(ch);
+    const cjk=/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(ch);
+    if((letters>=5&&(cjk||boundary))||(letters>=2&&/[,，;；:：]/u.test(ch))){
+     const part=text.slice(0,end).trim();if(part){onSentence(part);spoken=end;}break;
+    }
    }
   }
   if(final&&text.slice(spoken).trim()){onSentence(text.slice(spoken).trim());spoken=text.length;}

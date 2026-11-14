@@ -20,7 +20,7 @@ export const HANDS_FREE_COPY={
 };
 
 export class HandsFreeConversation {
- constructor({Recognition=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition,fetchImpl=appFetch,getContext=()=>({}),speak=()=>{},stopSpeech=()=>{},releaseInput=()=>{},onState=()=>{},onTranscript=()=>{},onReply=()=>{},onTurn=()=>{},getOpening=()=>null,onOpening=()=>{},introduced=new Set(),setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{Recognition,fetchImpl,getContext,speak,stopSpeech,releaseInput,onState,onTranscript,onReply,onTurn,getOpening,onOpening,introduced,setTimer,clearTimer});this.active=false;this.epoch=0;this.recognizer=null;this.controller=null;this.timer=null;this.state='off';this.histories={lumi:[],mori:[],bori:[]};}
+ constructor({Recognition=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition,fetchImpl=appFetch,getContext=()=>({}),speak=()=>{},prefetchSpeech=()=>{},stopSpeech=()=>{},releaseInput=()=>{},onState=()=>{},onTranscript=()=>{},onReply=()=>{},onTurn=()=>{},getOpening=()=>null,onOpening=()=>{},introduced=new Set(),setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{Recognition,fetchImpl,getContext,speak,prefetchSpeech,stopSpeech,releaseInput,onState,onTranscript,onReply,onTurn,getOpening,onOpening,introduced,setTimer,clearTimer});this.active=false;this.epoch=0;this.recognizer=null;this.controller=null;this.timer=null;this.state='off';this.histories={lumi:[],mori:[],bori:[]};}
  setState(state){this.state=state;this.stateSince=Date.now();this.onState(state,this.active);}
  disconnect(){const r=this.recognizer;this.recognizer=null;if(r){r.onresult=r.onend=r.onerror=r.onspeechstart=r.onspeechend=r.onstart=r.onquiet=r.ontranscribing=r.onaudiorecovering=null;try{r.abort();}catch{}}}
  stopInterrupt(){this.clearTimer(this.interruptTimer);this.interruptTimer=null;const r=this.interruptRecognizer;this.interruptRecognizer=null;if(r){r.onresult=r.onend=r.onerror=null;try{r.abort();}catch{}}}
@@ -59,7 +59,7 @@ export class HandsFreeConversation {
    const streamed=response.ok&&response.headers.get('content-type')?.includes('application/x-ndjson');
    let speaking=false,complete=false;const queue=[];
    const drain=()=>{if(!valid()||speaking)return;const sentence=queue.shift();if(sentence){speaking=true;this.output(sentence,language,serial,()=>{},()=>{speaking=false;drain();});}else if(complete){this.setState('listening');this.resumeAfter(serial,100);}};
-   const data=streamed?await readVoiceReply(response,{soul:this.soul,onText:value=>{if(valid())this.onReply(value);},onSentence:value=>{if(valid()){queue.push(value);drain();}}}):await response.json();if(!valid())return;
+   const data=streamed?await readVoiceReply(response,{soul:this.soul,onText:value=>{if(valid())this.onReply(value);},onSentence:value=>{if(valid()){queue.push(value);if(speaking)this.prefetchSpeech(value,language,this.soul);drain();}}}):await response.json();if(!valid())return;
    if(!response.ok)throw new Error(data.error||'failed');if(data.soul!==this.soul||typeof data.reply!=='string'||!data.reply.trim())throw new Error('failed');
    this.histories[this.soul].push({role:'user',content:text},{role:'assistant',content:data.reply});this.histories[this.soul]=this.histories[this.soul].slice(-40);
    this.onTurn({soul:this.soul,user:text,reply:data.reply});this.onReply(data.reply);if(streamed){complete=true;drain();}else this.output(data.reply,language,serial);

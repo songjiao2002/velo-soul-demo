@@ -56,12 +56,15 @@ public class ExampleInstrumentedTest {
     }
     private void verifyBundledApp() throws Exception {
         assertEquals("com.velosoul.companion",InstrumentationRegistry.getInstrumentation().getTargetContext().getPackageName());
-        awaitTrue("document.body.dataset.screen === 'home' && document.querySelector('#startupNotice').hidden");
+        awaitTrue("document.body.dataset.screen === 'companions' && document.querySelector('#startupNotice').hidden");
         assertEquals("true",js("window.isSecureContext && Capacitor.isNativePlatform() && !!navigator.mediaDevices?.getUserMedia"));
-        assertEquals("2",js("document.querySelectorAll('.app-tabbar button').length"));
-        assertEquals("0",js("document.querySelectorAll('.app-tabbar [data-nav=home]').length"));
+        assertEquals("3",js("document.querySelectorAll('.app-tabbar button').length"));
+        assertEquals("1",js("document.querySelectorAll('.app-tabbar [data-nav=home]').length"));
         assertEquals("0",js("document.querySelectorAll('.soul-card,.topbar').length"));
-        awaitTrue("document.body.dataset.screen === 'home' && !!window.jsQR && !!document.querySelector('#cameraStart')");
+        js("document.querySelector('[data-companion-profile=mori]').click()");
+        assertEquals("true",js("!document.querySelector('[data-companion-card=mori]').hidden && document.querySelector('[data-companion-card=lumi]').hidden"));
+        js("document.querySelector('.app-tabbar [data-action=scan]').click()");
+        awaitTrue("document.body.dataset.screen === 'scan' && !!window.jsQR && !!document.querySelector('#cameraStart')");
         assertEquals("true",js("Capacitor.isPluginAvailable('VeloMedia')"));
         // Exercise a real first-use runtime permission and the emulator camera.
         js("document.querySelector('#cameraStart').click()");

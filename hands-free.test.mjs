@@ -93,11 +93,11 @@ test('streamed answer speaks its first sentence before completion and queues lat
 });
 
 test('English and Korean first clauses start TTS before the rest arrives without repeating text',async()=>{
- for(const [language,first,rest] of [['en','I am feeling cozy,',' let us ride!'],['ko','오늘은 기분이 좋아,',' 같이 달리자!']]){
+ for(const [language,first,rest] of [['en','I am feeling ','cozy, let us ride!'],['ko','오늘은 기분이 ','좋아, 같이 달리자!']]){
   let stream;const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}));
   a.session.start('mori',language);a.recognizers[0].hear(language==='ko'?'오늘 기분 어때?':'How are you?');await flush();
   const emit=frame=>stream.enqueue(new TextEncoder().encode(JSON.stringify(frame)+'\n'));
-  emit({type:'delta',text:first});await flush();assert.equal(a.voices[0].text,first);assert.equal(a.session.histories.mori.length,0);
+  emit({type:'delta',text:first});await flush();assert.equal(a.voices[0].text,first.trim());assert.equal(a.session.histories.mori.length,0);
   emit({type:'delta',text:rest});await flush();assert.equal(a.voices.length,1);
   a.voices[0].callback('ended');assert.equal(a.voices[1].text,rest.trim());
   emit({type:'complete',soul:'mori',reply:first+rest});await flush();assert.equal(a.voices.length,2);
@@ -108,4 +108,23 @@ test('English and Korean first clauses start TTS before the rest arrives without
 test('a broken streamed answer stops already started speech and does not save a partial turn',async()=>{
  let stream;const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}));
  a.session.start('bori','en');a.recognizers[0].hear('Hello');await flush();stream.enqueue(new TextEncoder().encode(JSON.stringify({type:'delta',text:'Hello there. '})+'\n'));await flush();assert.equal(a.voices.length,1);const before=a.stops;stream.close();await flush();assert.ok(a.stops>before);assert.equal(a.session.histories.bori.length,0);a.session.stop();
+});
+
+
+test('Chinese starts at five characters before punctuation or completion, prefetches the tail and never repeats it',async()=>{
+ let stream;const prepared=[];const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}),{prefetchSpeech:(...args)=>prepared.push(args)});
+ a.session.start('mori','zh');a.recognizers[0].hear('你看到了什么');await flush();
+ const emit=frame=>stream.enqueue(new TextEncoder().encode(JSON.stringify(frame)+'\n'));
+ emit({type:'delta',text:'我们一起'});await flush();assert.equal(a.voices.length,0);
+ emit({type:'delta',text:'看'});await flush();assert.equal(a.voices[0].text,'我们一起看');assert.equal(a.session.histories.mori.length,0);
+ emit({type:'delta',text:'看河边的风景吧。'});await flush();assert.equal(a.voices.length,1);assert.equal(prepared[0][0],'看河边的风景吧。');
+ emit({type:'complete',soul:'mori',reply:'我们一起看看河边的风景吧。'});await flush();a.voices[0].callback('ended');assert.equal(a.voices[1].text,'看河边的风景吧。');
+ assert.equal(a.voices.map(v=>v.text).join(''),'我们一起看看河边的风景吧。');a.session.stop();
+});
+
+test('short Chinese clauses start earlier, and a stopped turn cannot speak late text',async()=>{
+ let stream;const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}));
+ a.session.start('mori','zh');a.recognizers[0].hear('一起走吧');await flush();const emit=frame=>stream.enqueue(new TextEncoder().encode(JSON.stringify(frame)+'\n'));
+ emit({type:'delta',text:'好呀，'});await flush();assert.equal(a.voices[0].text,'好呀，');a.session.stop();
+ emit({type:'delta',text:'我们走吧。'});emit({type:'complete',soul:'mori',reply:'好呀，我们走吧。'});await flush();assert.equal(a.voices.length,1);
 });
