@@ -18,7 +18,7 @@ export async function readVoiceReply(response,{soul,onText,onSentence}){
  const reader=response.body.getReader(),decoder=new TextDecoder();let pending='',text='',spoken=0,result;
  const sentences=final=>{
   const remaining=text.slice(spoken);const pattern=/[^.!?。！？]+(?:[。！？!?]|[.](?=\s))/g;let match;
-  let consumed=0;while((match=pattern.exec(remaining))){onSentence(match[0].trim());consumed=match.index+match[0].length;}
+  let consumed=0;while((match=pattern.exec(remaining))){if(/[\p{L}\p{N}]/u.test(match[0]))onSentence(match[0].trim());consumed=match.index+match[0].length;}
   spoken+=consumed;
   // Start the first audio request as soon as five spoken characters exist.
   // CJK can split by character; Latin/Hangul words finish at a word boundary.
@@ -34,7 +34,7 @@ export async function readVoiceReply(response,{soul,onText,onSentence}){
     }
    }
   }
-  if(final&&text.slice(spoken).trim()){onSentence(text.slice(spoken).trim());spoken=text.length;}
+  if(final&&text.slice(spoken).trim()){const tail=text.slice(spoken).trim();if(/[\p{L}\p{N}]/u.test(tail))onSentence(tail);spoken=text.length;}
  };
  const line=raw=>{
   if(!raw.trim())return;const frame=JSON.parse(raw);if(frame.error)throw Error(frame.error);if(result)throw Error('invalid_response');

@@ -226,7 +226,7 @@ async function loadJournalPage(){
   document.querySelectorAll('.record-count').forEach(e=>e.textContent=page.total);
   if(journeyPager.records.length){$('journalGrid').insertAdjacentHTML('beforeend',page.records.map(r=>mobileUI?mobileDiaryCard(r,rideDiary(r,getLanguage()),characterArtwork(r.soul,'riding')):post(r,true)).join(''));}
   else{$('journalGrid').className='';$('journalGrid').innerHTML='<div class="empty"><span style="font-size:35px">✳</span><h2>첫 번째 이야기를 기다려요.</h2><p>소울과 함께 달리고, 우리의 순간을 남겨보세요.</p><button class="primary" data-nav="home">소울 만나러 가기 ↗</button></div>';}
-  $('journalStatus').hidden=true;button.hidden=!page.hasMore;button.textContent='기록 더 보기';
+  if(mobileUI)mountCharacters();$('journalStatus').hidden=true;button.hidden=!page.hasMore;button.textContent='기록 더 보기';
  }catch{if(screen==='journal'&&serial===journeyPager.generation){$('journalStatus').textContent='기록을 불러오지 못했어요. 다시 시도해주세요.';button.hidden=false;button.textContent='다시 시도';}}
  finally{if(screen==='journal'&&serial===journeyPager.generation)button.disabled=false;}
 }

@@ -128,3 +128,11 @@ test('short Chinese clauses start earlier, and a stopped turn cannot speak late 
  emit({type:'delta',text:'好呀，'});await flush();assert.equal(a.voices[0].text,'好呀，');a.session.stop();
  emit({type:'delta',text:'我们走吧。'});emit({type:'complete',soul:'mori',reply:'好呀，我们走吧。'});await flush();assert.equal(a.voices.length,1);
 });
+
+
+test('punctuation after an exact five-character reply does not create an empty speech request',async()=>{
+ let stream;const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}));a.session.start('mori','zh');a.recognizers[0].hear('出发了吗');await flush();
+ const emit=frame=>stream.enqueue(new TextEncoder().encode(JSON.stringify(frame)+'\n'));
+ emit({type:'delta',text:'我们出发吧'});await flush();assert.equal(a.voices.length,1);
+ emit({type:'delta',text:'。'});emit({type:'complete',soul:'mori',reply:'我们出发吧。'});await flush();a.voices[0].callback('ended');assert.equal(a.voices.length,1);assert.equal(a.session.state,'listening');a.session.stop();
+});
