@@ -34,9 +34,9 @@ export function mountMobileUI({document,getLanguage,build}){
  const toolbar=document.querySelector('.app-utilities');
  toolbar.querySelector('.app-home-link').hidden=true;
  const headings=document.createElement('div');headings.dataset.noTranslate='';
- headings.innerHTML=['companions','scan','diaries'].map((cls,i)=>'<h1 class="screen-title '+cls+'-heading">'+Object.entries(mobileLabels).map(([lang,labels])=>'<span lang="'+lang+'">'+labels[i]+'</span>').join('')+'</h1>').join('');toolbar.prepend(headings);
+ headings.innerHTML=['companions','scan','diaries'].map((cls,i)=>'<h1 class="screen-title '+cls+'-heading">'+Object.entries(mobileLabels).map(([lang,labels])=>'<span lang="'+lang+'">'+labels[i]+'</span>').join('')+'</h1>').join('');toolbar.prepend(headings);const actions=document.createElement('div');actions.className='app-utility-actions';const translation=document.createElement('span');translation.id='diaryToolbarTranslation';actions.append(translation,toolbar.querySelector('.app-settings-toggle'));toolbar.append(actions);
  const back=document.createElement('button');back.className='diary-back';back.dataset.nav='journal';back.textContent='‹';toolbar.prepend(back);
- const update=()=>{const c=mobileLabels[getLanguage()]||mobileLabels.en;back.setAttribute('aria-label',c[2]);};update();document.addEventListener('velo:screen',update);
+ const update=()=>{const c=mobileLabels[getLanguage()]||mobileLabels.en;back.setAttribute('aria-label',c[2]);};update();document.addEventListener('velo:screen',update);document.addEventListener('click',event=>{const menu=document.querySelector('.diary-translation[open]');if(menu&&!menu.contains(event.target))menu.open=false;});document.addEventListener('keydown',event=>{if(event.key==='Escape'){const menu=document.querySelector('.diary-translation[open]');if(menu){menu.open=false;menu.querySelector('summary').focus();}}});
 }
 export function mobileDiaryCard(record,diary,art){
  return `<article class="post diary-summary"><button class="diary-card-open" data-open-diary="${esc(record.id)}" aria-label="${esc(diary.title)}"><div class="diary-summary-cover">${record.photos?.length?'<img src="'+esc(record.photos[0])+'" alt="">':art}</div><div class="diary-summary-head"><h2>${esc(diary.title)}</h2><small>${esc(diary.date)}</small></div></button></article>`;

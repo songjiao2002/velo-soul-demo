@@ -1163,9 +1163,62 @@ body:has(.install-banner:not([hidden])) .companions-page{--profile-card-top:calc
 #journalList[hidden],#journalRatings[hidden]{display:none!important}
 
 /* Keep the connected app's voice, capture and finish controls available. */
-.camera-fullscreen[data-scene-mode] .camera-bottom{display:block;max-width:540px}
+
 .camera-fullscreen .camera-shutter-row{display:flex;align-items:center;justify-content:space-between;width:100%;gap:12px}
 .camera-fullscreen .camera-conversation{max-width:calc(100% - 32px)}
 body[data-screen="scan"] .scan-home-intro{display:none}
 body[data-screen="scan"] .scan-card-caption{display:none}
 body[data-screen="scan"] .scan-home-bottom{display:none}
+
+/* Connected controls follow the mobile reference, including short screens. */
+body[data-screen="diary"] > .app-utilities{justify-content:space-between}
+.diary-back{align-items:center;justify-content:center;font-size:23px}
+.scan-history-list button{border:0;padding:5px 0;background:none;color:inherit;font-weight:650;text-align:left}
+.scan-home .scan-illustration{position:absolute}
+.scan-home-action .primary{width:100%}
+.scan-home-action .camera-status{margin:5px 0 0;min-height:16px;font-size:11px;line-height:1.4}
+.scan-home .scan-target::after{animation-play-state:paused}
+.scan-home .live .scan-target::after{animation-play-state:running}
+.encounter-player .encounter-feedback{margin:3px 0 8px;color:#606060;font-size:12px}
+.encounter-feedback>summary{cursor:pointer;padding:7px 0}
+.encounter-feedback .encounter-reviews{padding:0}
+.encounter-player .encounter-hint{margin:7px 0 10px;font-size:11px}
+.encounter-player .voice-status:empty{display:none}
+.encounter-player .encounter-start{margin-top:auto;margin-bottom:5px}
+.camera-fullscreen .scene-switch{display:none}
+.camera-fullscreen[data-scene-mode] .camera-bottom{display:grid;grid-template-columns:1fr 1fr 1fr;margin-inline:auto;max-width:440px;z-index:18}
+.camera-fullscreen .shutter-hint{grid-column:1/-1;text-align:center;margin:5px 0 0;padding:3px 9px;border-radius:10px;background:#ffffffe6;color:#444;font-size:10px}
+.camera-fullscreen[data-scene-mode] .camera-conversation{bottom:calc(var(--ride-bottom) + 116px);max-width:calc(100% - 32px)}
+.camera-fullscreen[data-scene-mode] .camera-live-caption{bottom:calc(var(--ride-bottom) + 180px)}
+.camera-fullscreen[data-scene-mode="map"] .camera-shutter{display:grid}
+.camera-fullscreen[data-scene-mode] .scene-recenter{color:#444;background:#fffffff0;border-color:#e4e4e4}
+body:has(.install-banner:not([hidden])) .scan-home{min-height:calc(100svh - var(--screen-top) - 53px - 46px - var(--screen-bottom) - var(--tab-height) - 8px)}
+.camera-fullscreen .camera-shutter.holding{outline:3px solid #fff;outline-offset:3px;animation:shutter-hold .65s linear}
+@keyframes shutter-hold{to{outline-color:#181818}}
+.camera-fullscreen dialog.ride-settings-panel{display:none;overflow-y:auto}
+.camera-fullscreen dialog.ride-settings-panel[open]{display:block}
+.camera-fullscreen dialog.ride-settings-panel button{min-height:40px}
+.camera-fullscreen dialog.ride-settings-panel label{display:grid;gap:6px;margin-top:10px}
+.camera-fullscreen dialog.ride-settings-panel select{width:100%;min-height:38px}
+.diary-entry-body .diary-body{white-space:normal}
+.diary-entry-body .diary-body p{white-space:pre-wrap}
+.diary-translation-status:empty{display:none}
+.diary-translation-status{font-size:12px;color:#606060}
+.diary-extras{border-top:1px solid #e8e8e8;margin-top:16px;padding-top:12px;font-size:12px}
+.diary-extras>summary{cursor:pointer;min-height:36px}
+.diary-extras .post-actions{flex-wrap:wrap}
+.diary-extras .post-actions button{min-height:40px}
+.diary-translation-options:has([data-diary-language="original"][aria-pressed="true"]){--translation-index:3}
+.language-options label{min-height:38px}
+@media(max-height:510px) and (orientation:landscape){
+ .camera-fullscreen[data-scene-mode] .camera-conversation{left:auto;right:12px;transform:none;width:250px;bottom:130px}
+ .camera-fullscreen[data-scene-mode] .camera-live-caption{left:auto;right:12px;transform:none;width:250px;bottom:190px}
+ .camera-fullscreen[data-scene-mode] .camera-bottom{left:auto;right:8px;width:280px}
+}
+@media(prefers-reduced-motion:reduce){.camera-fullscreen .camera-shutter.holding{animation:none}}
+@media(max-height:680px){
+ .encounter-portrait{height:clamp(130px,27svh,180px)}
+ .encounter-portrait .welcome-puppet{width:min(100%,180px,27svh)!important}
+ .encounter-player{padding-top:12px}
+ .encounter-player .encounter-hint{margin-block:4px 7px}
+}

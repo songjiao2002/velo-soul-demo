@@ -27,6 +27,6 @@ export class RideView {
  update(){if(this.mode==='map')this.map.update(this.getPoints());this.cameraStatus();}
  center(){const points=this.getPoints(),last=points.at(-1);if(last&&this.map.map)this.map.map.flyTo({center:[last.lon,last.lat],zoom:15,duration:400});else this.map.update([],true);}
  cameraStatus(){if(this.root){const c=RIDE_VIEW_COPY[this.getLanguage()];this.root.querySelector('[data-scene-camera]').textContent=c[this.isCameraLive()?'live':'off'];}}
- language(){if(!this.root)return;const c=RIDE_VIEW_COPY[this.getLanguage()];this.root.querySelector('.scene-switch').setAttribute('aria-label',c.title);for(const b of this.root.querySelectorAll('[data-scene-mode]'))b.textContent=c[b.dataset.sceneMode];this.root.querySelector('[data-scene-center]').textContent=c.center;this.root.querySelector('.scene-map-hint').textContent=c.hint;this.map.language();this.cameraStatus();}
+ language(){if(!this.root)return;const c=RIDE_VIEW_COPY[this.getLanguage()];this.root.querySelector('.scene-switch')?.setAttribute('aria-label',c.title);for(const b of this.root.querySelectorAll('button[data-scene-mode]'))b.textContent=c[b.dataset.sceneMode];this.root.querySelector('[data-scene-center]').textContent=c.center;this.root.querySelector('.scene-map-hint').textContent=c.hint;this.map.language();this.cameraStatus();}
  destroy(){this.resize?.disconnect();this.resize=null;this.map.destroy();this.root=null;this.mode='camera';}
 }

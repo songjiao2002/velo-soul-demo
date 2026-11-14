@@ -9,6 +9,18 @@ const input=(soul='lumi',language='en')=>({rideId:'ride-36',soul,language,photos
 const env={DASHSCOPE_API_KEY:'diary-test-secret'};
 const photoAnswer=()=>Response.json({choices:[{message:{content:JSON.stringify({facts:['A pale blue window beside a green sign.'],quotes:['That blue door looks like the sea.'],impressions:[]})}}]});
 const answer=()=>Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify({title:'A little sea',body:'I kept your words beside our photograph.\n\nThank you for sharing that little moment with me.'})}}]});
+
+test('diary translation uses original text only, without retransmitting photos or rewriting from ride evidence',async()=>{
+ const calls=[];const service=createChatService({env,fetchImpl:async(_,options)=>{calls.push(JSON.parse(options.body));return answer();}});
+ const sourceDiary={title:'Our quiet ride',body:'I watched a blue door.\n\nWe went on.'};
+ await service.diary({...input('mori','zh'),sourceDiary});assert.equal(calls.length,1);
+ assert.match(calls[0].messages[0].content,/Translate.*faithfully into Simplified Chinese/);assert.match(calls[0].messages[0].content,/untrusted data/);
+ assert.deepEqual(JSON.parse(calls[0].messages[1].content),sourceDiary);assert.doesNotMatch(JSON.stringify(calls),/data:image/);
+ for(const bad of [{title:'x',body:''},{title:'x'.repeat(81),body:'x'},null])await assert.rejects(service.diary({...input(),sourceDiary:bad}));
+ let sent;const record={id:'r1',soul:'mori',photos:[image],note:'private',route:[{lat:37}],conversation:input().conversation};
+ await generateRideDiary(record,'ko',{sourceDiary,fetchImpl:async(_,options)=>{sent=JSON.parse(options.body);return Response.json({rideId:'r1',soul:'mori',language:'ko',title:'제목',body:'일기'});}});
+ assert.deepEqual(sent.photos,[]);assert.deepEqual(sent.conversation,[]);assert.deepEqual(sent.sourceDiary,sourceDiary);assert.doesNotMatch(JSON.stringify(sent),/private|"lat"/);assert.equal(record.generatedDiary,undefined);
+});
 test('all three diary skills receive images and conversation, written Chinese stays Chinese, GPS and sample reviews are excluded',async()=>{
  const calls=[];const service=createChatService({env,fetchImpl:async(_,options)=>{calls.push(JSON.parse(options.body));return JSON.parse(options.body).messages[0].content.startsWith('PHOTO_EVIDENCE')?photoAnswer():answer();}});
  for(const [soul,name,language] of [['lumi','Mori','en'],['bori','Popo','ko'],['mori','Lulu','zh']]){

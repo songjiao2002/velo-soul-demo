@@ -63,8 +63,12 @@ public class ExampleInstrumentedTest {
         assertEquals("0",js("document.querySelectorAll('.soul-card,.topbar').length"));
         js("document.querySelector('[data-companion-profile=mori]').click()");
         assertEquals("true",js("!document.querySelector('[data-companion-card=mori]').hidden && document.querySelector('[data-companion-card=lumi]').hidden"));
+        js("document.querySelector('[data-action=settings]').click();document.querySelector('input[name=voiceSelectChoice][value=zh]').click();document.querySelector('[data-save-settings]').click();document.querySelector('[data-action=settings]').click()");
+        assertEquals("true",js("document.querySelector('input[name=voiceSelectChoice][value=zh]').checked && document.querySelector('#voiceSelect').value === 'zh'"));
+        js("document.querySelector('[data-action=settings-close]').click()");
         js("document.querySelector('.app-tabbar [data-action=scan]').click()");
         awaitTrue("document.body.dataset.screen === 'scan' && !!window.jsQR && !!document.querySelector('#cameraStart')");
+        assertEquals("true",js("!!document.querySelector('.scan-history-card') && !!document.querySelector('.scan-home > .scan-home-action')"));
         assertEquals("true",js("Capacitor.isPluginAvailable('VeloMedia')"));
         // Exercise a real first-use runtime permission and the emulator camera.
         js("document.querySelector('#cameraStart').click()");
