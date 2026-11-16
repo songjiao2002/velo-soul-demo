@@ -15,6 +15,7 @@ if(js.split('Ca(B[P].hello, "hello")').length!==3)throw Error('Intro anchors cha
 js=js.replaceAll('Ca(B[P].hello, "hello")','In(Ln(P,yi()).text,W)');
 await writeFile(new URL('reference-entry.generated.mjs',publicRoot),(await read('live-imports.txt'))+normalize(js));
 let html=normalize(await read('ride/index.html'));
+html=html.replace('</head>','<link rel="stylesheet" href="native-layout.css?v='+BUILD+'"></head>');
 html=html.replace(/<script>\(function\(\)\{function c\(\)[\s\S]*?<\/script>/g,'');
 html=html.replace(/<p class="embedded-service-note"[\s\S]*?<\/p>/,'<p class="embedded-service-note" data-no-translate><span lang="en">Voice and diary generation use Qwen. Ride diaries are stored on this device.</span><span lang="ko">음성과 일기 생성에는 Qwen을 사용해요. 일기는 이 기기에 저장돼요.</span><span lang="zh">语音和后记由千问生成，骑行日记保存在本机。</span></p>');
 html=html.replace(/(<select id="voiceSelect"[^>]*>)([\s\S]*?)(<\/select>)/,(all,start,options,end)=>start+options+'<option value="zh" lang="zh">中文 · Lulu</option>'+end);

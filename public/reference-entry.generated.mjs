@@ -1582,7 +1582,7 @@ import {createSoulChat as liveSoulChat} from './soul-chat.mjs';
       URL.revokeObjectURL(s);
     }
   }
-  var se = "20261116-mobile61";
+  var se = "20261116-mobile62";
   var Ns = null, Ni = null, Za = false;
   function ji() {
     Za = true;
@@ -1595,7 +1595,7 @@ import {createSoulChat as liveSoulChat} from './soul-chat.mjs';
       Ni.mountCharacters();
       return;
     }
-    Ns ??= import("/character-toon.bundle.mjs?v=20261116-mobile61").catch(() => null);
+    Ns ??= import("/character-toon.bundle.mjs?v=20261116-mobile62").catch(() => null);
     Ns.then((module) => {
       if (!Za) return;
       if (module) {

@@ -59,6 +59,7 @@ public class ExampleInstrumentedTest {
         awaitTrue("document.body.dataset.screen === 'companions' && document.querySelector('#startupNotice').hidden");
         assertEquals("true",js("window.isSecureContext && Capacitor.isNativePlatform() && !!navigator.mediaDevices?.getUserMedia"));
         assertEquals("3",js("document.querySelectorAll('.app-tabbar button').length"));
+        assertEquals("true",js("document.documentElement.classList.contains('native-app') && getComputedStyle(document.querySelector('.status-bar')).display === 'none' && getComputedStyle(document.querySelector('.gesture-area')).display === 'none'"));
         assertEquals("1",js("document.querySelectorAll('.app-tabbar [data-nav=companions]').length"));
         assertEquals("0",js("document.querySelectorAll('.soul-card,.topbar').length"));
         js("document.querySelector('[data-companion-profile=mori]').click()");

@@ -1,0 +1,11 @@
+/* The Site previews a phone; installed apps already have real system bars. */
+html.native-app {
+  --screen-top: env(safe-area-inset-top, 0px);
+  --screen-bottom: env(safe-area-inset-bottom, 0px);
+}
+html.native-app .status-bar,
+html.native-app .gesture-area { display: none !important; }
+html.native-app body {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
