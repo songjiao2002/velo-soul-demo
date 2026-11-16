@@ -1,4 +1,4 @@
-import {DIARY_VOICES,diaryExchanges} from './diary-voices.mjs';
+import {DIARY_VOICES} from './diary-voices.mjs';
 
 export const DIARY_COPY={
  en:{title:'Ride diary',saving:'Saving your diary…',saved:'Saved on this device. Your note saves automatically.',failed:'Could not save on this device. Retry or export your diary before leaving.',note:'A note to remember',placeholder:'What would you like to remember?',view:'Open ride diaries',share:'Export to Notes',copy:'Copy diary',copied:'Diary copied. Paste it into your notes app.',exported:'Choose your notes app in the share sheet.',downloaded:'Diary text downloaded.',error:'Could not export. Try copying the diary.',back:'Back to companions',intro:'Your ride is already becoming a memory.',local:'Your photos and conversation excerpts help your companion write this diary with Qwen. It stays on this device.',image:'Save card image',remove:'Delete diary',empty:'No photos from this ride.'},
@@ -11,13 +11,7 @@ export function rideDiary(record,language='en'){
  const lang=DIARY_COPY[language]?language:'en',r=record||{},name=Object.hasOwn(names,r.soul)?names[r.soul]:'Soul';
  const at=Number(r.createdAt),date=new Date(Number.isFinite(at)&&at>0?at:0).toLocaleString({en:'en-GB',ko:'ko-KR',zh:'zh-CN'}[lang]);
  const voice=DIARY_VOICES[lang][Object.hasOwn(names,r.soul)?r.soul:'mori'];
- const exchanges=diaryExchanges(r),paragraphs=[voice.open];
- if(r.photos?.length)paragraphs.push(voice.photos);
- if(exchanges.length){
-  const pair=exchanges.at(-1);
-  paragraphs.push(lang==='ko'?'네가 “'+pair.user+'”라고 말했지. '+voice.reflection:lang==='zh'?'你说：“'+pair.user+'” '+voice.reflection:'You said, “'+pair.user+'” '+voice.reflection);
- }else paragraphs.push(voice.quiet);
- paragraphs.push(voice.close);
+ const paragraphs=[voice.open,r.photos?.length?voice.photos:voice.quiet,voice.close];
  const generated=r.generatedDiary,ready=generated&&typeof generated.body==='string'&&generated.body.trim()&&typeof generated.title==='string';
  const title=ready?name+' · '+generated.title:name+' · '+DIARY_COPY[lang].title,body=ready?generated.body:paragraphs.join('\n\n'),note=typeof r.note==='string'?r.note.slice(0,2000):'';
  return {title,date,body,language:ready?generated.language:lang,text:[title,date,'',body,...(note?['',DIARY_COPY[lang].note,note]:[])].join('\n')};

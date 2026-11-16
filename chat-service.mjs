@@ -177,7 +177,14 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
       if(!payload.sourceDiary&&(payload.photos.length||payload.conversation.length||payload.observations.length))payload.diaryEvidence=await complete(diaryPhotoRequest(payload,payload.photos.length?config.visionModel:config.model),config,signal,{readResult:data=>diaryPhotoResult(data,ChatError,payload)});
       const model=config.model;
       const request=diaryRequest(payload,(await diarySkills)[payload.soul],model);
-      return complete(request,config,signal,{readResult:data=>diaryResult(data,payload,{ChatError,model})});
+      const write=()=>complete(request,config,signal,{readResult:data=>diaryResult(data,payload,{ChatError,model})});
+      try{return await write();}catch(error){
+        if(error.code!=='invalid_diary_format'||payload.sourceDiary)throw error;
+        // One bounded retry, charged to the same budget. Never recycle an
+        // invalid draft as evidence or retry provider/auth/cancellation errors.
+        request.messages[0].content+=`\nThe previous attempt had ${error.diaryFormat.length} counted units and ${error.diaryFormat.paragraphs} paragraphs. Write a fresh, complete 150–200-unit body in exactly three paragraphs using only the original evidence. Aim for 175; check the count before returning.`;
+        return write();
+      }
     },
     async reply(input,{signal,vision=false,onDelta}={}){
       const payload=vision?validateVision(input):validateChat(input,now()),config=chatConfig(env);
