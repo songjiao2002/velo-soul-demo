@@ -1582,7 +1582,7 @@ import {createSoulChat as liveSoulChat} from './soul-chat.mjs';
       URL.revokeObjectURL(s);
     }
   }
-  var se = "20261116-mobile62";
+  var se = "20261116-mobile63";
   var Ns = null, Ni = null, Za = false;
   function ji() {
     Za = true;
@@ -1595,7 +1595,7 @@ import {createSoulChat as liveSoulChat} from './soul-chat.mjs';
       Ni.mountCharacters();
       return;
     }
-    Ns ??= import("/character-toon.bundle.mjs?v=20261116-mobile62").catch(() => null);
+    Ns ??= import("/character-toon.bundle.mjs?v=20261116-mobile63").catch(() => null);
     Ns.then((module) => {
       if (!Za) return;
       if (module) {
@@ -5926,7 +5926,7 @@ window.addEventListener('velo:ready',()=>{
     return W;
   }
   function jn(i) {
-    W = i === "zh" && P === "mori" ? "zh" : i === "ko" ? "ko" : "en";
+    W = i === "zh" ? "zh" : i === "ko" ? "ko" : "en";
     try {
       localStorage.setItem("velo-soul-input-language", i), localStorage.setItem("velo-soul-voice-language", W);
     } catch {

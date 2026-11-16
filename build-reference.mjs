@@ -8,7 +8,7 @@ let js=await read('app.pretty.js');
 function replace(before,after){if(js.split(before).length!==2)throw Error('Reference anchor changed: '+before.slice(0,100));js=js.replace(before,after);}
 replace('  var Ao = ',(await read('live-adapter.js'))+'\n  var Ao = ');
 replace('["en", "ko"].includes(localStorage.getItem("velo-soul-voice-language"))','["en", "ko", "zh"].includes(localStorage.getItem("velo-soul-voice-language"))');
-replace('W = i === "ko" ? "ko" : "en";','W = i === "zh" && P === "mori" ? "zh" : i === "ko" ? "ko" : "en";');
+replace('W = i === "ko" ? "ko" : "en";','W = i === "zh" ? "zh" : i === "ko" ? "ko" : "en";');
 replace('record.generatedDiary?.body ? "" : diaryTranslationMenu(originalDiaryLanguage(record))','diaryTranslationMenu(originalDiaryLanguage(record))');
 replace('Ca(ti[W].farewell, "end")','In(W === "zh" ? "今天的回忆我收好啦，下次见。" : ti[W].farewell, W)');
 if(js.split('Ca(B[P].hello, "hello")').length!==3)throw Error('Intro anchors changed');
