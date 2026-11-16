@@ -9,7 +9,7 @@ const skin=new T.SphereGeometry(1,24,18),unitCylinder=new T.CylinderGeometry(1,1
 const UP=new T.Vector3(0,1,0),v=new T.Vector3(),q=new T.Quaternion();
 // The bicycle's front is local +Z. The camera looks down -Z, so an AR rider
 // following the road faces away from the lens; portraits still face the viewer.
-export const CHARACTER_FACING=Object.freeze({portrait:.55,ride:Math.PI+.35});
+export const CHARACTER_FACING=Object.freeze({portrait:.55,cover:-.55,ride:Math.PI+.35});
 const palettes={lumi:{fur:0xfff6e9,accent:0xefac69,hat:0xdcb98a,bag:0xe88c43},bori:{fur:0xfff8ee,accent:0xffd574,hat:0xffd574,bag:0xedba4d},mori:{fur:0xfffaf3,accent:0x363433,hat:0xf4eee5,bag:0x7e9a63}};
 function material(color,roughness=.68){const m=new T.MeshToonMaterial({color,gradientMap:ramp});m.userData.outlineParameters={thickness:.0025,color:new T.Color(0x716857).toArray()};return m;}
 function group(parent,name,x=0,y=0,z=0){const g=new T.Group();g.name=name;g.position.set(x,y,z);parent.add(g);return g;}
@@ -79,8 +79,6 @@ export function createCharacterModel(id){
    facePatch(head,'orange-forehead-mark',mats.accent,side*.42,.24,.135,.21,side*-.4);
    for(let i=0;i<2;i++)rod(head,'whisker',mats.accent,[side*.4,-.12-i*.07,.376],[side*.52,-.09-i*.075,.284],.011);
   }
-  const tail=group(torso,'tail',.23,.62,-.27),path=new T.CatmullRomCurve3([[0,0,0],[.34,.03,-.15],[.63,.2,-.16],[.74,.4,-.13],[.65,.56,-.08]].map(p=>new T.Vector3(...p)));
-  for(let i=0;i<5;i++){const section=new T.CatmullRomCurve3(Array.from({length:7},(_,j)=>path.getPoint((i+j/6)/5)));const stripe=new T.Mesh(new T.TubeGeometry(section,8,.15,12,false),i%2?mats.fur:mats.accent);stripe.name='tail-stripe';tail.add(stripe);}ball(tail,'tail-tip',mats.accent,path.getPoint(1).toArray(),[.15,.15,.15]);
  }else for(const side of [-1,1]){ball(head,'round-ear',id==='mori'?mats.dark:mats.fur,[side*(panda?.475:.46),panda?.515:.51,-.1],panda?[.17,.185,.14]:[.19,.205,.14]);if(id==='bori')ball(head,'inner-ear',mats.pink,[side*.46,.51,.025],[.125,.14,.055]);}
  const eyes=[];for(const side of [-1,1]){
   if(panda)facePatch(head,'eye-patch',mats.dark,side*.25,-.006,.145,.178,side*-.34,headRadii);
@@ -119,7 +117,7 @@ export function createCharacterModel(id){
  const sleep=group(root,'sleep-z',.72,1.6,0);for(let i=0;i<3;i++){const x=i*.12,y=i*.21,s=.12-i*.02;curve(sleep,'z',mats.bag,[[x,y+s,0],[x+s,y+s,0],[x,y,0],[x+s,y,0]],.012);}
  const {bike,wheels,crank}=bicycle(root,mats,id);const sleepingPanda=panda?makeSleepingPanda(root,head,bag,mats):null;
  const shadow=new T.Mesh(new T.PlaneGeometry(2.6,2.6),new T.ShaderMaterial({transparent:true,depthWrite:false,vertexShader:'varying vec2 uv0;void main(){uv0=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:'varying vec2 uv0;void main(){float d=length((uv0-.5)*2.);gl_FragColor=vec4(.3,.27,.22,.19*pow(max(0.,1.-d),2.));}'}));shadow.material.userData.outlineParameters={visible:false};shadow.rotation.x=-Math.PI/2;shadow.position.y=.004;root.add(shadow);
- return {id,root,avatar,torso,head,bag,sleepingPanda,tail:torso.getObjectByName('tail'),ears:head.children.filter(o=>o.name==='cat-ear'||o.name==='round-ear'),eyes,mouth,smile,helmet,hatMaterial:mats.hat,arms,legs,snack,question,sleep,bike,wheels,crank,shadow,materials:Object.values(mats),currentRide:0,currentSleep:0,entranceAt:0,lastState:null};
+ return {id,root,avatar,torso,head,bag,sleepingPanda,ears:head.children.filter(o=>o.name==='cat-ear'||o.name==='round-ear'),eyes,mouth,smile,helmet,hatMaterial:mats.hat,arms,legs,snack,question,sleep,bike,wheels,crank,shadow,materials:Object.values(mats),currentRide:0,currentSleep:0,entranceAt:0,lastState:null};
 }
 const damp=(a,b,dt)=>T.MathUtils.lerp(a,b,1-Math.exp(-dt*7));
 function limb(mesh,a,b,r){const av=new T.Vector3(...a),bv=new T.Vector3(...b);mesh.position.copy(av).add(bv).multiplyScalar(.5);v.copy(bv).sub(av);mesh.quaternion.setFromUnitVectors(UP,v.clone().normalize());mesh.scale.set(r,v.length()*.65,r);}
@@ -135,7 +133,7 @@ export function animateCharacter(model,{time,dt=.033,state='idle',speed=12,expre
  m.avatar.position.set(0,.43*r+s*.08+.025*Math.sin(t*(ride?5:1.8)),s*-.35);
  m.avatar.rotation.set(s*1.2,ride?Math.sin(t*.7)*.035:0,0);
  m.torso.scale.y=1+(reduced?0:.013*Math.sin(t*(sleep?1.5:2.1)));
- m.bag.rotation.z=reduced?0:Math.sin(t*(ride?5:1.4))*(ride?.025:.008);if(m.tail)m.tail.rotation.y=reduced?0:Math.sin(t*1.6)*.08;
+ m.bag.rotation.z=reduced?0:Math.sin(t*(ride?5:1.4))*(ride?.025:.008);
  for(let i=0;i<m.ears.length;i++)m.ears[i].rotation.x=reduced?0:Math.sin(t*2.3+i)*.022;
  m.head.rotation.y=(ride?.06:Math.sin(t*.8)*.2)*(m.id==='lumi'?1.5:.7);m.head.rotation.z=eat?Math.sin(t*5)*.035:Math.sin(t*.9)*.035;
  m.head.rotation.x=-s*1.05+(expression==='listening'?-.06:0)+(eat?Math.sin(t*5)*.025:0);

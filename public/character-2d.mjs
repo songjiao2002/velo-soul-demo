@@ -13,7 +13,6 @@ export const CHARACTER_2D_STYLE=`
 .two-torso{transform-origin:183px 247px;animation:flat-breathe 4s ease-in-out infinite}
 .two-head{transform-origin:180px 205px;animation:flat-look 6s ease-in-out infinite}
 .two-eyes{transform-origin:177px 171px;animation:flat-blink 5.8s infinite}
-.two-tail{transform-origin:235px 255px;animation:flat-tail 4s ease-in-out infinite}
 .two-pack{transform-origin:235px 233px;animation:flat-pack 4s ease-in-out infinite}
 .two-bicycle,.two-cycle-legs,.two-cycle-arm,.two-road{display:none}
 .two-rider{transform:translateY(50px);transform-origin:180px 232px;transition:transform .45s ease-in-out}
@@ -47,7 +46,6 @@ export const CHARACTER_2D_STYLE=`
 @keyframes flat-look{0%,35%,100%{transform:rotate(0)}60%,78%{transform:rotate(-2deg)}}
 @keyframes flat-explore{0%,100%{transform:rotate(0) translateX(0)}25%{transform:rotate(-5deg) translateX(-3px)}65%{transform:rotate(4deg) translateX(3px)}}
 @keyframes flat-blink{0%,42%,46%,88%,92%,100%{transform:scaleY(1)}44%,90%{transform:scaleY(.07)}}
-@keyframes flat-tail{50%{transform:rotate(5deg)}}
 @keyframes flat-pack{50%{transform:rotate(1.5deg)}}
 @keyframes flat-ride{50%{transform:translateY(-1.5px)}}
 @keyframes flat-ride-head{50%{transform:rotate(1deg)}}
@@ -79,7 +77,7 @@ export function cycleWheelAngle(phase=0){return -phase*180/Math.PI;}
 
 export function characterSVG(id,activity='idle'){
  const p=FLAT_PALETTES[id];if(!p)return '';const panda=id==='mori',fur=panda?'#4d504b':p.fur;
- const tail=id==='lumi'?`<g class="two-tail">${path('M232 255 Q279 267 294 235 Q303 216 288 201 Q276 195 271 208 Q268 220 281 225 Q278 243 237 231Z',p.accent,p.edge,2)}${path('M248 237 L251 255 M271 234 L278 249 M281 207 Q278 215 291 220','none',p.fur,11)}</g>`:id==='bori'?ellipse(239,258,11,10,p.fur,`stroke="${p.edge}" stroke-width="2"`):ellipse(236,259,10,9,'#474c43');
+ const tail=id==='lumi'?'':id==='bori'?ellipse(239,258,11,10,p.fur,`stroke="${p.edge}" stroke-width="2"`):ellipse(236,259,10,9,'#474c43');
  const pack=`<g class="two-pack">${path('M222 199 Q241 193 251 207 L257 246 Q252 260 233 261 L220 248Z',p.bag,p.edge,2)}${path('M236 218 L251 216 L255 241 Q247 248 236 244Z',p.bag,p.edge,1.5)}${path('M229 208 L236 248 M247 210 L252 247','none','#6d7057',3)}${path('M232 223 L239 222 L240 229 L233 230Z',p.hatLight,p.edge,1.5)}${path('M232 199 Q229 187 238 189 Q247 191 246 200','none',p.bag,4)}</g>`;
  const body=path('M150 208 Q185 199 217 207 Q239 225 232 259 Q219 280 186 278 Q152 281 141 258 Q133 234 150 208Z',p.fur,p.edge,2);
  const legs=cyclePose();

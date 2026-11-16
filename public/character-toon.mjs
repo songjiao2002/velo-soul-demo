@@ -35,13 +35,14 @@ function createView(host){
   }else{
    scene.add(new T.AmbientLight(0xffffff,.85));const key=new T.DirectionalLight(0xffffff,2.25);key.position.set(-3,6,5);scene.add(key);
   }
-  const heading=host.closest('[data-ride-direction="forward"]')?CHARACTER_FACING.ride:CHARACTER_FACING.portrait;
+  const cover=host.closest('.companion-profile-art, .diary-summary-cover, .diary-entry-cover, .ride-rating-cover');
+  const heading=cover?CHARACTER_FACING.cover:host.closest('[data-ride-direction="forward"]')?CHARACTER_FACING.ride:CHARACTER_FACING.portrait;
   const view={model,scene,canvas,context,yaw:heading,target:heading,drag:false,x:0,y:0,down:false,facing:null};views.set(host,view);
   host.addEventListener('pointerdown',view.start=e=>{if(!host.hasAttribute('data-turnable')||e.button>0)return;view.down=true;view.drag=false;view.x=e.clientX;view.y=e.clientY;});
   host.addEventListener('pointermove',view.move=e=>{if(!view.down)return;const dx=e.clientX-view.x,dy=e.clientY-view.y;if(!view.drag){if(Math.abs(dy)>Math.abs(dx)&&Math.abs(dy)>7){view.down=false;return;}if(Math.abs(dx)<5)return;view.drag=true;host.setPointerCapture?.(e.pointerId);}view.target+=dx*.012;view.x=e.clientX;view.y=e.clientY;host.dataset.autoTurn='false';});
   host.addEventListener('pointerup',view.end=e=>{view.down=view.drag=false;if(host.hasPointerCapture?.(e.pointerId))host.releasePointerCapture(e.pointerId);});
   host.addEventListener('pointercancel',view.end);host.addEventListener('lostpointercapture',view.end);
-  host.addEventListener('keydown',view.key=e=>{if(!host.hasAttribute('data-turnable'))return;if(['ArrowLeft','ArrowRight','Home'].includes(e.key)){view.target=e.key==='Home'?0:view.target+(e.key==='ArrowLeft'?-.3:.3);host.dataset.autoTurn='false';e.preventDefault();}});
+  host.addEventListener('keydown',view.key=e=>{if(!host.hasAttribute('data-turnable'))return;if(['ArrowLeft','ArrowRight','Home'].includes(e.key)){view.target=e.key==='Home'?(cover?CHARACTER_FACING.cover:0):view.target+(e.key==='ArrowLeft'?-.3:.3);host.dataset.autoTurn='false';e.preventDefault();}});
  }catch{setState(host,'fallback');}
 }
 function removeView(host,view){

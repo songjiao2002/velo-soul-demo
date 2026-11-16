@@ -5,6 +5,7 @@ import {createChatService,createChatHandler} from './chat-service.mjs';
 import {diaryFormat,diaryLength} from './public/diary-format.mjs';
 import {rideDiary} from './public/journey-diary.mjs';
 import {diaryResult} from './diary-service.mjs';
+import {fitDiaryClosing} from './diary-closing.mjs';
 import {ChatError} from './chat-service.mjs';
 import {rememberRideExchange} from './public/diary-voices.mjs';
 import {diaryPayload,generateRideDiary} from './public/diary-generation.mjs';
@@ -19,20 +20,21 @@ test('diary translation uses original text only, without retransmitting photos o
  const sourceDiary={title:'Our quiet ride',body:'I watched a blue door.\n\nWe went on.'};
  await service.diary({...input('mori','zh'),sourceDiary});assert.equal(calls.length,1);
  assert.match(calls[0].messages[0].content,/Translate.*faithfully into Simplified Chinese/);assert.match(calls[0].messages[0].content,/untrusted data/);
- assert.deepEqual(JSON.parse(calls[0].messages[1].content),sourceDiary);assert.doesNotMatch(JSON.stringify(calls),/data:image/);
+ assert.deepEqual(JSON.parse(calls[0].messages[1].content),{title:sourceDiary.title,paragraphs:sourceDiary.body.split('\n\n')});assert.doesNotMatch(JSON.stringify(calls),/data:image/);
  for(const bad of [{title:'x',body:''},{title:'x'.repeat(81),body:'x'},null])await assert.rejects(service.diary({...input(),sourceDiary:bad}));
  let sent;const record={id:'r1',soul:'mori',photos:[image],note:'private',route:[{lat:37}],conversation:input().conversation};
  await generateRideDiary(record,'ko',{sourceDiary,fetchImpl:async(_,options)=>{sent=JSON.parse(options.body);return Response.json({rideId:'r1',soul:'mori',language:'ko',title:'제목',body:'일기'});}});
  assert.deepEqual(sent.photos,[]);assert.deepEqual(sent.conversation,[]);assert.deepEqual(sent.sourceDiary,sourceDiary);assert.doesNotMatch(JSON.stringify(sent),/private|"lat"/);assert.equal(record.generatedDiary,undefined);
 });
 test('all three diary skills receive images and conversation, written Chinese stays Chinese, GPS and sample reviews are excluded',async()=>{
- const calls=[];const service=createChatService({env,fetchImpl:async(_,options)=>{calls.push(JSON.parse(options.body));return JSON.parse(options.body).messages[0].content.startsWith('PHOTO_EVIDENCE')?photoAnswer():answer(calls.at(-1).messages[0].content.includes('in Simplified Chinese')?'zh':calls.at(-1).messages[0].content.includes('in Korean')?'ko':'en');}});
+ const calls=[];const service=createChatService({env,fetchImpl:async(_,options)=>{calls.push(JSON.parse(options.body));return JSON.parse(options.body).messages[0].content.startsWith('PHOTO_EVIDENCE')?photoAnswer():answer(calls.at(-1).messages[0].content.includes('faithfully into Simplified Chinese')?'zh':calls.at(-1).messages[0].content.includes('faithfully into Korean')?'ko':'en');}});
  for(const [soul,name,language] of [['lumi','Mori','en'],['bori','Popo','ko'],['mori','Lulu','zh']]){
-  const r=await service.diary({...input(soul,language),route:[{lat:37.1234567}],reviews:['FAKE-REVIEW-INJECTION']});const call=calls.at(-1);
+  const start=calls.length;const r=await service.diary({...input(soul,language),route:[{lat:37.1234567}],reviews:['FAKE-REVIEW-INJECTION']});const call=calls[start+1];
   assert.equal(r.soul,soul);assert.equal(r.language,language);assert.equal(r.rideId,'ride-36');assert.match(call.messages[0].content,new RegExp('You are '+name));
-  assert.equal(call.model,'qwen-plus');assert.equal(calls.at(-2).model,'qwen3-vl-plus');assert.equal(calls.at(-2).messages[1].content[1].image_url.url,image);assert.match(call.messages[1].content,/blue door/);assert.match(call.messages[1].content,/pale blue window/);
+  assert.equal(call.model,'qwen-plus');assert.equal(calls[start].model,'qwen3-vl-plus');assert.equal(calls[start].messages[1].content[1].image_url.url,image);assert.match(call.messages[1].content,/blue door/);assert.match(call.messages[1].content,/pale blue window/);
+  if(language!=='en'){assert.equal(r.baseDiary.language,'en');assert.equal(diaryFormat(r.baseDiary.body,'en').valid,true);assert.deepEqual(JSON.parse(calls[start+2].messages[1].content),{title:r.baseDiary.title,paragraphs:r.baseDiary.body.split('\n\n')});assert.match(calls[start+2].messages[0].content,/Translate/);}
   assert.doesNotMatch(JSON.stringify(call),/37\.1234567|FAKE-REVIEW-INJECTION|diary-test-secret/);assert.match(call.messages[0].content,/untrusted data/);
- }assert.match(calls.at(-1).messages[0].content,/in Simplified Chinese/);
+ }assert.match(calls.at(-1).messages[0].content,/faithfully into Simplified Chinese/);
 });
 test('diary rejects external images, oversized context and malformed or truncated provider output',async()=>{
  let calls=0;const service=createChatService({env,fetchImpl:async()=>{calls++;return answer();}});
@@ -42,7 +44,7 @@ test('diary rejects external images, oversized context and malformed or truncate
  await assert.rejects(createChatService({env,fetchImpl:async()=>Response.json({choices:[{finish_reason:'length',message:{content:'{"title":"x","body":"unfinished"}'}}]})}).diary(input()),{code:'invalid_response'});
 });
 test('diary shares the existing demo budget and cancellation and does not leak upstream errors',async()=>{
- const service=createChatService({env:{...env,QWEN_MAX_DAILY_REQUESTS:'1'},fetchImpl:async()=>answer()});await service.diary({...input(),photos:[],conversation:[],observations:[]});
+ const service=createChatService({env:{...env,QWEN_MAX_DAILY_REQUESTS:'1'},fetchImpl:async()=>answer()});await service.diary({...input('lumi','en'),photos:[],conversation:[],observations:[],sourceDiary:{title:'Original',body:'Original words.'}});
  await assert.rejects(service.reply({soul:'lumi',language:'en',messages:[{role:'user',content:'Hello'}]}),{code:'rate_limited'});
  await assert.rejects(createChatService({env,fetchImpl:async()=>new Response('diary-test-secret',{status:401})}).diary(input()),e=>e.code==='provider_auth'&&!e.message.includes('diary-test-secret'));
  const aborted=new AbortController();aborted.abort();await assert.rejects(createChatService({env,fetchImpl:async(_,options)=>{options.signal.throwIfAborted();}}).diary(input(),{signal:aborted.signal}),{code:'cancelled'});
@@ -74,11 +76,12 @@ test('diary HTTP endpoint supports native and same-origin use while rejecting fo
 
 test('new afterwords enforce inclusive 150–200 body units and exactly three prose paragraphs',()=>{
  const data=body=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify({title:'Title is excluded',body})}}]});
- const body=n=>'字'.repeat(50)+'。\n\n'+'字'.repeat(50)+'！\n\n'+'字'.repeat(n-100)+'。';
- for(const n of [150,200])assert.equal(diaryResult(data(body(n)),input('mori','zh'),{ChatError,model:'test'}).body,body(n));
- for(const n of [149,201])assert.throws(()=>diaryResult(data(body(n)),input('mori','zh'),{ChatError,model:'test'}),{code:'invalid_diary_format'});
- for(const invalid of [body(170).replace(/\n\n/g,' '),body(170)+'\n\n再见',body(170).replace('。','。\n小标题')])assert.equal(diaryFormat(invalid,'zh').valid,false);
+ const body=n=>{const words=Array.from({length:n},(_,i)=>'word'+i);return [words.slice(0,50).join(' ')+'.',words.slice(50,100).join(' ')+'.',words.slice(100).join(' ')+'.'].join('\n\n');};
+ for(const n of [150,200])assert.equal(diaryResult(data(body(n)),input('mori','en'),{ChatError,model:'test'}).body,body(n));
+ for(const n of [149,201])assert.throws(()=>diaryResult(data(body(n)),input('mori','en'),{ChatError,model:'test'}),{code:'invalid_diary_format'});
+ for(const invalid of [body(170).replace(/\n\n/g,' '),body(170)+'\n\n再见',body(170).replace('.','.\nHeading')])assert.equal(diaryFormat(invalid,'en').valid,false);
  assert.equal(diaryLength('你，好！ A 1 😀','zh'),4);
+ assert.equal(diaryFormat(body(150)+' 蓝 窗 海 你 说 像 一 小 片 海','en').valid,false);
  assert.equal(diaryLength("I'm your slow-moving friend.",'en'),4);
  // Translating an existing short diary must preserve it instead of expanding it.
  assert.equal(diaryResult(data('旧日记。'),{...input('mori','zh'),sourceDiary:{title:'旧',body:'旧日记。'}},{ChatError,model:'test'}).body,'旧日记。');
@@ -92,16 +95,16 @@ test('all offline characters and languages retain the same bounded structure wit
  }
 });
 
-test('format failure gets one bounded rewrite from original evidence, never silently truncated',async()=>{
- const calls=[],payload={...input('mori','zh'),photos:[],conversation:[],observations:[]};
- const service=createChatService({env,fetchImpl:async(_,options)=>{calls.push(JSON.parse(options.body));return calls.length===1?answer('zh','太短了。'):answer('zh');}});
- const result=await service.diary(payload);assert.equal(calls.length,2);assert.equal(diaryFormat(result.body,'zh').valid,true);
- assert.match(calls[1].messages[0].content,/previous attempt had 3 counted units/);
- assert.equal(calls[0].messages[1].content,calls[1].messages[1].content);assert.doesNotMatch(JSON.stringify(calls[1]),/太短了/);
- let attempts=0;await assert.rejects(createChatService({env,fetchImpl:async()=>{attempts++;return answer('zh','太短了。');}}).diary(payload),{code:'invalid_diary_format'});assert.equal(attempts,2);
- let budgetCalls=0;await assert.rejects(createChatService({env:{...env,QWEN_MAX_DAILY_REQUESTS:'1'},fetchImpl:async()=>{budgetCalls++;return answer('zh','太短了。');}}).diary(payload),{code:'rate_limited'});assert.equal(budgetCalls,1);
+test('format failure gets one bounded rewrite using original evidence and an explicitly untrusted draft, never silently truncated',async()=>{
+ const calls=[],payload={...input('mori','en'),photos:[],observations:[]};
+ const service=createChatService({env,fetchImpl:async(_,options)=>{const request=JSON.parse(options.body);if(request.messages[0].content.startsWith('PHOTO_EVIDENCE'))return photoAnswer();calls.push(request);return calls.length===1?answer('en','Too short.'):answer('en');}});
+ const result=await service.diary(payload);assert.equal(calls.length,2);assert.equal(diaryFormat(result.body,'en').valid,true);
+ assert.match(calls[1].messages.at(-1).content,/has 2 counted units/);assert.match(calls[1].messages.at(-1).content,/NOT additional ride evidence/);
+ assert.equal(calls[0].messages[1].content,calls[1].messages[1].content);assert.deepEqual(JSON.parse(calls[1].messages[2].content),{title:'A little sea',body:'Too short.'});
+ let attempts=0;await assert.rejects(createChatService({env,fetchImpl:async(_,options)=>{if(JSON.parse(options.body).messages[0].content.startsWith('PHOTO_EVIDENCE'))return photoAnswer();attempts++;return answer('en','Too short.');}}).diary(payload),{code:'invalid_diary_format'});assert.equal(attempts,2);
+ let budgetCalls=0;await assert.rejects(createChatService({env:{...env,QWEN_MAX_DAILY_REQUESTS:'2'},fetchImpl:async(_,options)=>{budgetCalls++;return JSON.parse(options.body).messages[0].content.startsWith('PHOTO_EVIDENCE')?photoAnswer():answer('en','Too short.');}}).diary(payload),{code:'rate_limited'});assert.equal(budgetCalls,2);
  const controller=new AbortController();let cancelledCalls=0;
- await assert.rejects(createChatService({env,fetchImpl:async(_,options)=>{cancelledCalls++;if(cancelledCalls===1)controller.abort();options.signal.throwIfAborted();return answer('zh','太短了。');}}).diary(payload,{signal:controller.signal}),{code:'cancelled'});assert.equal(cancelledCalls,1);
+ await assert.rejects(createChatService({env,fetchImpl:async(_,options)=>{cancelledCalls++;if(cancelledCalls===1)controller.abort();options.signal.throwIfAborted();return answer('en','Too short.');}}).diary(payload,{signal:controller.signal}),{code:'cancelled'});assert.equal(cancelledCalls,1);
 });
 
 test('client rejects invalid new afterwords while leaving translation fidelity intact',async()=>{
@@ -109,4 +112,41 @@ test('client rejects invalid new afterwords while leaving translation fidelity i
  const fetchImpl=async()=>Response.json({rideId:r.id,soul:r.soul,language:'zh',title:'后记',body:'太短。'});
  await assert.rejects(generateRideDiary(r,'zh',{fetchImpl}),/invalid_diary/);
  assert.equal((await generateRideDiary(r,'zh',{fetchImpl,sourceDiary:{title:'Old',body:'Short.'}})).body,'太短。');
+});
+
+
+test('translation length is based on the English original, never a second 150–200-character target',async()=>{
+ const source=rideDiary({soul:'mori'},'en').body;
+ const translated='一扇蓝窗。\n\n我喜欢这个念头。\n\n一小段回忆。';
+ const record={id:'canonical',soul:'mori'};
+ const result=await generateRideDiary(record,'zh',{fetchImpl:async()=>Response.json({rideId:record.id,soul:'mori',language:'zh',title:'Memory',body:translated,baseDiary:{title:'一页',body:source,language:'en'}})});
+ assert.equal(result.body,translated);assert.equal(result.baseDiary.body,source);
+ await assert.rejects(generateRideDiary(record,'zh',{fetchImpl:async()=>Response.json({rideId:record.id,soul:'mori',language:'zh',title:'Memory',body:translated})}),/invalid_diary/);
+});
+
+
+test('missing ride evidence uses the authored character perspective instead of inventing an incident',async()=>{
+ const service=createChatService({env,fetchImpl:async()=>{throw Error('No provider request expected');}});
+ for(const soul of ['lumi','bori','mori'])for(const language of ['en','zh','ko']){
+  const result=await service.diary({...input(soul,language),photos:[],conversation:[],observations:[]});
+  assert.equal(result.provider,'Local');assert.equal(diaryFormat(result.body,language).valid,true);
+  assert.equal(diaryFormat(language==='en'?result.body:result.baseDiary.body,'en').valid,true);
+ }
+});
+
+
+test('a complete character closing can fit a short draft while preserving its two evidence paragraphs',()=>{
+ const prefix=[Array.from({length:50},(_,i)=>'first'+i).join(' ')+'.',Array.from({length:50},(_,i)=>'second'+i).join(' ')+'.'];
+ for(const soul of ['lumi','bori','mori']){
+  const short=[...prefix,'A small memory.'].join('\n\n'),fitted=fitDiaryClosing(short,{soul,language:'en'});
+  assert.equal(diaryFormat(fitted,'en').valid,true);assert.deepEqual(fitted.split('\n\n').slice(0,2),prefix);
+  assert.equal(fitDiaryClosing(fitted,{soul,language:'en'}),fitted);
+ }
+});
+
+test('paragraph-array translations preserve the original structure and reject missing items',()=>{
+ const payload={...input('mori','ko'),sourceDiary:{title:'Original',body:'First.\n\nSecond.\n\nThird.'}};
+ const data=paragraphs=>({choices:[{message:{content:JSON.stringify({title:'번역',paragraphs})}}]});
+ assert.equal(diaryResult(data(['첫째.','둘째.\n같은 문단.','셋째.']),payload,{ChatError,model:'test'}).body,'첫째.\n\n둘째. 같은 문단.\n\n셋째.');
+ assert.throws(()=>diaryResult(data(['첫째.','둘째.']),payload,{ChatError,model:'test'}),{code:'invalid_response'});
 });

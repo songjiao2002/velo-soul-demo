@@ -814,7 +814,7 @@ body[data-screen="diary"] #diaryToolbarTranslation:not(:empty) { display: block;
   content: "";
 }
 
-:is(.diary-summary-cover, .diary-entry-cover, .companion-profile-art) [data-toon-state="loading"] > .soul-flat { visibility: hidden; }
+:is(.diary-summary-cover, .diary-entry-cover, .companion-profile-art, .ride-rating-cover) [data-toon-state="loading"] > .soul-flat { visibility: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
   .language-options::before, .language-options span,
@@ -1222,3 +1222,6 @@ body:has(.install-banner:not([hidden])) .scan-home{min-height:calc(100svh - var(
  .encounter-player{padding-top:12px}
  .encounter-player .encounter-hint{margin-block:4px 7px}
 }
+
+.ride-rating-cover{display:grid;place-items:center;height:164px;margin-bottom:10px;overflow:hidden;border-radius:10px;background:#ececea}
+.ride-rating-cover .character-view{width:min(100%,200px);height:100%}

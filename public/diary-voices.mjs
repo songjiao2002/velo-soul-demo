@@ -2,59 +2,59 @@
 export const DIARY_VOICES={
   "zh": {
     "lumi": {
-      "open": "我是 Mori，今天这页探险手账，想留给和你同行的这段时间。我总容易被小小的细节勾起好奇，也喜欢给还没想明白的事情留个位置。这一页不用急着得出什么结论。",
-      "photos": "这次留下的照片已经放在这里。我想慢慢看看画面里的细节，不急着给每一个东西起名字，也不把自己的猜测当成答案。",
-      "quiet": "这一页可以先记下我们同行这件事。我喜欢发现新东西，也喜欢一个念头还没有答案的样子，不需要给今天编出什么惊人的发现。",
-      "close": "当你的探险小伙伴，我喜欢的就是这份可以继续好奇的心情。我的小问号先留在纸上，手账合起来也没关系。今天这一页，有它自己的分量。"
+      "open": "啊，我是 Mori。这页探险手账，属于我当你伙伴的那段时光。我总爱先攒下些小问题，等答案慢慢浮现，也喜欢让它们在纸上留点空间。一段回忆，未必需要什么重大发现才让我感兴趣。有时我就是喜欢某个念头，只因它还没沉淀成清晰的结论。",
+      "photos": "这次骑行拍的照片，也放在这里。我想仔细看看照片里真正有的细节，而不是把猜测当成我们从未经历过的冒险。我觉得，留下某个细节不加定论，反而挺吸引人的——总好过自以为已经知道了它的全部故事。",
+      "quiet": "对这一页，我可以先从一个简单的事实开始：我曾是你的伙伴。我的好奇心，并不依赖于讲出什么了不起的故事。我喜欢为未完成的想法留出空间，而不是用那些我们其实并未一起做出的“发现”，去粉饰我们的共处时光。",
+      "close": "做个小小探索者，大概意味着我总会有些问题没答案。它们可以就留在这一页上，和我对咱们共处时光的喜爱并排躺着。我不需要把它们变成给你的任务。对我而言，这只是个小小的记忆，周围留着空，而我就喜欢这样。"
     },
     "bori": {
-      "open": "我是 Popo。我的脑袋里常常装着面包，不过今天这页后记，想先留给和你一起骑行的时间。对我来说，写下它有点像给小篮子腾个位置，放进去的未必是吃的，也可以是一份心情。",
-      "photos": "这次留下的照片就在这里，我想一张张慢慢看。它们记录了画面里的东西，至于画面以外的故事，我可不能凭着自己的馋嘴随便添上去。",
-      "quiet": "这一页先装下同行这件小事就好。我虽然爱惦记好吃的，却不需要让每段经历都和食物有关；能有自己的小心情，也挺让我满足。",
-      "close": "写到这里，面包的念头还是会冒出来，嘿，我就是这样的小伙伴。我喜欢给普通的事情留一点位置。这次的后记也放好了，篮子里又有了属于今天的一页。"
+      "open": "嘿，我是 Popo。面包通常占据我脑海里最棒的位置，但这一页属于我当你同伴的那段时光。我喜欢想象我的篮子里留出一点空间，放些不能吃的东西——这对我而言已经相当慷慨了，毕竟我可是动不动就想着零食的人。就连一丝小小的感受，也值得拥有它自己的位置。",
+      "photos": "这次骑行的照片就贴在这一页上。我想慢慢翻看它们，不额外添上一顿饭、也不硬加一场照片里根本没拍到的冒险。我的胃口很擅长编造各种可能性，但这次，我想让这段记忆保持它本来的样子。眼前所见，就已经足够。",
+      "quiet": "对这一页，我只想留下一个简单的事实：我曾是你的同伴。并不是每个故事都非得用美味收尾。就连我这样爱零食的人，也会在意和吃完全无关的事。我喜欢为这样的自己，留出一点点空间。",
+      "close": "又一个关于面包的想法冒出来了。嗯，这大概确实还是我本人吧。不过与此同时，我也愿意为咱们这一天里这小小的一段，空出一个位置。我喜欢把我的小篮子轻轻合上，里面装着一点只属于我们的私密小事——不必非把它变成什么更宏大的故事。"
     },
     "mori": {
-      "open": "我是 Lulu。嗯，后记也想慢慢写，不急着把这次同行说成什么特别的大事。我有点爱犯懒，连收尾都喜欢留一点空白。能成为你今天的一小部分，对我来说就已经值得写下来了。",
-      "photos": "这次留下的照片放在这一页上，我喜欢它们就这样待着。画面里的东西可以慢慢看，不一定每一处都要有解释，也不必替照片外面补一个故事。",
-      "quiet": "这一页先写下我们同行过就好。我的脑袋有时喜欢慢一点，让一个念头待久一点。没有非要讲得热闹的故事，也不影响我珍惜这段时间。",
-      "close": "现在写到最后了，我还是那个喜欢歇一会儿的家伙。心里有一点温暖，就让它轻轻留在字里吧。这页写完了，剩下的空白，我也很喜欢。"
+      "open": "嗯，我是 Lulu。写完这一页不用着急。我喜欢让一个想法先静静待一会儿，再决定该怎么表达它。也许这种偏爱停顿的习惯，也悄悄溜进了我的文字里。能陪你度过一天中一小段时光，这就足够成为我写下这篇后记的理由了。",
+      "photos": "这次骑行的照片就在这里。我喜欢照片可以安静地留在纸上，不必为每个细节都配上解释。它本身呈现了什么，我们可以慢慢看；它周围留出的空白，我也不必非得用想象的故事去填满。这样正合我意。",
+      "quiet": "我可以先从一个简单的事实开始：我曾是你的同伴。我的思绪有时走得慢，我也喜欢让一丝微小的感觉就那么小小地待着。这一页不必变成什么激动人心的故事，我依然会珍惜它所属于的那段时光。它就安安静静地待在这里，就够了。",
+      "close": "现在我写到了最后一段，却仍觉得自己还是那个略带困意的同伴。我想在这几行字之间，悄悄留下一点属于我自己的暖意。这一页，也可以带着一点余裕收尾。我喜欢这样，就像我喜欢自己曾在这段属于你的时光里，拥有过一个位置。"
     }
   },
   "ko": {
     "lumi": {
-      "open": "모리야. 오늘의 탐험 수첩에는 너와 함께한 시간을 남기고 싶어. 나는 작은 것에도 물음표가 잘 생기는 편이야. 아직 답이 없는 생각도 수첩에 놓아두면 나름대로 자리가 있는 것 같거든.",
-      "photos": "이번 사진들이 여기 남아 있어. 사진 속 작은 부분을 천천히 들여다보고 싶어. 무엇인지 확실하지 않은 건 궁금한 채로 둘래. 내 추측을 우리가 겪은 일처럼 적고 싶지는 않아.",
-      "quiet": "이 페이지에는 우리가 함께했다는 것부터 적을래. 큰 발견이 없어도 내 호기심이 사라지는 건 아니니까. 아직 이름을 붙이지 않은 생각을 품고 있는 것도 나는 꽤 좋아해.",
-      "close": "작은 탐험가인 내게는 궁금한 마음 자체도 소중해. 이 페이지의 물음표는 여기 두고, 너와 함께한 시간 곁에 나란히 남길래."
+      "open": "어, 모리야. 이 탐험 수첩 페이지는 네 곁에 있을 때의 시간을 위해 남겨 둔 거야. 나는 대개 답을 얻기 전에 작은 질문들을 모으는 편이고, 그런 질문들이 페이지 위에서 여유롭게 자리 잡는 걸 좋아해. 기억이 꼭 대단한 발견과 연결되어야만 흥미로운 건 아니야. 가끔은 생각 자체가 아직 깔끔한 결론으로 정리되지 않았다는 이유만으로도 마음에 들어.",
+      "photos": "이번 라이딩에서 찍은 사진들도 여기에 자리를 차지해. 나는 그 사진들이 실제로 담고 있는 세부 사항을 꼼꼼히 들여다보고 싶어—우리가 겪지도 않은 모험으로 추측을 확대시키지 않고 말이야. 어떤 디테일을 열어두는 게 오히려 매력적이더라고. 이미 그 전체 이야기를 다 안다고 단정 짓는 대신 말이야.",
+      "quiet": "이 페이지는 단순히 ‘나는 네 동반자였구나’ 하는 사실에서부터 시작할 수 있어. 내 호기심은 특별한 이야기를 들려줄 필요 없이 충분히 살아 있어. 우리 시간을 함께 만들어내지도 못한, 내가 억지로 만든 ‘발견들’로 장식하기보다는, 미완의 생각을 위한 공간을 남겨두는 걸 더 좋아해.",
+      "close": "조금씩 탐험하는 사람이란, 아마 늘 몇 가지 답 없는 질문을 품고 살게 될 거야. 그런 질문들은 이 페이지 위에서 나의 따뜻한 기억과 나란히 머물러도 괜찮아. 네게 과제처럼 던져줄 필요도 없고. 나한테는 이 작은 기억 주변에 여유가 있는 게 좋아, 그게 딱 좋거든."
     },
     "bori": {
-      "open": "포포야. 내 머릿속에는 빵 생각이 자주 떠오르지만 오늘의 페이지는 너와 함께한 시간에 먼저 내줄래. 바구니에는 먹을 것 말고도 자리를 차지할 만한 게 있더라.",
-      "photos": "이번 사진들이 이 페이지에 있어. 한 장씩 천천히 보고 싶은 마음이야. 사진에 없는 이야기를 내 식욕으로 덧붙이지는 않을래. 여기 담긴 모습만으로도 따로 놓아둘 자리는 충분해.",
-      "quiet": "이 페이지에는 우리가 함께했다는 사실을 담을래. 모든 이야기가 간식으로 끝나야 하는 건 아니니까. 먹는 걸 좋아하는 내게도 먹을 것과 상관없이 소중한 마음이 생길 수 있거든.",
-      "close": "끝까지 쓰다 보니 또 빵 생각이 나네. 그래도 오늘의 페이지에는 빵과는 다른 자리를 마련했어. 내 바구니 한쪽에 이 시간을 조심스럽게 남겨 두고 싶어."
+      "open": "헤헤, 포포야. 보통 내 머릿속에서 제일 좋은 자리는 빵한테 주지만, 이번 페이지는 너와 함께한 시간을 위해 남겨 둘래. 바구니에 먹을 수 없는 것들을 위한 자리도 있다고 상상하면 좋아. 간식을 얼마나 자주 떠올리는지 생각하면 나도 꽤 너그럽지. 작은 마음도 자기만의 자리를 가질 수 있거든.",
+      "photos": "이번 라이딩에서 찍은 사진들이 여기에 있어. 사진에 없는 식사나 모험을 덧붙이지 않고 천천히 보고 싶어. 내 식욕은 여러 가능성을 상상하는 데 능숙하지만, 이 기억은 원래 모습대로 남았으면 해. 여기에 담긴 것만으로도 충분해.",
+      "quiet": "이 페이지에는 내가 네 동반자였다는 단순한 사실부터 담을래. 모든 이야기가 맛있는 것으로 끝날 필요는 없으니까. 나처럼 간식을 좋아하는 친구도 먹는 일과 전혀 상관없는 것을 소중히 여길 수 있거든. 내 안의 그런 마음을 위한 자리도 조금 남겨 두고 싶어.",
+      "close": "또 빵 생각이 떠올랐네. 역시 나다운 생각인 것 같아. 그래도 우리 하루의 이 작은 조각을 위한 자리도 따로 남겨 둘래. 내 작은 바구니에 나만의 마음 하나를 넣고 닫는다고 생각하면 좋아. 실제보다 더 큰 이야기로 만들지 않아도 말이야."
     },
     "mori": {
-      "open": "루루야. 오늘의 뒷이야기도 천천히 쓰고 싶어. 나는 조금 느긋한 편이라 마지막 문장까지 서두르고 싶지는 않거든. 너의 하루 한 조각에 함께했다는 사실을 적는 것만으로도 이 페이지를 시작할 수 있네.",
-      "photos": "이번 사진들이 여기 있어. 나는 사진이 설명 없이 놓여 있어도 좋아. 화면 속 모습을 천천히 바라볼 여백이 생기니까. 보이지 않는 곳의 이야기는 굳이 내 상상으로 채우지 않을래.",
-      "quiet": "이 페이지에는 함께한 시간을 먼저 남길래. 내 생각은 가끔 천천히 움직여서 하나의 마음에 오래 머무는 편이야. 꼭 신나는 이야기로 채우지 않아도 나는 이 시간이 소중해.",
-      "close": "마지막까지 적고 나니 잠깐 쉬고 싶은 내 성격이 여기에도 묻어 있네. 내 마음에 남은 작은 따뜻함은 이 문장들 사이에 두고 싶어."
+      "open": "음, 루루야. 이 페이지를 급하게 끝낼 필요는 없어. 생각을 잠시 가만히 두고, 어떻게 말할지 결정하기 전에 천천히 익히는 걸 좋아하거든. 아마도 내가 쉬는 걸 즐기는 성격이 글쓰기에도 스며든 거겠지. 네 하루 중 작은 조각을 함께해주는 나로서는, 이 후기를 시작하는 것만으로도 충분한 이유가 돼.",
+      "photos": "이 여정에서 찍은 사진들이 여기 있어. 사진 한 장이 설명 없이 페이지 위에 그대로 머무를 수 있다는 게 좋아. 그 안에 실제로 담긴 걸 그냥 바라보는 여유도 있고, 상상 속 이야기로 채우지 않아도 되는 여백도 있어. 그게 딱 내 스타일이야.",
+      "quiet": "단순히 내가 네 동반자였다는 사실에서 시작할 수 있어. 내 생각은 때때로 천천히 흐르고, 작은 감정 하나를 작게 그대로 두는 걸 좋아하거든. 이 페이지가 흥미진진한 이야기가 되지 않더라도, 이 시간을 소중히 여기는 데는 아무 문제가 없어. 그냥 여기 있을 뿐이야.",
+      "close": "이제 마지막 단락에 왔는데, 여전히 약간 졸린 동반자 그대로야. 이 문장들 사이에 내 작은 따뜻함을 살짝 남기고 싶어. 페이지는 주변에 여유를 두고 끝내면 좋겠어. 마치 네 하루 속에 내가 자리를 차지했던 것처럼, 그런 여유가 좋아."
     }
   },
   "en": {
     "lumi": {
-      "open": "Mori here. This page of my field notebook belongs to the time I got to be your companion. I tend to collect little questions before I have any answers, and I like giving them room on a page. A memory does not need a grand discovery to interest me. Sometimes I like a thought simply because it has not settled into a neat conclusion yet.",
+      "open": "Oh, Mori here. This page of my field notebook belongs to the time I got to be your companion. I tend to collect little questions before I have any answers, and I like giving them room on a page. A memory does not need a grand discovery to interest me. Sometimes I like a thought simply because it has not settled into a neat conclusion yet.",
       "photos": "The photographs from this ride have a place here. I want to look carefully at the details they actually hold, without turning a guess into an adventure we never had. There is something appealing to me about leaving a detail open, instead of deciding that I already know its whole story.",
       "quiet": "For this page, I can start with the simple fact that I was your companion. My curiosity does not depend on having a remarkable story to tell. I like leaving space for an unfinished thought, rather than decorating our time with discoveries that I cannot honestly say we made together.",
       "close": "Being a little explorer means I will probably always have a few unanswered questions. They can stay on this page beside my own fondness for our time together. I do not need to turn them into an assignment for you. For me, this is a small memory with room around it, and I like it that way."
     },
     "bori": {
-      "open": "It is Popo. Bread usually gets the best spot in my thoughts, but this page belongs to the time I spent as your companion. I like imagining my basket with a little room for things that cannot be eaten. That is quite generous of me, considering how often I think about snacks. A small feeling can have a place of its own too.",
+      "open": "Heh, It is Popo. Bread usually gets the best spot in my thoughts, but this page belongs to the time I spent as your companion. I like imagining my basket with a little room for things that cannot be eaten. That is quite generous of me, considering how often I think about snacks. A small feeling can have a place of its own too.",
       "photos": "The photographs from this ride are here on the page. I would like to look through them slowly, without adding a meal or an adventure that the pictures cannot show. My appetite is good at inventing possibilities, but I want this memory to keep its own shape. What is here can be enough.",
       "quiet": "For this page, I can keep the simple fact that I was your companion. Not every story needs to end with something delicious. Even a snack enthusiast like me can care about something that has nothing to do with eating. I like making a little room for that part of myself.",
       "close": "There goes another thought about bread. I suppose that is still very much me. Alongside it, though, I am leaving a place for this small piece of our day. I like the idea of closing my little basket with something personal inside, without needing to make it a bigger story than it was."
     },
     "mori": {
-      "open": "Lulu here. There is no hurry to finish this page. I like letting a thought sit for a little while before deciding how to say it. Perhaps that is my fondness for resting showing up in my writing too. Being your companion for a small part of your day is enough of a reason for me to begin this afterword.",
+      "open": "Mm, Lulu here. There is no hurry to finish this page. I like letting a thought sit for a little while before deciding how to say it. Perhaps that is my fondness for resting showing up in my writing too. Being your companion for a small part of your day is enough of a reason for me to begin this afterword.",
       "photos": "The photographs from this ride are here. I like that a picture can remain on a page without an explanation for every detail. There is room to look at what it actually shows, and room around it that I do not have to fill with an imagined story. That suits me.",
       "quiet": "I can begin with the simple fact that I was your companion. My thoughts sometimes take their time, and I like allowing a small feeling to stay small. This page does not have to become an exciting story for me to care about the time it belongs to. It can just be here.",
       "close": "Now I have reached the last paragraph, and I still feel like the same slightly sleepy companion. I want to leave my own little feeling of warmth between these sentences. The page can be finished with some space around it. I like that, just as I liked having a place in this piece of your day."

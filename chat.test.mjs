@@ -8,6 +8,21 @@ const env={DASHSCOPE_API_KEY:'test-secret-only'};
 const input=(soul='lumi',language='en')=>({soul,language,messages:[{role:'user',content:'Hello, tell me about yourself.'}]});
 const success=(reply='Hello from the mocked provider.')=>new Response(JSON.stringify({choices:[{message:{content:reply},finish_reason:'stop'}]}),{status:200});
 
+test('personality verbosity reaches voice, camera-context and automatic-scene prompts',async()=>{
+ const image='data:image/jpeg;base64,'+Buffer.from([255,216,255,224,0,2,255,217]).toString('base64');
+ for(const [soul,guide,tokens] of [['lumi','most talkative',180],['bori','medium verbosity',140],['mori','quietest',100]]){
+  let sent;
+  const service=createChatService({env,fetchImpl:async(_,options)=>{sent=JSON.parse(options.body);return success(sent.response_format?JSON.stringify({scene:'unclear',confidence:.2,shouldSpeak:false,reply:''}):'Okay, I am here.');}});
+  for(const mode of ['voice','context','vision']){
+   await service.reply({...input(soul),voice:mode!=='vision',...(mode!=='voice'?{image}:{})},{vision:mode==='vision'});
+   assert.match(sent.messages[0].content,new RegExp(guide));
+   assert.match(sent.messages[0].content,/Use fewer words when the rider is tired/);
+   assert.doesNotMatch(sent.messages[0].content,/exactly one short|at most 12 English|Do not increase answer length/);
+   if(mode!=='vision')assert.equal(sent.max_tokens,tokens);
+  }
+ }
+});
+
 test('Qwen readiness accepts official HTTPS endpoints and never exposes credentials',()=>{
  assert.equal(chatConfig({}).configured,false);
  assert.equal(chatConfig(env).configured,true);

@@ -12,5 +12,6 @@ export async function generateRideDiary(record,language,{signal,fetchImpl=appFet
  if(!response.ok)throw Error('diary_failed');const result=await response.json();
  if(result.rideId!==record.id||result.soul!==record.soul||result.language!==language||typeof result.title!=='string'||!result.title.trim()||result.title.length>80||typeof result.body!=='string'||!result.body.trim()||result.body.length>2400)throw Error('invalid_diary');
  if(!sourceDiary&&!diaryFormat(result.body,language).valid)throw Error('invalid_diary');
- return {title:result.title,body:result.body,language,source:'qwen',createdAt:Date.now()};
+ if(!sourceDiary&&language!=='en'&&(result.baseDiary?.language!=='en'||typeof result.baseDiary.body!=='string'||!diaryFormat(result.baseDiary.body,'en').valid))throw Error('invalid_diary');
+ return {title:result.title,body:result.body,language,source:result.provider==='Local'?'local':'qwen',createdAt:Date.now(),...(!sourceDiary&&result.baseDiary?{baseDiary:result.baseDiary}:{})};
 }
