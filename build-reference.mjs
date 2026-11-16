@@ -3,7 +3,7 @@ import {createHash} from 'node:crypto';
 import {BUILD} from './public/build-version.mjs';
 const source=new URL('./ui-reference/',import.meta.url),publicRoot=new URL('./public/',import.meta.url);
 const read=name=>readFile(new URL(name,source),'utf8');
-const normalize=text=>text.replaceAll('/ride/','/').replaceAll('?v=left-front','?v='+BUILD).replaceAll('?v=mono13','?v='+BUILD).replace(/2026\d{4}-[a-z]+\d+[a-z]*/g,BUILD);
+const normalize=text=>text.replaceAll('\r\n','\n').replaceAll('/ride/','/').replaceAll('?v=left-front','?v='+BUILD).replaceAll('?v=mono13','?v='+BUILD).replace(/2026\d{4}-[a-z]+\d+[a-z]*/g,BUILD);
 let js=await read('app.pretty.js');
 function replace(before,after){if(js.split(before).length!==2)throw Error('Reference anchor changed: '+before.slice(0,100));js=js.replace(before,after);}
 replace('  var Ao = ',(await read('live-adapter.js'))+'\n  var Ao = ');
