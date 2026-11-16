@@ -1,19 +1,19 @@
 {
-  "version": "2.0.1-preview",
+  "version": "2.0.2-preview",
   "android": {
     "available": true,
     "packageId": "com.velosoul.companion",
-    "versionCode": 18,
-    "sha256": "86442a661bcdf0a035c75c2599a039787ea25e2243d35fd249863d107d640c03",
+    "versionCode": 19,
+    "sha256": "ffdfd4992418040e733f60c7a9b1e6d54637a9a94e61a203793b0a071dfc7f7c",
     "certificateSHA256": "3692891421910f0357e3f20f6240212973e5a9aee34c5c00db58c0069169d910",
-    "url": "https://github.com/songjiao2002/velo-soul-demo/releases/download/v2.0.1-mobile-preview/VELO-SOUL-Android.apk",
+    "url": "https://github.com/songjiao2002/velo-soul-demo/releases/download/v2.0.2-mobile-preview/VELO-SOUL-Android.apk",
     "minAndroid": "7.0",
-    "size": 26077524,
+    "size": 26081620,
     "testSigned": false
   },
   "ios": {
     "webApp": true,
     "testflight": null
   },
-  "sourceCommit": "618f6f48724b3f4605af51aadbcc7fe401c0df38"
+  "sourceCommit": "39ce2c911ceadc5961ed7b3a01f1253f9eb4caa4"
 }
