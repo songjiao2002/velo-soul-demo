@@ -1,10 +1,11 @@
+import {soulQRURL,QR_GENERATION,QR_IDS} from './public/qr-links.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {SoulCameraController,parseSoulQR,appendPoint,projectRoute,routeDistance} from './public/soul-core.mjs';
 const origin='https://velo-soul-demo-production.up.railway.app';
 test('QR parser selects known souls from owned URLs without redirecting',()=>{
- for(const id of ['lumi','mori','bori'])assert.equal(parseSoulQR(origin+'/?bike='+id,origin),id);
- assert.equal(parseSoulQR('http://localhost:3000/?bike=mori','http://localhost:3000'),'mori');
+ for(const id of ['lumi','mori','bori'])assert.equal(parseSoulQR(soulQRURL(id,origin),origin),id);
+ assert.equal(parseSoulQR(soulQRURL('mori','http://localhost:3000'),'http://localhost:3000'),'mori');
  for(const raw of ['javascript:alert(1)','https://evil.example/?bike=lumi',origin+'/?bike=__proto__',origin+'/other?bike=lumi',origin+'/?bike=constructor','lumi'])assert.equal(parseSoulQR(raw,origin),null);
 });
 function stream(){let stopped=0;const track={stop(){stopped++;},addEventListener(){}};return{getTracks:()=>[track],getVideoTracks:()=>[track],get stopped(){return stopped;}};}

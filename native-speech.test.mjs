@@ -1,3 +1,4 @@
+import {soulQRURL,QR_GENERATION,QR_IDS} from './public/qr-links.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {NativeSpeechPlayer} from './public/native-speech.mjs';
@@ -44,5 +45,5 @@ test('KakaoTalk, WeChat and Korean embedded browsers are recognized without misl
 });
 test('external browser links keep soul choice and omit media autostart and arbitrary parameters',()=>{
  const links=companionBrowserLinks('https://velo-soul-demo-production.up.railway.app/?bike=mori&view=camera&token=private#state');
- assert.equal(links.link,'https://velo-soul-demo-production.up.railway.app/?bike=mori');assert.match(links.chrome,/package=com.android.chrome;/);assert.match(links.samsung,/package=com.sec.android.app.sbrowser;/);assert.doesNotMatch(JSON.stringify(links),/private|view=camera|#state/);assert.throws(()=>companionBrowserLinks('javascript:alert(1)'));
+ assert.equal(links.link,soulQRURL('mori','https://velo-soul-demo-production.up.railway.app'));assert.match(links.chrome,/package=com.android.chrome;/);assert.match(links.samsung,/package=com.sec.android.app.sbrowser;/);assert.doesNotMatch(JSON.stringify(links),/private|view=camera|#state/);assert.throws(()=>companionBrowserLinks('javascript:alert(1)'));
 });

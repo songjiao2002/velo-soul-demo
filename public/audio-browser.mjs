@@ -1,3 +1,4 @@
+import {QR_IDS} from './qr-links.mjs';
 import {isNative,PUBLIC_ORIGIN} from './app-network.mjs';
 export function browserAudioContext(ua=''){
  const android=/Android/i.test(ua),wechat=/MicroMessenger/i.test(ua);
@@ -8,7 +9,7 @@ export function companionBrowserLinks(href){
  const input=new URL(href),original=isNative()?new URL(input.pathname+input.search,PUBLIC_ORIGIN):input;if(!['http:','https:'].includes(original.protocol))throw Error('url');
  // Keep only the soul choice. Camera URLs must not auto-request permissions
  // after opening another app; transient/sensitive query parameters are omitted.
- const url=new URL('/',original.origin),bike=original.searchParams.get('bike');if(['lumi','mori','bori'].includes(bike))url.searchParams.set('bike',bike);
+ const url=new URL('/',original.origin),bike=original.searchParams.get('bike');if(['lumi','mori','bori'].includes(bike)){url.searchParams.set('bike',bike);url.searchParams.set('qr',QR_IDS[bike]);}
  const link=url.href,make=packageName=>`intent://${url.host}${url.pathname}${url.search}#Intent;scheme=${url.protocol.slice(0,-1)};package=${packageName};S.browser_fallback_url=${encodeURIComponent(link)};end`;
  return {link,chrome:make('com.android.chrome'),samsung:make('com.sec.android.app.sbrowser')};
 }

@@ -1,3 +1,4 @@
+import {soulQRURL,QR_GENERATION,QR_IDS} from './public/qr-links.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -21,8 +22,8 @@ test('CORS preflight is restricted to needed methods and headers',()=>{
  for(const origin of ['https://localhost','capacitor://localhost']){const r=req(origin);r.method='OPTIONS';r.headers['access-control-request-method']='POST';r.headers['access-control-request-headers']='content-type';const s=response();assert.equal(nativeCors(r,s),true);assert.equal(s.status,204);assert.equal(s.headers['Access-Control-Allow-Origin'],origin);assert.equal(s.headers['Access-Control-Allow-Credentials'],undefined);}
  const r=req('https://localhost');r.method='OPTIONS';r.headers['access-control-request-method']='PUT';const s=response();nativeCors(r,s);assert.equal(s.status,403);assert.equal(nativeCors(req('https://bad.example'),response()),false);
 });
-test('original printed codes select the correct legacy IDs; other codes rejected',()=>{
- for(const id of ['lumi','bori','mori'])for(const origin of ['capacitor://localhost','null'])assert.equal(parseSoulQR(PUBLIC_ORIGIN+'/?bike='+id,origin),id);
+test('new printed codes select the correct character IDs; other codes rejected',()=>{
+ for(const id of ['lumi','bori','mori'])for(const origin of ['capacitor://localhost','null'])assert.equal(parseSoulQR(soulQRURL(id,PUBLIC_ORIGIN),origin),id);
  for(const bad of ['https://evil.example/?bike=lumi',PUBLIC_ORIGIN+'/?bike=constructor',PUBLIC_ORIGIN+'/download.html?bike=lumi','javascript:alert(1)'])assert.equal(parseSoulQR(bad,'capacitor://localhost'),null);
 });
 test('native GPS cancellation while permission is pending releases the eventual watch',async()=>{

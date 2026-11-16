@@ -1,3 +1,4 @@
+import {soulQRURL,QR_GENERATION,QR_IDS} from './public/qr-links.mjs';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { server, makeQr, makeQrPng } from './server.mjs';
@@ -19,16 +20,16 @@ test('invalid request targets cannot crash API dispatch; pages cannot be framed'
 
 test('final UI, camera modules and decoder use executable MIME and camera policy',async()=>{
   for(const p of ['/boot.js','/final.js','/soul-core.mjs','/vendor/jsQR.js']){const r=await fetch(base+p);assert.equal(r.status,200);assert.match(r.headers.get('content-type'),/javascript/);}
-  const home=await fetch(base+'/');const html=await home.text();assert.match(html,/id="startupHome"/);assert.match(html,/id="cameraVideo"/);assert.match(html,/id="cameraStart"/);assert.doesNotMatch(html,/class="topbar"|class="soul-card"/);assert.doesNotMatch(html,/href="\/qr-|settings-qr/);const management=await fetch(base+'/manage.html');assert.equal(management.status,200);const managementHTML=await management.text();for(const soul of ['lumi','mori','bori'])assert.ok(managementHTML.includes('href="/qr-'+soul+'.png"'));const downloadHTML=await (await fetch(base+'/download.html')).text();assert.match(downloadHTML,/href="\/manage\.html"/);assert.match(html,/boot\.js\?v=/);assert.equal(home.headers.get('permissions-policy'),'camera=(self), microphone=(self), geolocation=(self), speaker-selection=(self)');
+  const home=await fetch(base+'/');const html=await home.text();assert.match(html,/id="startupNotice"/);assert.match(html,/id="app"/);assert.match(html,/screen\.css/);assert.doesNotMatch(html,/class="topbar"|class="soul-card"/);assert.doesNotMatch(html,/href="\/qr-|settings-qr/);const management=await fetch(base+'/manage.html');assert.equal(management.status,200);const managementHTML=await management.text();for(const soul of ['lumi','mori','bori'])assert.ok(managementHTML.includes('href="/qr-'+soul+'.png"'));const downloadHTML=await (await fetch(base+'/download.html')).text();assert.match(downloadHTML,/href="\/manage\.html"/);assert.match(html,/boot\.js\?v=/);assert.equal(home.headers.get('permissions-policy'),'camera=(self), microphone=(self), geolocation=(self), speaker-selection=(self)');
 });
 test('all three colored QR codes decode to their correct public character URL',async()=>{
  const sandbox={module:{exports:{}},exports:{}};vm.runInNewContext(await readFile(new URL('./public/vendor/jsQR.js',import.meta.url),'utf8'),sandbox);const decode=sandbox.module.exports;
  const origin='https://velo-soul-demo-production.up.railway.app';
- for(const soul of ['lumi','mori','bori']){const svg=makeQr(soul,origin);const [,w,h]=svg.match(/viewBox="0 0 (\d+) (\d+)"/).map(Number);const rgba=new Uint8ClampedArray(w*h*4).fill(255);const color=svg.match(/<path[^>]*fill="(#\w+)"/)[1],rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));for(const m of svg.matchAll(/M(\d+),(\d+)l(\d+),0 0,(\d+)/g)){const [,x,y,cw,ch]=m.map(Number);for(let yy=y;yy<y+ch;yy++)for(let xx=x;xx<x+cw;xx++){const p=(yy*w+xx)*4;rgba[p]=rgb[0];rgba[p+1]=rgb[1];rgba[p+2]=rgb[2];}}assert.equal(decode(rgba,w,h)?.data,origin+'/?bike='+soul);}
+ for(const soul of ['lumi','mori','bori']){const svg=makeQr(soul,origin);const [,w,h]=svg.match(/viewBox="0 0 (\d+) (\d+)"/).map(Number);const rgba=new Uint8ClampedArray(w*h*4).fill(255);const color=svg.match(/<path[^>]*fill="(#\w+)"/)[1],rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));for(const m of svg.matchAll(/M(\d+),(\d+)l(\d+),0 0,(\d+)/g)){const [,x,y,cw,ch]=m.map(Number);for(let yy=y;yy<y+ch;yy++)for(let xx=x;xx<x+cw;xx++){const p=(yy*w+xx)*4;rgba[p]=rgb[0];rgba[p+1]=rgb[1];rgba[p+2]=rgb[2];}}assert.equal(decode(rgba,w,h)?.data,soulQRURL(soul,origin));}
 });
 
 test('home, health, all character assets and all 15 audio clips are served',async()=>{
-  for (const p of ['/', '/?bike=lumi','/?bike=mori','/?bike=bori','/healthz','/mobile.js','/style.css','/gallery.css','/mobile.css','/memories.css','/soul-blue.png','/soul-mint.png','/soul-orange.png',...['lumi','mori','bori'].flatMap(s=>['hello','start','during','pause','end'].map(k=>`/audio/${s}-${k}.mp3`))]) {
+  for (const p of ['/', ...['lumi','mori','bori'].map(id=>new URL(soulQRURL(id,base)).search),'/healthz','/mobile.js','/style.css','/gallery.css','/mobile.css','/memories.css','/soul-blue.png','/soul-mint.png','/soul-orange.png',...['lumi','mori','bori'].flatMap(s=>['hello','start','during','pause','end'].map(k=>`/audio/${s}-${k}.mp3`))]) {
     const r=await fetch(base+p);assert.equal(r.status,200,p);assert.ok((await r.arrayBuffer()).byteLength>0,p);
   }
 });
@@ -36,7 +37,7 @@ test('QR routes encode the current deployment origin for every soul',async()=>{
   for(const soul of ['lumi','mori','bori']) {
     const r=await fetch(base+`/qr-${soul}.svg`);
     assert.equal(await r.text(),makeQr(soul,base));
-    assert.equal(r.headers.get('cache-control'),'public, max-age=3600');
+    assert.equal(r.headers.get('cache-control'),'no-cache');
   }
 });
 test('audio supports Safari byte-range requests and HEAD',async()=>{
@@ -71,7 +72,7 @@ test('QR downloads preserve bytes and filenames while supporting HEAD and condit
   const response=await fetch(base+'/qr-lumi.'+format),bytes=Buffer.from(await response.arrayBuffer()),etag=response.headers.get('etag');
   assert.deepEqual(bytes,Buffer.from(format==='png'?makeQrPng('lumi',base):makeQr('lumi',base)));
   const head=await fetch(base+'/qr-lumi.'+format,{method:'HEAD'});assert.equal(head.status,200);assert.equal(head.headers.get('etag'),etag);assert.equal(Number(head.headers.get('content-length')),bytes.length);assert.equal((await head.arrayBuffer()).byteLength,0);
-  if(format==='png')assert.equal(head.headers.get('content-disposition'),'attachment; filename="velo-soul-lumi.png"');
+  if(format==='png')assert.equal(head.headers.get('content-disposition'),'attachment; filename="velo-soul-lumi-20261116-v2.png"');
   const cached=await fetch(base+'/qr-lumi.'+format,{headers:{'If-None-Match':etag}});assert.equal(cached.status,304);assert.equal((await cached.arrayBuffer()).byteLength,0);
  }
 });
@@ -93,7 +94,7 @@ test('Brotli and gzip serve the same complete app with representation-specific v
 });
 
 test('cache policy revalidates HTML and unversioned files but retains current build assets',async()=>{
- for(const file of ['/','/?bike=lumi','/app.bundle.js','/app.bundle.js?v=older','/app.css?v=older']){
+ for(const file of ['/','/?bike=lumi&qr='+QR_IDS.lumi,'/app.bundle.js','/app.bundle.js?v=older','/app.css?v=older']){
   const r=await fetch(base+file,{method:'HEAD'});assert.equal(r.headers.get('cache-control'),'no-cache',file);
  }
  for(const file of ['/app.bundle.js','/app.css','/soul-blue.webp','/assets/mori-puppet.webp']){
@@ -118,7 +119,7 @@ test('compressed asset HEAD, encoding opt-out and byte range requests remain val
  assert.equal(preferredEncoding('br;q=0.5,identity;q=1',{br:{}}),'identity');
 });
 
-test('all previously published QR PNGs and SVGs stay byte-for-byte identical',()=>{
+test('all rotated QR images differ from the revoked generation',()=>{
  const expected={
   lumi:['323470880dbc0480c9d6101ae0af5853b15df9939f03d690e2166751fd1f24f5','696cf48aa1099eab62f90471baafe66dc43aa327570091c030f14ee3126a7a8f'],
   mori:['4b6cb842c3b7d416d0b0835e7289f74591c4a82f459b68fa47e8079d61629f8a','21bfe17cec4b453c0df31b3197e8cfefb480a8457563c6e86832da610158d4e4'],
@@ -127,6 +128,14 @@ test('all previously published QR PNGs and SVGs stay byte-for-byte identical',()
  for(const soul of Object.keys(expected)){
   const origin='https://velo-soul-demo-production.up.railway.app';
   const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
-  assert.deepEqual([hash(makeQrPng(soul,origin)),hash(makeQr(soul,origin))],expected[soul]);
+  assert.notEqual(hash(makeQrPng(soul,origin)),expected[soul][0]);assert.notEqual(hash(makeQr(soul,origin)),expected[soul][1]);
+ }
+});
+
+
+test('revoked public QR links return 410 and active codes still load the application',async()=>{
+ for(const soul of Object.keys(QR_IDS)){
+  for(const path of ['/?bike='+soul,'/?bike='+soul+'&qr=old','/ride/?bike='+soul]){const response=await fetch(base+path);assert.equal(response.status,410);assert.equal(response.headers.get('cache-control'),'no-store');assert.match(await response.text(),/expired/);}
+  const active=await fetch(soulQRURL(soul,base));assert.equal(active.status,200);
  }
 });

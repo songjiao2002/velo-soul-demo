@@ -1,3 +1,4 @@
+import {QR_GENERATION} from './public/qr-links.mjs';
 import {APP_ID,validateAppRelease} from './public/app-update.mjs';
 const check=(ok,message)=>{if(!ok)throw Error(message);};
 function versionAfter(a,b){const x=a.split('.').map(Number),y=b.split('.').map(Number);for(let i=0;i<3;i++){if(x[i]!==y[i])return x[i]>y[i];}return false;}
@@ -6,7 +7,7 @@ function versionAfter(a,b){const x=a.split('.').map(Number),y=b.split('.').map(N
 // enters the published metadata; APK verification has already run in CI.
 export function verifiedReleaseMetadata({verification:v,githubRelease:r,previous,source}){
  check(/^[a-f0-9]{40}$/.test(source||''),'Invalid source revision');
- check(v?.originalQRsUnchanged===true&&/^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v.version||''),'Missing package verification');
+ check((v?.originalQRsUnchanged===true||(v?.qrGeneration===QR_GENERATION&&v?.oldQRsRejected===true))&&/^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v.version||''),'Missing package verification');
  check(r?.draft===false&&r.tag_name===`v${v.version}-mobile-preview`&&r.target_commitish===source,'Release provenance mismatch');
  const assets=Array.isArray(r.assets)?r.assets.filter(a=>a.name==='VELO-SOUL-Android.apk'):[];
  check(assets.length===1,'Expected one APK');const apk=assets[0];

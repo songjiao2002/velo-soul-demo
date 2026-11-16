@@ -1,45 +1,45 @@
 {
-  "version": "20261116-mobile60",
+  "version": "20261116-mobile61",
   "files": {
     "/index.html": {
-      "size": 8713,
-      "sha256": "f23a1f5a459e72e56049dbeeb6672df4e58de595e57f7a9032b44e91c8c9b235",
+      "size": 6737,
+      "sha256": "bb8a207437d5f5149c74c06b441c4e513891aa94f5cff7a8645ba4ceb05319b9",
       "br": {
-        "size": 3315,
-        "sha256": "74adda1577118cff0be7179e95077537620f3ecdfd5337c3d6939decf6baba52",
+        "size": 2413,
+        "sha256": "7712af9d862a91d379f507b7e34a9ffd75628dcc24cbcfe236608e43dc34eaf2",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 3936,
-        "sha256": "b16d31405e7d6bd85a90879d9793f5758b9ecbb3c3ff953fd4ff95a8fe6b8151",
+        "size": 2916,
+        "sha256": "5d7918232397c7e554b77e83698fe6287f0b08254e10a575a050f2632c55212a",
         "suffix": ".gz"
       }
     },
     "/boot.js": {
       "size": 2510,
-      "sha256": "bdb5c32ea381db3574c4b2ecdb7fef2573a122d99d063fad0ad5960d8a58bcb2",
+      "sha256": "e0375319723e5f9e6c389b1578d67996c3d7882749009f323adc8626198052ca",
       "br": {
         "size": 949,
-        "sha256": "ae87bcd21b15405de4ba607211ab3af690515e861930f54951b872aba4d8080d",
+        "sha256": "ae49076219fcddcc5d417d4b53258148e62ca88e9851444594d60fc74ca6b54f",
         "suffix": ".br"
       },
       "gzip": {
         "size": 1132,
-        "sha256": "5d030a95f7555b99f9165c56c59ec0fd3deed3309acb589f43ddf6fd70256cfd",
+        "sha256": "b85588193267fef1cfa2428e8e706cc29d82d1c4e0f1cd05311a386dc51b2e10",
         "suffix": ".gz"
       }
     },
     "/app.bundle.js": {
-      "size": 417543,
-      "sha256": "988fc90f5f3a76e760684323ddb04c0f91e18754ce3bb006364c53f879fbb4a5",
+      "size": 592366,
+      "sha256": "d841862b4479efe1a22cb3ffe624c3c5e882b1adae2532278e8fa5cf61c6ae1d",
       "br": {
-        "size": 127684,
-        "sha256": "588274a98fe6a0a78463f5a3a53c107f241fdaef899bff147bc2775040b458f1",
+        "size": 138050,
+        "sha256": "b83645d21270b45d2fe3e794b4c9b127525dd32506f58b1bb293874eb123e8ea",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 154489,
-        "sha256": "439890fad656495402f381a1047d374a94e497a0ee05846b8e946804d0e7e3e6",
+        "size": 219207,
+        "sha256": "1a16ca794d72e98b84d370675fa944c038a6327f8e226cc1a4f74e535fed8823",
         "suffix": ".gz"
       }
     },
@@ -71,17 +71,45 @@
         "suffix": ".gz"
       }
     },
-    "/character-toon.bundle.mjs": {
-      "size": 600185,
-      "sha256": "faa5d82b09dc55c50a3e44bdd70aaff4443c8109ab937ff16d5014024ed96af0",
+    "/screen.css": {
+      "size": 36443,
+      "sha256": "df3c32b90a96ff33ae32c825bedc57305b80416934c512b4abd5d6572ed03503",
       "br": {
-        "size": 141749,
-        "sha256": "d8bff1e5813b5ff235b0e8252dbda65f3552353afb2c2c90953f991e8b9de440",
+        "size": 7156,
+        "sha256": "e26203176abc685e0afd18151ff54e29ebd9d14797d2bc3464ae3f84625400c1",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 156810,
-        "sha256": "db56a8bfa73436b5edf32a91d7ee76f09bbde97304316c037e3376b8b6746048",
+        "size": 7569,
+        "sha256": "6ab0d1cde60ec50300d81c8b11f7c13054ac89242f4111594a500d324bb87bbf",
+        "suffix": ".gz"
+      }
+    },
+    "/interactions.js": {
+      "size": 4169,
+      "sha256": "7a3036259457f09f575a1555f5b9bc258efcda03750c85c4d8895e4fb7a96f91",
+      "br": {
+        "size": 1305,
+        "sha256": "12fe29b7c1bc5a3b6c03b89de7c36c205b25a6fce7f94a5fe8d7d5d794393e7d",
+        "suffix": ".br"
+      },
+      "gzip": {
+        "size": 1441,
+        "sha256": "b96ad1e740e6369c382d476b8b3e2dcb901ad9aa6974e3f2a8621b169d89f9ef",
+        "suffix": ".gz"
+      }
+    },
+    "/character-toon.bundle.mjs": {
+      "size": 604312,
+      "sha256": "3cac21dc854bc155a2b7777f6a7746104ee9bf4a8fa958868c77f858b79471d5",
+      "br": {
+        "size": 143107,
+        "sha256": "94f3468a832b1834e954d0b84530cbe79fbe31371f0edd498939960075f13a20",
+        "suffix": ".br"
+      },
+      "gzip": {
+        "size": 158229,
+        "sha256": "4ce898ba85b940bfd37c977f7f38ed3c68bfd9b47e138ec98dad7e970a39277d",
         "suffix": ".gz"
       }
     },

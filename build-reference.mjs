@@ -1,0 +1,27 @@
+import {readFile,writeFile,copyFile,cp} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {BUILD} from './public/build-version.mjs';
+const source=new URL('./ui-reference/',import.meta.url),publicRoot=new URL('./public/',import.meta.url);
+const read=name=>readFile(new URL(name,source),'utf8');
+const normalize=text=>text.replaceAll('/ride/','/').replaceAll('?v=left-front','?v='+BUILD).replaceAll('?v=mono13','?v='+BUILD).replace(/2026\d{4}-[a-z]+\d+[a-z]*/g,BUILD);
+let js=await read('app.pretty.js');
+function replace(before,after){if(js.split(before).length!==2)throw Error('Reference anchor changed: '+before.slice(0,100));js=js.replace(before,after);}
+replace('  var Ao = ',(await read('live-adapter.js'))+'\n  var Ao = ');
+replace('["en", "ko"].includes(localStorage.getItem("velo-soul-voice-language"))','["en", "ko", "zh"].includes(localStorage.getItem("velo-soul-voice-language"))');
+replace('W = i === "ko" ? "ko" : "en";','W = i === "zh" && P === "mori" ? "zh" : i === "ko" ? "ko" : "en";');
+replace('record.generatedDiary?.body ? "" : diaryTranslationMenu(originalDiaryLanguage(record))','diaryTranslationMenu(originalDiaryLanguage(record))');
+replace('Ca(ti[W].farewell, "end")','In(W === "zh" ? "今天的回忆我收好啦，下次见。" : ti[W].farewell, W)');
+if(js.split('Ca(B[P].hello, "hello")').length!==3)throw Error('Intro anchors changed');
+js=js.replaceAll('Ca(B[P].hello, "hello")','In(Ln(P,yi()).text,W)');
+await writeFile(new URL('reference-entry.generated.mjs',publicRoot),(await read('live-imports.txt'))+normalize(js));
+let html=normalize(await read('ride/index.html'));
+html=html.replace(/<script>\(function\(\)\{function c\(\)[\s\S]*?<\/script>/g,'');
+html=html.replace(/<p class="embedded-service-note"[\s\S]*?<\/p>/,'<p class="embedded-service-note" data-no-translate><span lang="en">Voice and diary generation use Qwen. Ride diaries are stored on this device.</span><span lang="ko">음성과 일기 생성에는 Qwen을 사용해요. 일기는 이 기기에 저장돼요.</span><span lang="zh">语音和后记由千问生成，骑行日记保存在本机。</span></p>');
+html=html.replace(/(<select id="voiceSelect"[^>]*>)([\s\S]*?)(<\/select>)/,(all,start,options,end)=>start+options+'<option value="zh" lang="zh">中文 · Lulu</option>'+end);
+await writeFile(new URL('index.html',publicRoot),html);
+for(const file of ['boot.js','app.css','screen.css','interactions.js','character-toon.bundle.mjs'])await writeFile(new URL(file,publicRoot),normalize(await read('ride/'+file)));
+await cp(new URL('ride/assets/',source),new URL('assets/',publicRoot),{recursive:true});
+const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
+const files={};for(const file of ['app.bundle.js','app.css','screen.css','interactions.js','index.html','character-toon.bundle.mjs'])files[file]=hash(await readFile(new URL('ride/'+file,source)));
+await writeFile(new URL('SOURCE.json',source),JSON.stringify({url:'https://velo-soul-galaxy-s25-ultra.xiaolimao666.chatgpt.site/',downloaded:'2026-11-16',files},null,2)+'\n');
+console.log('Published UI copied; live service adapters applied.');

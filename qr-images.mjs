@@ -1,11 +1,12 @@
 import {deflateSync,crc32} from 'node:zlib';
+import {soulQRURL} from './public/qr-links.mjs';
 import qrcode from './vendor/qrcode.mjs';
 const colors = { lumi:'#2441c7', mori:'#117455', bori:'#a84313' };
 
 
 function qrCode(soul, origin) {
   const qr = qrcode(0, 'M');
-  qr.addData(new URL('/?bike=' + soul, origin).href);
+  qr.addData(soulQRURL(soul,origin));
   qr.make();
   return qr;
 }

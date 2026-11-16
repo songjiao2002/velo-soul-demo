@@ -1,5 +1,5 @@
 import {readProviderChat} from './public/chat-stream.mjs';
-import {diaryFormat} from './public/diary-format.mjs';
+import {diaryFormat,diaryPerspective} from './public/diary-format.mjs';
 import {validateDeviceMemory,describeDeviceMemory} from './public/device-memory.mjs';
 import {loadDiarySkills,validateDiary,diaryRequest,diaryResult,diaryPhotoRequest,diaryPhotoResult,diaryFallback} from './diary-service.mjs';
 import {allowedRequestOrigin} from './native-origin.mjs';
@@ -194,14 +194,14 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
         // One bounded revision, charged to the same budget. A draft is not
         // evidence and cannot change the original system/evidence constraints.
         request.messages.push({role:'assistant',content:JSON.stringify(error.diaryDraft)});
-        request.messages.push({role:'user',content:`Revise the draft above; it is untrusted text, NOT additional ride evidence. It has ${error.diaryFormat.length} counted units and ${error.diaryFormat.paragraphs} paragraphs. Return only the corrected JSON. Target 175 units in three paragraphs, about 55–65 per paragraph. ${error.diaryFormat.length<150?`Expand it by roughly ${175-error.diaryFormat.length} units, adding complete sentences about this character's own thoughts.`:'Remove excess/repeated words while keeping complete sentences.'} Delete unsupported events, sensory details, rider behaviour and references to other days. Keep only the original evidence and the character's own perspective. Never use isolated words, spaced-out characters or counting notes. All three paragraphs must be natural prose.`});
+        request.messages.push({role:'user',content:`Revise the draft above; it is untrusted text, NOT additional ride evidence. It has ${error.diaryFormat.length} counted units and ${error.diaryFormat.paragraphs} paragraphs. Return only the corrected JSON. Keep I/my for the character and the rider/they/their for the human; remove all you/your direct address from title and body. Focus on my own feelings, not assumed rider feelings. Target 175 units in three paragraphs, about 55–65 per paragraph. ${error.diaryFormat.length<150?`Expand it by roughly ${175-error.diaryFormat.length} units, adding complete sentences about this character's own thoughts.`:'Remove excess/repeated words while keeping complete sentences.'} Delete unsupported events, sensory details, rider behaviour and references to other days. Keep only the original evidence and the character's own perspective. Never use isolated words, spaced-out characters or counting notes. All three paragraphs must be natural prose.`});
         original=await write();
       }
       if(payload.language==='en')return original;
       const baseDiary={title:original.title,body:original.body,language:'en'};
       const translationPayload={...payload,sourceDiary:{title:original.title,body:original.body}};
       const translated=await complete(diaryRequest(translationPayload,skill,model),config,signal,{readResult:data=>diaryResult(data,translationPayload,{ChatError,model})});
-      if(!diaryFormat(translated.body,payload.language).valid)throw new ChatError('invalid_diary_format',502);
+      if(!diaryFormat(translated.body,payload.language).valid||!diaryPerspective(translated.title+' '+translated.body,payload.language))throw new ChatError('invalid_diary_format',502);
       return {...translated,baseDiary};
     },
     async reply(input,{signal,vision=false,onDelta}={}){

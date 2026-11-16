@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 import {makeQr,makeQrPng} from './qr-images.mjs';
 export {makeQr,makeQrPng} from './qr-images.mjs';
+import {currentSoulQR,QR_GENERATION} from './public/qr-links.mjs';
 import {QrCache} from './qr-cache.mjs';
 import { createChatHandler } from './chat-service.mjs';
 import {createWeatherService,createWeatherHandler} from './weather-service.mjs';
@@ -60,14 +61,19 @@ export const server = http.createServer(async (req, res) => {
       return send(405, 'Method not allowed');
     }
     const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+    const requestURL=new URL(req.url,'http://localhost');
+    if(['/','/ride','/ride/','/index.html'].includes(pathname)&&requestURL.searchParams.has('bike')&&!currentSoulQR(requestURL)){
+      res.setHeader('Cache-Control','no-store');
+      return send(410,'<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>QR expired · VELO SOUL</title><body style="font-family:system-ui;padding:32px;max-width:540px;margin:auto;background:#faf8f2"><h1>This QR code has expired</h1><p>这个二维码已作废，请使用小组提供的新码。<br>만료된 QR 코드예요. 새 코드를 스캔해 주세요.</p><p>Please scan one of the new companion codes.</p><a href="/download.html">Update VELO SOUL · 更新 App</a></body></html>',types['.html']);
+    }
     if (pathname === '/healthz') return send(200, '{"status":"ok","app":"velo-soul"}', types['.json']);
     const qrMatch = pathname.match(/^\/qr-(lumi|mori|bori)\.(svg|png)$/);
     if (qrMatch) {
       const [,soul,format]=qrMatch,origin=originFor(req);
       const qr=qrCache.get(soul,origin,format,()=>format==='png'?makeQrPng(soul,origin):makeQr(soul,origin));
-      res.setHeader('Cache-Control','public, max-age=3600');
+      res.setHeader('Cache-Control','no-cache');
       res.setHeader('ETag',qr.etag);
-      if(format==='png')res.setHeader('Content-Disposition',`attachment; filename="velo-soul-${soul}.png"`);
+      if(format==='png')res.setHeader('Content-Disposition',`attachment; filename="velo-soul-${soul}-${QR_GENERATION}.png"`);
       if(matchesETag(req.headers['if-none-match'],qr.etag)){res.writeHead(304);res.end();return;}
       return send(200,qr.body,types['.'+format]);
     }

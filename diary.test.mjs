@@ -1,3 +1,4 @@
+import {diaryPerspective} from './public/diary-format.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -149,4 +150,17 @@ test('paragraph-array translations preserve the original structure and reject mi
  const data=paragraphs=>({choices:[{message:{content:JSON.stringify({title:'번역',paragraphs})}}]});
  assert.equal(diaryResult(data(['첫째.','둘째.\n같은 문단.','셋째.']),payload,{ChatError,model:'test'}).body,'첫째.\n\n둘째. 같은 문단.\n\n셋째.');
  assert.throws(()=>diaryResult(data(['첫째.','둘째.']),payload,{ChatError,model:'test'}),{code:'invalid_response'});
+});
+
+
+test('new afterwords consistently use a third-person rider and preserve legacy translations',async()=>{
+ for(const language of ['en','ko','zh'])for(const soul of ['lumi','bori','mori'])for(const photos of [[],['photo']])assert.equal(diaryPerspective(rideDiary({soul,photos},language).body,language),true);
+ for(const [language,text] of [['en','You made my day.'],['zh','你让我很开心。'],['ko','너와 함께했어.']])assert.equal(diaryPerspective(text,language),false);
+ const bad=rideDiary({soul:'mori'},'en').body.replace("this rider's",'your');
+ assert.equal(diaryFormat(bad,'en').valid,true);
+ const r={id:'viewpoint',soul:'mori'},fetchImpl=async()=>Response.json({rideId:r.id,soul:r.soul,language:'en',title:'Memory',body:bad});
+ await assert.rejects(generateRideDiary(r,'en',{fetchImpl}),/invalid_diary/);
+ assert.equal((await generateRideDiary(r,'en',{fetchImpl,sourceDiary:{title:'Old letter',body:bad}})).body,bad);
+ let attempts=0;const service=createChatService({env,fetchImpl:async(_,options)=>{if(JSON.parse(options.body).messages[0].content.startsWith('PHOTO_EVIDENCE'))return photoAnswer();attempts++;return attempts===1?answer('en',bad):answer('en');}});
+ const result=await service.diary({...input('mori','en'),photos:[],observations:[]});assert.equal(attempts,2);assert.equal(diaryPerspective(result.body,'en'),true);
 });
