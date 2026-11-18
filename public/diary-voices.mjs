@@ -1,3 +1,5 @@
+import {LULU_DIARY_FORMAT} from './diary-format.mjs';
+
 // Fixed-format offline afterwords: first-person character feelings, third-person rider.
 export const DIARY_VOICES={
   "en": {
@@ -61,6 +63,31 @@ export const DIARY_VOICES={
     }
   }
 };
+
+const LULU_SHORT_VOICE={
+ en:{
+  open:"Mm, I liked keeping the rider company. It felt easy to be there, and easy suits me just fine.",
+  quiet:"I get a little sleepy when I'm comfortable. I like being close without having to turn every feeling into a big story.",
+  photos:"I like that there's a picture from this ride. One glance brings the ride to mind, and that feels like plenty to me.",
+  close:"I'm still glad I got to come along. I'll leave it there before I start making this sound like hard work."
+ },
+ zh:{
+  open:"嗯，陪那位骑行者挺舒服的。轻轻松松的，我就喜欢这样。",
+  quiet:"我一舒服就有点犯困。能待在一块儿就好，心里那点喜欢不用讲成大故事。",
+  photos:"这趟骑行留了照片，我挺喜欢。看一眼就能想起这趟路，这就够我高兴的了。",
+  close:"我还是挺高兴能跟着一起去。就写到这儿吧，再写都快像干活了。"
+ },
+ ko:{
+  open:"음, 그 라이더랑 함께한 게 좋았어. 마음이 편했거든. 난 그런 게 딱 좋아.",
+  quiet:"난 편하면 조금 졸려. 곁에 있는 것만으로 좋아서, 그 마음을 길게 얘기하고 싶진 않아.",
+  photos:"이번 라이딩 사진이 남아서 좋아. 한 번 보면 그 시간이 떠올라. 난 그걸로 충분해.",
+  close:"같이 갈 수 있어서 좋았어. 이쯤에서 그만 쓸래. 더 쓰면 일 같잖아."
+ }
+};
+
+export function diaryVoice(soul,language,format){
+ return soul==='mori'&&format===LULU_DIARY_FORMAT?LULU_SHORT_VOICE[language]:DIARY_VOICES[language][soul];
+}
 
 // Keep only completed exchanges from this ride, locally. No audio or interim
 // recognition, earlier rides, public sample reviews, or unsolicited GPS lines.

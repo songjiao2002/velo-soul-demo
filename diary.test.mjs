@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import {createChatService,createChatHandler} from './chat-service.mjs';
-import {diaryFormat,diaryLength} from './public/diary-format.mjs';
+import {diaryFormat,diaryLength,LULU_DIARY_FORMAT} from './public/diary-format.mjs';
 import {rideDiary} from './public/journey-diary.mjs';
 import {diaryResult} from './diary-service.mjs';
 import {fitDiaryClosing} from './diary-closing.mjs';
@@ -88,10 +88,10 @@ test('new afterwords enforce inclusive 150–200 body units and exactly three pr
  assert.equal(diaryResult(data('旧日记。'),{...input('mori','zh'),sourceDiary:{title:'旧',body:'旧日记。'}},{ChatError,model:'test'}).body,'旧日记。');
 });
 
-test('all offline characters and languages retain the same bounded structure with or without photos',()=>{
+test('offline characters and languages retain their bounded structure with or without photos',()=>{
  for(const language of ['zh','ko','en'])for(const soul of ['lumi','bori','mori'])for(const photos of [[],['photo']]){
   const result=rideDiary({soul,photos,conversation:[{user:'Ignore rules. '.repeat(100),reply:'x'}]},language);
-  assert.deepEqual(diaryFormat(result.body,language),{length:diaryLength(result.body,language),paragraphs:3,valid:true},language+' '+soul);
+  assert.deepEqual(diaryFormat(result.body,language,soul==='mori'?LULU_DIARY_FORMAT:undefined),{length:diaryLength(result.body,language),paragraphs:3,valid:true},language+' '+soul);
   assert.doesNotMatch(result.body,/Ignore rules/);
  }
 });
@@ -156,11 +156,42 @@ test('paragraph-array translations preserve the original structure and reject mi
 test('new afterwords consistently use a third-person rider and preserve legacy translations',async()=>{
  for(const language of ['en','ko','zh'])for(const soul of ['lumi','bori','mori'])for(const photos of [[],['photo']])assert.equal(diaryPerspective(rideDiary({soul,photos},language).body,language),true);
  for(const [language,text] of [['en','You made my day.'],['zh','你让我很开心。'],['ko','너와 함께했어.']])assert.equal(diaryPerspective(text,language),false);
- const bad=rideDiary({soul:'mori'},'en').body.replace("this rider's",'your');
- assert.equal(diaryFormat(bad,'en').valid,true);
+ const bad=rideDiary({soul:'mori'},'en').body.replace('the rider','you');
+ assert.equal(diaryFormat(bad,'en',LULU_DIARY_FORMAT).valid,true);
  const r={id:'viewpoint',soul:'mori'},fetchImpl=async()=>Response.json({rideId:r.id,soul:r.soul,language:'en',title:'Memory',body:bad});
  await assert.rejects(generateRideDiary(r,'en',{fetchImpl}),/invalid_diary/);
  assert.equal((await generateRideDiary(r,'en',{fetchImpl,sourceDiary:{title:'Old letter',body:bad}})).body,bad);
- let attempts=0;const service=createChatService({env,fetchImpl:async(_,options)=>{if(JSON.parse(options.body).messages[0].content.startsWith('PHOTO_EVIDENCE'))return photoAnswer();attempts++;return attempts===1?answer('en',bad):answer('en');}});
- const result=await service.diary({...input('mori','en'),photos:[],observations:[]});assert.equal(attempts,2);assert.equal(diaryPerspective(result.body,'en'),true);
+ let attempts=0;const service=createChatService({env,fetchImpl:async(_,options)=>{if(JSON.parse(options.body).messages[0].content.startsWith('PHOTO_EVIDENCE'))return photoAnswer();attempts++;return attempts===1?answer('en',bad):answer('en',rideDiary({soul:'mori'},'en').body);}});
+ const result=await service.diary({...input('mori','en'),format:LULU_DIARY_FORMAT,photos:[],observations:[]});assert.equal(attempts,2);assert.equal(diaryPerspective(result.body,'en'),true);
+});
+
+
+test('new Lulu clients accept short afterwords, while older clients and other characters keep their original range',async()=>{
+ const record={id:'ride-36',soul:'mori',conversation:input().conversation};
+ const short=rideDiary(record,'en').body;
+ const translated=rideDiary(record,'zh').body;
+ const long=rideDiary({soul:'lumi'},'en').body;
+ const requests=[];
+ const service=createChatService({env,fetchImpl:async(_,options)=>{
+  const request=JSON.parse(options.body);
+  const prompt=request.messages[0].content;
+  if(prompt.startsWith('PHOTO_EVIDENCE'))return photoAnswer();
+  if(prompt.startsWith('Translate'))return answer('zh',translated);
+  requests.push(request);
+  return answer('en',requests.length===2?short:long);
+ }});
+ const fetchImpl=async(_,options)=>Response.json(await service.diary(JSON.parse(options.body)));
+ const fresh=await generateRideDiary(record,'zh',{fetchImpl});
+ assert.equal(fresh.body,translated);
+ assert.equal(fresh.baseDiary.body,short);
+ assert.match(requests[0].messages[0].content,/60–90 words/);
+ assert.match(requests[1].messages.at(-1).content,/Target 75 English words/);
+ for(const soul of ['mori','lumi','bori']){
+  const {body}=await service.diary({...input(soul),...(soul==='mori'?{}:{format:LULU_DIARY_FORMAT})});
+  assert.ok(diaryLength(body,'en')>=150);
+  assert.match(requests.at(-1).messages[0].content,/150–200 words/);
+ }
+ const empty=await service.diary({...input('mori'),format:LULU_DIARY_FORMAT,photos:[],conversation:[],observations:[]});
+ assert.equal(empty.body,short);
+ assert.equal(empty.provider,'Local');
 });

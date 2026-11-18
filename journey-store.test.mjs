@@ -11,7 +11,7 @@ test('offline diaries use a personal tone without GPS reports or invented experi
 });
 
 test('three diary voices keep identical facts, first-person tone and language-specific personalities',()=>{
- const markers={en:['curiosity','bread','feeling'],ko:['호기심','빵','마음'],zh:['好奇心','面包','心情']};
+ const markers={en:['curiosity','bread','easy'],ko:['호기심','빵','편했'],zh:['好奇心','面包','舒服']};
  for(const lang of ['en','ko','zh']){
   const bodies=['lumi','bori','mori'].map((soul,i)=>{
    const r={soul,seconds:125,createdAt:1700000000000,photos:['photo'],route:[{lat:37.5,lon:127},{lat:37.51,lon:127}],note:'My own note'};

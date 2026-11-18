@@ -10,7 +10,7 @@ const success=(reply='Hello from the mocked provider.')=>new Response(JSON.strin
 
 test('personality verbosity reaches voice, camera-context and automatic-scene prompts',async()=>{
  const image='data:image/jpeg;base64,'+Buffer.from([255,216,255,224,0,2,255,217]).toString('base64');
- for(const [soul,guide,tokens] of [['lumi','most talkative',180],['bori','medium verbosity',140],['mori','quietest',100]]){
+ for(const [soul,guide,tokens] of [['lumi','most talkative',180],['bori','medium verbosity',140],['mori','quietest',72]]){
   let sent;
   const service=createChatService({env,fetchImpl:async(_,options)=>{sent=JSON.parse(options.body);return success(sent.response_format?JSON.stringify({scene:'unclear',confidence:.2,shouldSpeak:false,reply:''}):'Okay, I am here.');}});
   for(const mode of ['voice','context','vision']){
