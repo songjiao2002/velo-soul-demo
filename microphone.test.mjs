@@ -102,6 +102,26 @@ test('background hum and broadband hiss never upload hallucinated thanks; spoken
  a.feed(0,800);await flush();assert.equal(a.calls.length,1);assert.deepEqual(results,['Thank you.']);r.abort();
 });
 
+test('a steady soft motor tone stays local while a quieter syllable with a varying envelope triggers speech',async()=>{
+ const a=recorder(),r=new a.Recognition();let starts=0;
+ r.onspeechstart=()=>starts++;
+ r.start();await flush();
+ let offset=0;
+ function feedFrames(frames,amplitude){
+  for(let n=0;n<frames;n++){
+   const frame=Float32Array.from({length:320},(_,i)=>amplitude(n)*Math.sin(2*Math.PI*250*(offset+i)/16000));
+   offset+=frame.length;r.samples(frame,16000);
+  }
+ }
+ feedFrames(60,()=>.007);
+ feedFrames(20,()=>0);
+ assert.equal(starts,0);assert.equal(a.calls.length,0);
+ feedFrames(12,n=>[.0062,.0075,.0092,.0079][n%4]);
+ assert.equal(starts,1);
+ feedFrames(40,()=>0);
+ assert.equal(a.calls.length,1);r.abort();
+});
+
 test('cycling rumble and a click stay local at common sample rates, while a quiet short word reaches ASR',async()=>{
  for(const rate of [16000,44100,48000]){
   const a=recorder(),r=new a.Recognition(),results=[];

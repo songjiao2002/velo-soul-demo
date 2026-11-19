@@ -70,6 +70,57 @@ test('3.1 streaming relay uses native PCM and language hints, revises subtitles 
  assert.deepEqual(events.at(-1),{type:'final',text:'你好 露露。'});
 });
 
+test('English Flash Message emits revised text while the microphone is open and confirms one final',async t=>{
+ const a=await relay(t,''),events=[];
+ const ws=new WebSocket(a.url+'?language=en',{origin:a.origin});
+ t.after(()=>ws.terminate());
+ ws.on('message',raw=>events.push(JSON.parse(raw)));
+ await wait(()=>events.some(e=>e.type==='ready'));
+ const request=a.upstream.sent[0].payload;
+ assert.equal(request.model,'qwen-audio-3.1-asr-flash-message');
+ assert.equal(new URL(a.endpoint).pathname,'/api-ws/v1/inference');
+ assert.equal(request.parameters.sample_rate,16000);
+ assert.deepEqual(request.parameters.language_hints,['en']);
+ assert.ok(request.parameters.vocabulary.Mori>0);
+ assert.equal(request.parameters.vad_model,'near_meeting_16k');
+ assert.equal(request.parameters.intermediate_result_enabled,true);
+ assert.equal(request.parameters.disfluency_removal_enabled,false);
+ ws.send(Buffer.alloc(3200,1));
+ await wait(()=>Buffer.isBuffer(a.upstream.sent[1]));
+ const sentence=(text,sentence_end)=>a.upstream.task('result-generated',{output:{sentence:{sentence_id:1,text,sentence_end}}});
+ sentence('无',false);
+ sentence('We can',false);
+ await wait(()=>events.some(e=>e.type==='partial'&&e.text==='We can'));
+ assert.equal(events.some(e=>e.text==='无'),false);
+ sentence('We cannot',false);
+ await wait(()=>events.some(e=>e.type==='partial'&&e.text==='We cannot'));
+ assert.ok(!a.upstream.sent.some(e=>e.header?.action==='finish-task'));
+ assert.ok(!events.some(e=>e.type==='final'));
+ ws.send(JSON.stringify({type:'finish'}));
+ await wait(()=>a.upstream.sent.some(e=>e.header?.action==='finish-task'));
+ sentence('We cannot.',true);
+ a.upstream.task('task-finished',{});
+ await wait(()=>events.some(e=>e.type==='final'));
+ assert.deepEqual(events.filter(e=>e.type==='final'),[{type:'final',text:'We cannot.'}]);
+});
+
+test('live ASR status respects language defaults, explicit model settings, provider credentials and disable switch',()=>{
+ const models=env=>{
+  const status=createChatService({env}).status();
+  assert.ok(!JSON.stringify(status).includes('secret-provider-key'));
+  return [status.realtimeAsrModel,status.realtimeAsrModelEn,status.realtimeAsrModelKo];
+ };
+ const streaming='qwen-audio-3.1-asr-flash-streaming',message='qwen-audio-3.1-asr-flash-message',legacy='qwen3-asr-flash-realtime';
+ assert.deepEqual(models({}),[streaming,message,streaming]);
+ assert.deepEqual(models({QWEN_ASR_REALTIME_MODEL:legacy}),[legacy,legacy,legacy]);
+ assert.deepEqual(models({QWEN_ASR_REALTIME_MODEL:legacy,QWEN_ASR_REALTIME_MODEL_EN:message}),[legacy,message,legacy]);
+ assert.deepEqual(models({VELO_ASR_PROVIDER:'elevenlabs',ELEVENLABS_API_KEY:' '}),[streaming,message,streaming]);
+ assert.deepEqual(models({ELEVENLABS_API_KEY:'secret-provider-key'}),[streaming,message,streaming]);
+ const scribe={VELO_ASR_PROVIDER:'elevenlabs',ELEVENLABS_API_KEY:'secret-provider-key'};
+ assert.deepEqual(models(scribe),[streaming,'scribe_v3_live','scribe_v3_live']);
+ assert.deepEqual(models({...scribe,QWEN_REALTIME_ASR:'off'}),[null,null,null]);
+});
+
 test('realtime rejects cross-origin requests before spending quota and enforces PCM bounds',async t=>{
  const a=await relay(t);const denied=new WebSocket(a.url,{origin:'https://elsewhere.example'});let status;denied.on('unexpected-response',(_,res)=>{status=res.statusCode;res.resume();denied.terminate();});denied.on('error',()=>{});await wait(()=>status);assert.equal(status,403);assert.equal(a.active,0);assert.equal(a.upstream,undefined);
  const ws=new WebSocket(a.url,{origin:a.origin});t.after(()=>ws.terminate());const messages=[];ws.on('message',raw=>messages.push(JSON.parse(raw)));await wait(()=>messages.some(e=>e.type==='ready'));ws.send(Buffer.alloc(3));await wait(()=>messages.some(e=>e.type==='error'));assert.equal(messages.at(-1).error,'invalid_request');await wait(()=>a.active===0);

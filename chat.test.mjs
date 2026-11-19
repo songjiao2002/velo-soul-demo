@@ -2,11 +2,31 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import {chatConfig,validateChat,createChatService,createChatHandler} from './chat-service.mjs';
-import {detectInputLanguage} from './public/soul-chat.mjs';
+import {createSoulChat,detectInputLanguage,renderVoiceTranscript} from './public/soul-chat.mjs';
 import {outputLanguage} from './public/seoul-places.mjs';
 const env={DASHSCOPE_API_KEY:'test-secret-only'};
 const input=(soul='lumi',language='en')=>({soul,language,messages:[{role:'user',content:'Hello, tell me about yourself.'}]});
 const success=(reply='Hello from the mocked provider.')=>new Response(JSON.stringify({choices:[{message:{content:reply},finish_reason:'stop'}]}),{status:200});
+
+test('chat microphone streams live revisions into one message before the confirmed transcript',()=>{
+ assert.match(createSoulChat.toString(),/createMicrophoneRecognition\(\{[^}]*Socket:\s*globalThis\.WebSocket/);
+ const rows=[];
+ const log={querySelector:()=>rows.find(row=>row.dataset.transcriptState==='interim'),append:row=>rows.push(row)};
+ const makeMessage=(_,text)=>{const paragraph={textContent:text};return {dataset:{},querySelector:()=>paragraph};};
+ for(const words of [['안녕','안녕하세','안녕하세요'],['I am','I am writing','I am riding.']]){
+   const previous=rows.length;
+   renderVoiceTranscript(log,makeMessage,words[0],false);
+   const row=rows.at(-1);
+   assert.equal(row.querySelector('p').textContent,words[0]);
+   renderVoiceTranscript(log,makeMessage,words[1],false);
+   assert.equal(row.querySelector('p').textContent,words[1]);
+   assert.equal(row.dataset.transcriptState,'interim');
+   renderVoiceTranscript(log,makeMessage,words[2],true);
+   assert.equal(rows.length,previous+1);
+   assert.equal(row.querySelector('p').textContent,words[2]);
+   assert.equal(row.dataset.transcriptState,'confirmed');
+ }
+});
 
 test('personality verbosity reaches voice, camera-context and automatic-scene prompts',async()=>{
  const image='data:image/jpeg;base64,'+Buffer.from([255,216,255,224,0,2,255,217]).toString('base64');

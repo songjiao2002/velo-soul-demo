@@ -22,7 +22,7 @@ function createSpeechBand(rate) {
     }
     const hiss=crossings*rate/input.length>5400;
     const rumble=bandEnergy<rawEnergy*.018;
-    return {audio,rms:Math.sqrt(bandEnergy/input.length),noiseOnly:hiss||rumble};
+    return {audio,rms:Math.sqrt(bandEnergy/input.length),noiseOnly:rawEnergy===0||hiss||rumble};
   };
 }
 
@@ -153,14 +153,18 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
   toBase64 = s => globalThis.btoa(s), now=Date.now, setTimer = (...args) => globalThis.setTimeout(...args), clearTimer = (...args) => globalThis.clearTimeout(...args)} = {}) {
   let streamDisabledUntil=0;
   return class MicrophoneRecognition {
-    constructor() { this.active = false; this.chunks = []; this.preroll = []; this.noise = .002; this.total = this.quiet = this.candidate = this.candidateGap = this.voiced = 0; this.startTimeoutMs=isNative()?100000:50000; }
+    constructor() { this.active = false; this.chunks = []; this.preroll = []; this.noise = .002; this.total = this.quiet = this.voiced = 0; this.resetCandidate(); this.startTimeoutMs=isNative()?100000:50000; }
+    resetCandidate(){
+      this.candidate=0;this.candidateGap=0;this.candidateMin=Infinity;this.candidateMax=0;
+    }
     start() {
       this.active = true;
       input.attach(this).catch(error => { if (this.active) this.fail(error.name === 'NotAllowedError' ? 'not-allowed' : error.message === 'unsupported' ? 'unsupported' : 'audio-capture'); });
     }
     resetCapture(){
       if(!this.active||this.finalizing)return;
-      this.stream?.close();this.stream=null;this.chunks=[];this.preroll=[];this.total=this.quiet=this.candidate=this.candidateGap=this.voiced=0;this.filter=null;this.rate=null;
+      this.stream?.close();this.stream=null;this.chunks=[];this.preroll=[];this.total=this.quiet=this.voiced=0;this.filter=null;this.rate=null;
+      this.resetCandidate();
       this.speech=false;this.started=false;this.quietReported=false;this.noise=.002;this.onaudiorecovering?.();
     }
     watchCapture(){
@@ -199,18 +203,22 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
       const ms=data.length/rate*1000;
       const {audio,rms,noiseOnly}=this.filter(data);
       input.onLevel(Math.min(1,rms*12));
-      const loud=!noiseOnly&&rms>Math.max(.0065,this.noise*1.8);
-      const continuing=!noiseOnly&&rms>Math.max(.0045,this.noise*1.4);
+      const strong=!noiseOnly&&rms>Math.max(.0065,this.noise*1.8);
+      const loud=strong||(!noiseOnly&&rms>Math.max(.0039,this.noise*2.1));
+      const continuationFloor=this.voiced<=220 ? .0045 : .003;
+      const continuing=!noiseOnly&&rms>Math.max(continuationFloor,this.noise*1.4);
       if (!this.speech) {
         this.preroll.push(audio);
         while (this.preroll.length > Math.ceil(rate * .55 / data.length)) this.preroll.shift();
         if(loud){
           this.candidate+=ms;
           this.candidateGap=0;
+          this.candidateMin=Math.min(this.candidateMin,rms);
+          this.candidateMax=Math.max(this.candidateMax,rms);
         }else{
           this.candidateGap+=ms;
           if(this.candidateGap>60){
-            this.candidate=0;
+            this.resetCandidate();
             this.stream?.close();
             this.stream=null;
           }
@@ -218,9 +226,11 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
           this.noise=Math.max(.001,Math.min(.025,this.noise*.96+floor*.04));
         }
         this.quiet+=ms;
-        // Connect before enough speech has arrived to upload any audio.
-        if(this.candidate>=80&&!this.stream)this.openStream();
-        if (loud && this.candidate >= 120) {
+        // Quiet syllables change level over time. Keep a steady, low-level hum local.
+        const voiceOnset=loud&&(strong||this.candidateMax>=this.candidateMin*1.4);
+        if(!voiceOnset&&this.candidate>=240)this.resetCandidate();
+        if(voiceOnset&&this.candidate>=80&&!this.stream)this.openStream();
+        if (voiceOnset && this.candidate >= 120) {
           this.speech = true; this.chunks = this.preroll; this.preroll = []; this.quiet = 0; this.voiced = this.candidate;
           this.total = this.chunks.reduce((n, c) => n + c.length, 0) / rate * 1000; this.onspeechstart?.();
           if(this.active)this.openStream();

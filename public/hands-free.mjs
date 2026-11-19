@@ -1,3 +1,4 @@
+import {VOICE_PRIVACY} from './voice-privacy.mjs';
 import {readVoiceReply} from './chat-stream.mjs';
 import {appFetch} from './app-network.mjs';
 import {replyLanguage,needsCamera} from './input-language.mjs';
@@ -138,6 +139,6 @@ Object.assign(HANDS_FREE_COPY.ko,{audio_reconnecting:'오디오 연결을 복구
 Object.assign(HANDS_FREE_COPY.en,{audio_reconnecting:'Restoring the audio connection…','audio-capture':'Audio could not reconnect. Check your headset connection and start the conversation again.'});
 Object.assign(HANDS_FREE_COPY.zh,{audio_reconnecting:'正在恢复音频连接…','audio-capture':'音频连接未能恢复。请检查耳机连接，再点击开始交流。'});
 
-Object.assign(HANDS_FREE_COPY.ko,{speaking:'소울이 말하는 중 · 말하면 끼어들 수 있어요',speaking_no_interrupt:'말하는 중 · 듣기는 답변 후 다시 시작해요',notice:'말하는 동안 자막이 나타나요. 답변 중에도 새 질문을 할 수 있고, “잠깐”으로 멈출 수 있어요. 연결 오류는 자동으로 복구하며, 마이크 권한이 없으면 화면에 알려드려요. 음성은 서버를 거쳐 Qwen으로 전송하며 녹음은 저장하지 않아요.'});
-Object.assign(HANDS_FREE_COPY.en,{speaking:'Speaking · You can interrupt with a question',speaking_no_interrupt:'Speaking · Listening will resume after this reply',notice:'Words appear while you speak. Ask a new question during a reply, or say “stop” to interrupt. Connection errors retry automatically; microphone permission errors are shown. Audio goes through our server to Qwen; recordings are not saved.'});
-Object.assign(HANDS_FREE_COPY.zh,{speaking:'正在回答 · 直接说话可以打断',speaking_no_interrupt:'正在回答 · 回答结束后继续聆听',notice:'说话时字幕会逐步出现。回答中可直接提出新问题，也可说“等一下”打断。连接异常会自动重试，麦克风权限问题会显示提示。音频经服务器传给千问，不保存录音。'});
+Object.assign(HANDS_FREE_COPY.ko,{speaking:'소울이 말하는 중 · 말하면 끼어들 수 있어요',speaking_no_interrupt:'말하는 중 · 듣기는 답변 후 다시 시작해요',notice:'말하는 동안 자막이 나타나요. 답변 중에도 새 질문을 할 수 있고, “잠깐”으로 멈출 수 있어요. 연결 오류는 자동으로 복구하며, 마이크 권한이 없으면 화면에 알려드려요. '+VOICE_PRIVACY.ko});
+Object.assign(HANDS_FREE_COPY.en,{speaking:'Speaking · You can interrupt with a question',speaking_no_interrupt:'Speaking · Listening will resume after this reply',notice:'Words appear while you speak. Ask a new question during a reply, or say “stop” to interrupt. Connection errors retry automatically; microphone permission errors are shown. '+VOICE_PRIVACY.en});
+Object.assign(HANDS_FREE_COPY.zh,{speaking:'正在回答 · 直接说话可以打断',speaking_no_interrupt:'正在回答 · 回答结束后继续聆听',notice:'说话时字幕会逐步出现。回答中可直接提出新问题，也可说“等一下”打断。连接异常会自动重试，麦克风权限问题会显示提示。'+VOICE_PRIVACY.zh});

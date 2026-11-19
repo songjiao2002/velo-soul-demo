@@ -13,3 +13,4 @@ import {parseSoulQR as liveParseQR} from './soul-core.mjs';
 import {companionQuery,currentSoulQR} from './qr-links.mjs';
 import {companionBrowserLinks as liveBrowserLinks} from './audio-browser.mjs';
 import {createSoulChat as liveSoulChat} from './soul-chat.mjs';
+import {VOICE_PRIVACY as liveVoicePrivacy} from './voice-privacy.mjs';

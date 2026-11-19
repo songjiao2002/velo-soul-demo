@@ -1,7 +1,16 @@
 // These bindings reconnect the published UI to the maintained production services.
 // The imported source retains its layout, rendering, navigation and interactions.
-Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=liveSoulChat;
+Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S});
 Tt=LiveSpeech;at=LiveMicrophone;ua=liveRecognition;Et=LiveAudioSession;xi=LiveMemory;
+const referenceVoiceState=kl;
+kl=function(state){
+ const caption=p('heardText');
+ if(caption?.dataset.transcriptState==='interim'&&(!M?.active||['starting','listening','reconnecting','audio_reconnecting','speaking_no_interrupt'].includes(state))){
+   caption.textContent='';
+   delete caption.dataset.transcriptState;
+ }
+ referenceVoiceState(state);
+};
 wt=class extends LiveConversation {
  constructor(options={}){super({...options,prefetchSpeech:(text,language,soul)=>ue.preload(text,{language,soul}),stopSpeech:()=>{ue.cancelPrefetches();options.stopSpeech?.();}});}
 };

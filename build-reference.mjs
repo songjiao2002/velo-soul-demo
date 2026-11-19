@@ -1,12 +1,14 @@
 import {readFile,writeFile,copyFile,cp} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {BUILD} from './public/build-version.mjs';
+import {VOICE_PRIVACY} from './public/voice-privacy.mjs';
 const source=new URL('./ui-reference/',import.meta.url),publicRoot=new URL('./public/',import.meta.url);
 const read=name=>readFile(new URL(name,source),'utf8');
 const normalize=text=>text.replaceAll('\r\n','\n').replaceAll('/ride/','/').replaceAll('?v=left-front','?v='+BUILD).replaceAll('?v=mono13','?v='+BUILD).replace(/2026\d{4}-[a-z]+\d+[a-z]*/g,BUILD);
 let js=await read('app.pretty.js');
 function replace(before,after){if(js.split(before).length!==2)throw Error('Reference anchor changed: '+before.slice(0,100));js=js.replace(before,after);}
 replace('  var Ao = ',(await read('live-adapter.js'))+'\n  var Ao = ');
+replace('      <details class="ride-map-credits"', '      <p class="small" data-no-translate>${liveVoicePrivacy[S()]}</p>\n      <details class="ride-map-credits"');
 replace('["en", "ko"].includes(localStorage.getItem("velo-soul-voice-language"))','["en", "ko", "zh"].includes(localStorage.getItem("velo-soul-voice-language"))');
 replace('W = i === "ko" ? "ko" : "en";','W = i === "zh" ? "zh" : i === "ko" ? "ko" : "en";');
 replace('record.generatedDiary?.body ? "" : diaryTranslationMenu(originalDiaryLanguage(record))','diaryTranslationMenu(originalDiaryLanguage(record))');
@@ -17,7 +19,9 @@ await writeFile(new URL('reference-entry.generated.mjs',publicRoot),(await read(
 let html=normalize(await read('ride/index.html'));
 html=html.replace('</head>','<link rel="stylesheet" href="native-layout.css?v='+BUILD+'"></head>');
 html=html.replace(/<script>\(function\(\)\{function c\(\)[\s\S]*?<\/script>/g,'');
-html=html.replace(/<p class="embedded-service-note"[\s\S]*?<\/p>/,'<p class="embedded-service-note" data-no-translate><span lang="en">Voice and diary generation use Qwen. Ride diaries are stored on this device.</span><span lang="ko">음성과 일기 생성에는 Qwen을 사용해요. 일기는 이 기기에 저장돼요.</span><span lang="zh">语音和后记由千问生成，骑行日记保存在本机。</span></p>');
+const aboutVoice={en:'Qwen generates replies, voices and ride diaries. Diaries stay on this device.',ko:'답변, 캐릭터 목소리와 라이딩 일기는 Qwen이 생성해요. 일기는 이 기기에 저장돼요.',zh:'千问生成角色回复、声音和骑行后记。后记保存在本机。'};
+const serviceNote=Object.keys(VOICE_PRIVACY).map(lang=>`<span lang="${lang}">${VOICE_PRIVACY[lang]} ${aboutVoice[lang]}</span>`).join('');
+html=html.replace(/<p class="embedded-service-note"[\s\S]*?<\/p>/,`<p class="embedded-service-note" data-no-translate>${serviceNote}</p>`);
 html=html.replace(/(<select id="voiceSelect"[^>]*>)([\s\S]*?)(<\/select>)/,(all,start,options,end)=>start+options+'<option value="zh" lang="zh">中文 · Lulu</option>'+end);
 await writeFile(new URL('index.html',publicRoot),html);
 for(const file of ['boot.js','app.css','screen.css','interactions.js','character-toon.bundle.mjs'])await writeFile(new URL(file,publicRoot),normalize(await read('ride/'+file)));

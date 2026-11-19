@@ -13,6 +13,7 @@ import {parseSoulQR as liveParseQR} from './soul-core.mjs';
 import {companionQuery,currentSoulQR} from './qr-links.mjs';
 import {companionBrowserLinks as liveBrowserLinks} from './audio-browser.mjs';
 import {createSoulChat as liveSoulChat} from './soul-chat.mjs';
+import {VOICE_PRIVACY as liveVoicePrivacy} from './voice-privacy.mjs';
 (() => {
   var ir = Object.defineProperty;
   var yt = (i, e) => () => (i && (e = i(i = 0)), e);
@@ -1582,7 +1583,7 @@ import {createSoulChat as liveSoulChat} from './soul-chat.mjs';
       URL.revokeObjectURL(s);
     }
   }
-  var se = "20261119-mobile65";
+  var se = "20261119-mobile66";
   var Ns = null, Ni = null, Za = false;
   function ji() {
     Za = true;
@@ -1595,7 +1596,7 @@ import {createSoulChat as liveSoulChat} from './soul-chat.mjs';
       Ni.mountCharacters();
       return;
     }
-    Ns ??= import("/character-toon.bundle.mjs?v=20261119-mobile65").catch(() => null);
+    Ns ??= import("/character-toon.bundle.mjs?v=20261119-mobile66").catch(() => null);
     Ns.then((module) => {
       if (!Za) return;
       if (module) {
@@ -4683,8 +4684,17 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
   };
 // These bindings reconnect the published UI to the maintained production services.
 // The imported source retains its layout, rendering, navigation and interactions.
-Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=liveSoulChat;
+Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S});
 Tt=LiveSpeech;at=LiveMicrophone;ua=liveRecognition;Et=LiveAudioSession;xi=LiveMemory;
+const referenceVoiceState=kl;
+kl=function(state){
+ const caption=p('heardText');
+ if(caption?.dataset.transcriptState==='interim'&&(!M?.active||['starting','listening','reconnecting','audio_reconnecting','speaking_no_interrupt'].includes(state))){
+   caption.textContent='';
+   delete caption.dataset.transcriptState;
+ }
+ referenceVoiceState(state);
+};
 wt=class extends LiveConversation {
  constructor(options={}){super({...options,prefetchSpeech:(text,language,soul)=>ue.preload(text,{language,soul}),stopSpeech:()=>{ue.cancelPrefetches();options.stopSpeech?.();}});}
 };
@@ -5858,6 +5868,7 @@ window.addEventListener('velo:ready',()=>{
           ${rideLanguages.map(([value, label]) => `<label><input type="radio" name="ride-language" value="${value}" ${value === selected ? "checked" : ""}><span>${label}</span></label>`).join("")}
         </div>
       </fieldset>
+      <p class="small" data-no-translate>${liveVoicePrivacy[S()]}</p>
       <details class="ride-map-credits" data-no-translate>
         <summary>${{ en: "Map sources", ko: "지도 출처", zh: "地图来源" }[S()]}</summary>
         <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> ·
