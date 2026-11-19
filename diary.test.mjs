@@ -58,6 +58,17 @@ test('diary writer receives selected exact rider excerpts, not raw refusals, rec
  assert.doesNotMatch(JSON.stringify(context),/No detour|visit it next time/);assert.equal(calls[0].model,'qwen-plus');
  const forged=createChatService({env,fetchImpl:async()=>Response.json({choices:[{message:{content:JSON.stringify({facts:[],quotes:['We stopped for bread.'],impressions:[]})}}]})});
  await assert.rejects(forged.diary(payload),{code:'invalid_response'});
+ let evidenceAttempts=0;
+ const recovery=createChatService({env,fetchImpl:async(_,options)=>{
+  const {messages}=JSON.parse(options.body);
+  if(!messages[0].content.startsWith('PHOTO_EVIDENCE'))return answer();
+  evidenceAttempts++;
+  if(evidenceAttempts===1)return Response.json({choices:[{message:{content:JSON.stringify({facts:[],quotes:['A blue door like the sea.'],impressions:[]})}}]});
+  return photoAnswer();
+ }});
+ assert.equal((await recovery.diary(payload)).provider,'Qwen');
+ assert.equal(evidenceAttempts,2);
+
 });
 test('only bounded completed exchanges of the current character and selected photos enter the diary request',async()=>{
  const record={id:'new-ride',soul:'bori',photos:Array(7).fill(image),route:[{lat:37.123456}],note:'PRIVATE NOTE'};

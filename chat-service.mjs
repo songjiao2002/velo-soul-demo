@@ -175,7 +175,15 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
     },
     async diary(input,{signal}={}){
       const payload=validateDiary(input,{ChatError,validateImage}),config=chatConfig(env);if(!config.configured)throw new ChatError('not_configured',503);
-      if(!payload.sourceDiary&&(payload.photos.length||payload.conversation.length||payload.observations.length))payload.diaryEvidence=await complete(diaryPhotoRequest(payload,payload.photos.length?config.visionModel:config.model),config,signal,{readResult:data=>diaryPhotoResult(data,ChatError,payload)});
+      if(!payload.sourceDiary&&(payload.photos.length||payload.conversation.length||payload.observations.length)){
+        const evidenceRequest=diaryPhotoRequest(payload,payload.photos.length?config.visionModel:config.model);
+        const collect=()=>complete(evidenceRequest,config,signal,{readResult:data=>diaryPhotoResult(data,ChatError,payload)});
+        try{payload.diaryEvidence=await collect();}catch(error){
+          if(error.code!=='invalid_response')throw error;
+          evidenceRequest.messages[0].content+=' Copy every quote and impression from a single source item character for character, including punctuation. Never join separate excerpts. Leave the array empty when unsure.';
+          payload.diaryEvidence=await collect();
+        }
+      }
       if(!payload.sourceDiary&&!Object.values(payload.diaryEvidence||{}).some(items=>items.length)){
         if(signal?.aborted)throw new ChatError('cancelled',499);
         return diaryFallback(payload);
@@ -228,7 +236,17 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
         requestBody.messages[0].content+='\n\n'+describeWeather(weather,now());
         if(!vision){const memory=getBikeMemory(payload.soul);if(memory?.bike===payload.soul)requestBody.messages[0].content+='\n\n'+memoryContext(memory);}
         if(!vision&&payload.deviceMemory)requestBody.messages[0].content+='\n\n'+describeDeviceMemory(payload.deviceMemory);
-        if(payload.voice&&!vision){requestBody.max_tokens=speaking.tokens;requestBody.messages[0].content+='\nVOICE MODE: '+speakingStyle+' Start with a short meaningful sentence so playback can begin promptly. Avoid repeated acknowledgements or unnecessary questions. Finish naturally rather than cutting off a sentence. Do not introduce yourself again unless the rider asks who you are. No role labels or speaker-name prefixes (such as Popo:), emoji, Markdown or long lists. Leave room for the rider to respond. The requested output language is mandatory, including greetings and short acknowledgements.';}
+        if(payload.voice&&!vision){requestBody.max_tokens=speaking.tokens;requestBody.temperature=.45;requestBody.messages[0].content+='\nVOICE MODE: Start with a short meaningful sentence so playback can begin promptly. Avoid repeated acknowledgements or unnecessary questions. Finish naturally rather than cutting off a sentence. Do not introduce yourself again unless the rider asks who you are. No role labels or speaker-name prefixes (such as Popo:), emoji, Markdown or long lists. Leave room for the rider to respond. The requested output language is mandatory, including greetings and short acknowledgements.';}
+        if(!vision){
+          const priorities=[
+            'Handle the rider’s last turn first. Match the requested output language.',
+            'If they ask for quiet or decline a suggestion, reply with a brief acknowledgment such as "Okay" or "알겠어". End the turn. Do not announce quiet mode, microphone changes or other app actions.',
+            'If your suggestion disappointed them, acknowledge that outcome and take responsibility in one brief sentence. End the turn without a new detail, question, silver lining or replacement suggestion.',
+            'If they ask which of several details you like, name one detail that fits your personality and say why. Do not combine details, imagine new sights or smells, or ask a follow-up.',
+            'These instructions take priority over each character’s usual reply length when applicable.'
+          ].join('\n');
+          requestBody.messages[0].content=priorities+'\n\n'+requestBody.messages[0].content;
+        }
         if(onDelta&&!vision)requestBody.stream=true;
         const data=await complete(requestBody,config,signal,onDelta&&!vision?{readResponse:response=>readProviderChat(response,onDelta)}:{}),choice=data?.choices?.[0],reply=choice?.message?.content;
         if(typeof reply!=='string'||!reply.trim()||reply.length>10000)throw new ChatError('invalid_response',502);
