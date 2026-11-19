@@ -29,7 +29,7 @@ export function chatConfig(env=process.env){
     const workspace=/^[a-z0-9-]+\.(ap-southeast-1|cn-beijing|cn-hongkong|us-east-1|ap-northeast-1)\.maas\.aliyuncs\.com$/.test(u.hostname);
     valid=u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&!u.search&&!u.hash&&u.pathname==='/compatible-mode/v1'&&(legacy.includes(u.hostname)||workspace);
   }catch{}
-  return {apiKey,baseURL,model,voiceModel:env.QWEN_VOICE_MODEL||'qwen-flash',ttsModel:env.QWEN_TTS_MODEL||'qwen3-tts-flash',asrModel:env.QWEN_ASR_MODEL||'qwen3-asr-flash',visionModel:env.QWEN_VISION_MODEL||'qwen3-vl-plus',configured:Boolean(apiKey)&&valid,valid};
+  return {apiKey,baseURL,model,voiceModel:env.QWEN_VOICE_MODEL||'qwen-flash',ttsModel:env.QWEN_TTS_MODEL||'qwen3-tts-flash',asrModel:env.QWEN_ASR_MODEL||'qwen3-asr-flash',realtimeAsrModel:env.QWEN_ASR_REALTIME_MODEL||'qwen-audio-3.1-asr-flash-streaming',visionModel:env.QWEN_VISION_MODEL||'qwen3-vl-plus',configured:Boolean(apiKey)&&valid,valid};
 }
 
 export function validateChat(body,now=Date.now()){
@@ -146,7 +146,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
   }
   return {
     reserveRealtime(){reserve();let released=false;return ()=>{if(!released){released=true;active--;}};},
-    status(){const c=chatConfig(env);return {configured:c.configured,provider:'Qwen',model:c.model,visionModel:c.visionModel,asrModel:c.asrModel,ttsModel:c.ttsModel,skills:SOUL_IDS};},
+    status(){const c=chatConfig(env);return {configured:c.configured,provider:'Qwen',model:c.model,visionModel:c.visionModel,asrModel:c.asrModel,realtimeAsrModel:env.QWEN_REALTIME_ASR==='off'?null:c.realtimeAsrModel,ttsModel:c.ttsModel,skills:SOUL_IDS};},
     async speechStream(input,{signal,emit}={}){
       const payload=validateSpeech(input),config=chatConfig(env);if(!config.configured)throw new ChatError('not_configured',503);
       return complete(speechRequest(payload,config),config,signal,{speech:true,stream:true,readResponse:response=>relaySpeech(response,emit)});

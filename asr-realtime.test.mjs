@@ -10,14 +10,23 @@ const wait=async predicate=>{for(let i=0;i<100;i++){if(predicate())return;await 
 
 class Upstream extends EventEmitter{
  constructor(){super();this.readyState=1;this.bufferedAmount=0;this.sent=[];queueMicrotask(()=>this.emit('open'));}
- send(data){const event=JSON.parse(data);this.sent.push(event);if(event.type==='session.update')queueMicrotask(()=>this.event({type:'session.updated'}));}
+ send(data){
+  if(Buffer.isBuffer(data)){this.sent.push(data);return;}
+  const event=JSON.parse(data);this.sent.push(event);
+  if(event.type==='session.update')queueMicrotask(()=>this.event({type:'session.updated'}));
+  if(event.header?.action==='run-task')queueMicrotask(()=>this.task('task-started'));
+ }
+ task(event,payload){
+  const task_id=this.sent[0].header.task_id;
+  this.event({header:{event,task_id},payload});
+ }
  event(event){this.emit('message',Buffer.from(JSON.stringify(event)));}
  terminate(){this.readyState=3;this.emit('close');}
 }
-async function relay(t){
+async function relay(t,model='qwen3-asr-flash-realtime'){
  let upstream,options,endpoint,active=0;
  const app=http.createServer((req,res)=>res.end());
- attachRealtimeAsr(app,{env:{DASHSCOPE_API_KEY:'secret-test-value'},reserve:()=>{active++;let done=false;return ()=>{if(!done){done=true;active--;}};},connect:(url,opts)=>{endpoint=url;options=opts;return upstream=new Upstream();}});
+ attachRealtimeAsr(app,{env:{DASHSCOPE_API_KEY:'secret-test-value',QWEN_ASR_REALTIME_MODEL:model},reserve:()=>{active++;let done=false;return ()=>{if(!done){done=true;active--;}};},connect:(url,opts)=>{endpoint=url;options=opts;return upstream=new Upstream();}});
  await new Promise(r=>app.listen(0,'127.0.0.1',r));
  t.after(()=>new Promise(r=>app.close(r)));
  const origin='http://127.0.0.1:'+app.address().port;
@@ -34,6 +43,31 @@ test('realtime relay streams partials, revises them, combines VAD segments and s
  ws.send(JSON.stringify({type:'finish'}));await wait(()=>a.upstream.sent.some(e=>e.type==='session.finish'));
  a.upstream.event({type:'conversation.item.input_audio_transcription.completed',item_id:'b',transcript:'날씨가 좋아요.'});a.upstream.event({type:'session.finished'});
  await wait(()=>events.some(e=>e.type==='final'));assert.deepEqual(events.at(-1),{type:'final',text:'안녕하세요. 날씨가 좋아요.'});assert.ok(!JSON.stringify(events).includes('secret-test-value'));await wait(()=>a.active===0);
+});
+
+test('3.1 streaming relay uses native PCM and language hints, revises subtitles and ignores heartbeat',async t=>{
+ const a=await relay(t,''),ws=new WebSocket(a.url+'?language=zh',{origin:a.origin}),events=[];
+ t.after(()=>ws.terminate());
+ ws.on('message',raw=>events.push(JSON.parse(raw)));
+ await wait(()=>events.some(e=>e.type==='ready'));
+ const request=a.upstream.sent[0].payload;
+ assert.equal(request.model,'qwen-audio-3.1-asr-flash-streaming');
+ assert.equal(request.parameters.vad_model,'near_meeting_16k');
+ assert.deepEqual(request.parameters.language_hints,['zh']);
+ assert.ok(request.parameters.vocabulary['露露']>0);
+ assert.equal(new URL(a.endpoint).pathname,'/api-ws/v1/inference');
+ ws.send(Buffer.alloc(3200,1));await wait(()=>Buffer.isBuffer(a.upstream.sent[1]));
+ const sentence=(id,text,final=false)=>a.upstream.task('result-generated',{output:{sentence:{sentence_id:id,text,sentence_end:final}}});
+ sentence(1,'你');await wait(()=>events.some(e=>e.text==='你'));
+ a.upstream.task('result-generated',{output:{sentence:{heartbeat:true}}});
+ sentence(1,'你好',true);sentence(1,'过期的草稿');sentence(2,'露露');
+ await wait(()=>events.some(e=>e.text==='你好 露露'));
+ assert.ok(!events.some(e=>e.type==='final'||e.text?.includes('过期')));
+ ws.send(JSON.stringify({type:'finish'}));
+ await wait(()=>a.upstream.sent.some(x=>x.header?.action==='finish-task'));
+ sentence(2,'露露。',true);a.upstream.task('task-finished',{});
+ await wait(()=>events.some(e=>e.type==='final'));
+ assert.deepEqual(events.at(-1),{type:'final',text:'你好 露露。'});
 });
 
 test('realtime rejects cross-origin requests before spending quota and enforces PCM bounds',async t=>{
@@ -75,12 +109,14 @@ test('streaming resampler preserves 16kHz duration across uneven 44.1/48kHz chun
  for(const rate of [44100,48000,16000]){const encode=createPcm16Encoder();let bytes=0;for(let i=0;i<rate;i+=2048){const frame=encode(new Float32Array(Math.min(2048,rate-i)).fill(.5),rate);bytes+=frame.length;for(let j=0;j<frame.length;j+=2)assert.ok(Math.abs(new DataView(frame.buffer).getInt16(j,true)-16384)<=1);}assert.equal(bytes,32000);}
 });
 
+const voiceFrame=(level,length)=>Float32Array.from({length},(_,i)=>level*Math.sin(2*Math.PI*225*i/16000));
+
 function client(now=Date.now){
  const sockets=[],uploads=[];
  class Socket{constructor(url){this.url=url;this.readyState=0;this.bufferedAmount=0;this.sent=[];sockets.push(this);}send(data){this.sent.push(data);}close(){this.readyState=3;}open(){this.readyState=1;this.onopen?.();this.event({type:'ready'});}event(event){this.onmessage?.({data:JSON.stringify(event)});}}
  const input={onLevel(){},attach:async r=>input.receiver=r,detach:r=>{if(input.receiver===r)input.receiver=null;},release(){input.receiver=null;}};
  const Recognition=createMicrophoneRecognition({now,Socket,location:new URL('https://demo.example/?bike=lumi'),input,fetchImpl:async(url,options)=>{uploads.push({url,options});return new Response(JSON.stringify({text:'Fallback complete sentence'}));}});
- const feed=(level,ms)=>{for(let i=0;i<ms/100;i++)input.receiver?.samples(new Float32Array(1600).fill(level),16000);};
+ const feed=(level,ms)=>{for(let i=0;i<ms/100;i++)input.receiver?.samples(voiceFrame(level,1600),16000);};
  return {Recognition,sockets,uploads,feed,input};
 }
 
@@ -88,15 +124,25 @@ test('browser sends PCM before silence, displays interim revisions, then sends o
  const a=client(),transcripts=[],chats=[],timers=new Map();let id=0;
  const session=new HandsFreeConversation({Recognition:a.Recognition,onTranscript:(text,final)=>transcripts.push({text,final}),fetchImpl:async(url,options)=>{chats.push(JSON.parse(options.body));return new Response(JSON.stringify({soul:'lumi',reply:'반가워요.'}));},speak(){},releaseInput:()=>a.input.release(),setTimer:(fn,ms)=>{timers.set(++id,{fn,ms});return id;},clearTimer:key=>timers.delete(key)});
  session.start('lumi','ko');await tick();a.feed(0,100);assert.equal(a.sockets.length,0,'Idle listening makes no cloud connection');a.feed(.1,300);const ws=a.sockets[0];assert.match(ws.url,/language=ko/);ws.open();assert.ok(ws.sent.some(x=>x instanceof Uint8Array));ws.event({type:'partial',text:'안녕'});assert.deepEqual(transcripts.at(-1),{text:'안녕',final:false});assert.equal(chats.length,0);
- ws.event({type:'partial',text:'안녕하세요'});a.feed(.1,300);a.feed(0,500);assert.equal(JSON.parse(ws.sent.at(-1)).type,'finish');assert.equal(chats.length,0);ws.event({type:'final',text:'안녕하세요.'});await tick();assert.equal(chats.length,1);assert.equal(chats[0].language,'ko');assert.equal(chats[0].messages.at(-1).content,'안녕하세요.');assert.equal(a.uploads.length,0);session.stop();
+ ws.event({type:'partial',text:'안녕하세요'});a.feed(.1,300);a.feed(0,700);assert.equal(JSON.parse(ws.sent.at(-1)).type,'finish');assert.equal(chats.length,0);ws.event({type:'final',text:'안녕하세요.'});await tick();assert.equal(chats.length,1);assert.equal(chats[0].language,'ko');assert.equal(chats[0].messages.at(-1).content,'안녕하세요.');assert.equal(a.uploads.length,0);session.stop();
 });
 
 test('disconnect retains the whole utterance for one fallback and ignores stale partial/final events',async()=>{
- const a=client(),r=new a.Recognition(),events=[];r.inputLanguage='zh';r.onresult=e=>events.push(e.results[0]);r.start();await tick();a.feed(.1,300);const ws=a.sockets[0];ws.open();const late=ws.onmessage;ws.event({type:'partial',text:'你好'});ws.onerror();a.feed(.1,300);a.feed(0,500);await tick();assert.equal(a.uploads.length,1);assert.equal(JSON.parse(a.uploads[0].options.body).language,'zh');assert.equal(events.at(-1).isFinal,true);assert.equal(events.at(-1)[0].transcript,'Fallback complete sentence');const length=events.length;late({data:JSON.stringify({type:'final',text:'stale'})});assert.equal(events.length,length);
+ const a=client(),r=new a.Recognition(),events=[];r.inputLanguage='zh';r.onresult=e=>events.push(e.results[0]);r.start();await tick();a.feed(.1,300);const ws=a.sockets[0];ws.open();const late=ws.onmessage;ws.event({type:'partial',text:'你好'});ws.onerror();a.feed(.1,300);a.feed(0,700);await tick();assert.equal(a.uploads.length,1);assert.equal(JSON.parse(a.uploads[0].options.body).language,'zh');assert.equal(events.at(-1).isFinal,true);assert.equal(events.at(-1)[0].transcript,'Fallback complete sentence');const length=events.length;late({data:JSON.stringify({type:'final',text:'stale'})});assert.equal(events.length,length);
+});
+
+test('an empty streaming result retries the retained short utterance once',async()=>{
+ const a=client(),r=new a.Recognition(),events=[];
+ r.onresult=e=>events.push(e.results[0]);r.start();await tick();
+ a.input.receiver.samples(voiceFrame(.025,2240),16000);
+ const ws=a.sockets[0];ws.open();
+ a.feed(0,400);ws.event({type:'final',text:''});await tick();
+ assert.equal(a.uploads.length,1);assert.equal(events.length,1);
+ assert.equal(events[0][0].transcript,'Fallback complete sentence');assert.equal(events[0].isFinal,true);
 });
 
 test('leaving during transcription closes streaming and never uploads fallback audio',async()=>{
- const a=client(),r=new a.Recognition();let results=0;r.onresult=()=>results++;r.start();await tick();a.feed(.1,400);const ws=a.sockets[0];ws.open();const late=ws.onmessage;a.feed(0,500);r.abort();late({data:JSON.stringify({type:'final',text:'late'})});assert.equal(ws.readyState,3);assert.equal(a.uploads.length,0);assert.equal(results,0);
+ const a=client(),r=new a.Recognition();let results=0;r.onresult=()=>results++;r.start();await tick();a.feed(.1,400);const ws=a.sockets[0];ws.open();const late=ws.onmessage;a.feed(0,700);r.abort();late({data:JSON.stringify({type:'final',text:'late'})});assert.equal(ws.readyState,3);assert.equal(a.uploads.length,0);assert.equal(results,0);
 });
 
 test('malformed browser streaming responses fall back once without losing the utterance',async()=>{
@@ -104,20 +150,20 @@ test('malformed browser streaming responses fall back once without losing the ut
   const a=client(),r=new a.Recognition(),events=[];r.onresult=e=>events.push(e.results[0]);r.start();await tick();a.feed(.1,300);
   const ws=a.sockets[0];ws.open();const late=ws.onmessage;
   assert.doesNotThrow(()=>ws.event(invalid));assert.equal(ws.readyState,3);
-  a.feed(.1,300);a.feed(0,500);await tick();
+  a.feed(.1,300);a.feed(0,700);await tick();
   assert.equal(a.uploads.length,1);assert.equal(events.length,1);assert.equal(events[0].isFinal,true);assert.equal(events[0][0].transcript,'Fallback complete sentence');
   late({data:JSON.stringify({type:'final',text:'stale'})});assert.equal(events.length,1);r.abort();
  }
 });
 
 
-test('speech starts streaming after 80ms and finalizes at 350ms without cutting a 300ms pause',async()=>{
+test('speech starts streaming after 80ms and finalizes at 540ms without cutting a 300ms pause',async()=>{
  const a=client(),r=new a.Recognition();r.start();await tick();
- a.input.receiver.samples(new Float32Array(1280).fill(.1),16000);
+ a.input.receiver.samples(voiceFrame(.1,1280),16000);
  assert.equal(a.sockets.length,1);const ws=a.sockets[0];ws.open();
  a.feed(.1,300);a.feed(0,300);
  assert.ok(!ws.sent.some(x=>typeof x==='string'&&JSON.parse(x).type==='finish'));
- a.feed(.1,200);a.input.receiver.samples(new Float32Array(5600),16000);
+ a.feed(.1,200);a.input.receiver.samples(new Float32Array(8640),16000);
  assert.equal(JSON.parse(ws.sent.at(-1)).type,'finish');r.abort();
 });
 

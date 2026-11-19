@@ -41,7 +41,7 @@ test('stopping during route recovery cancels retries and does not restart input'
 });
 test('an ended input reacquires once, preserves the shared graph, and discards a partial utterance',async()=>{
  const a=setup(),Recognition=createMicrophoneRecognition({input:a.input});const r=new Recognition();let recoveries=0;r.onaudiorecovering=()=>recoveries++;r.start();await flush();
- r.samples(new Float32Array(4800).fill(.1),48000);r.samples(new Float32Array(4800).fill(.1),48000);assert.equal(r.speech,true);
+ const voice=Float32Array.from({length:4800},(_,i)=>.1*Math.sin(2*Math.PI*230*i/48000));r.samples(voice,48000);r.samples(voice,48000);assert.equal(r.speech,true);
  a.tracks[0].end();await flush();assert.equal(recoveries,1);assert.equal(r.active,true);assert.equal(r.speech,false);assert.equal(r.chunks.length,0);
  await a.run(400);assert.equal(a.requests.length,2);assert.equal(a.contexts.length,1);assert.equal(a.input.stream.getTracks()[0],a.tracks[1]);assert.equal(a.timers.size,0);
  r.abort();a.input.release();a.session.dispose();

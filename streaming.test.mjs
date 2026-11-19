@@ -49,7 +49,7 @@ test('interrupt stops all queued PCM; a truncated stream cannot report success',
 test('Korean selection reaches the microphone POST, ASR language hint, reply and TTS locale',async()=>{
  const input={attach:async r=>input.r=r,detach(){},onLevel(){}};let post;
  const Recognition=createMicrophoneRecognition({input,fetchImpl:async(_,options)=>{post=JSON.parse(options.body);return new Response(JSON.stringify({text:payload.text}));}});
- const r=new Recognition();r.lang='ko-KR';r.start();await flush();for(let i=0;i<7;i++)r.samples(new Float32Array(1600).fill(.1),16000);for(let i=0;i<7;i++)r.samples(new Float32Array(1600),16000);await flush();assert.equal(post.language,'ko');
+ const r=new Recognition();r.lang='ko-KR';r.start();await flush();for(let i=0;i<7;i++)r.samples(Float32Array.from({length:1600},(_,i)=>.1*Math.sin(2*Math.PI*230*i/16000)),16000);for(let i=0;i<7;i++)r.samples(new Float32Array(1600),16000);await flush();assert.equal(post.language,'ko');
  let options;const service=createChatService({env:{DASHSCOPE_API_KEY:'private'},fetchImpl:async(_,o)=>{options=JSON.parse(o.body);return new Response(JSON.stringify({choices:[{message:{content:payload.text}}]}));}});await service.transcribe(post);assert.equal(options.asr_options.language,'ko');await assert.rejects(service.transcribe({...post,language:'invalid'}),{code:'invalid_request'});
  let recognizer,reply,speech;class FakeRecognition{constructor(){recognizer=this;}start(){this.onstart?.();}abort(){}}
  const session=new HandsFreeConversation({Recognition:FakeRecognition,fetchImpl:async(_,o)=>{reply=JSON.parse(o.body);return new Response(JSON.stringify({soul:'mori',reply:'응, 잘 들려!'}));},speak:(text,language)=>speech={text,language}});
@@ -59,7 +59,7 @@ test('Korean selection reaches the microphone POST, ASR language hint, reply and
 test('short acknowledgements are recognized while a brief click is still ignored',async()=>{
  const input={attach:async r=>input.r=r,detach(){},onLevel(){}};let calls=0;
  const Recognition=createMicrophoneRecognition({input,fetchImpl:async()=>{calls++;return new Response(JSON.stringify({text:'네'}));}});
- for(const frames of [1,2]){const r=new Recognition();r.lang='ko-KR';r.start();await flush();for(let i=0;i<frames;i++)r.samples(new Float32Array(1600).fill(.1),16000);for(let i=0;i<7;i++)r.samples(new Float32Array(1600),16000);await flush();if(frames===1){assert.equal(calls,0);r.abort();}else assert.equal(calls,1);}
+ for(const frames of [1,2]){const r=new Recognition();r.lang='ko-KR';r.start();await flush();for(let i=0;i<frames;i++)r.samples(Float32Array.from({length:1600},(_,i)=>.1*Math.sin(2*Math.PI*230*i/16000)),16000);for(let i=0;i<7;i++)r.samples(new Float32Array(1600),16000);await flush();if(frames===1){assert.equal(calls,0);r.abort();}else assert.equal(calls,1);}
 });
 test('disconnecting the audio stream aborts upstream work and releases the shared active slot',async t=>{
  const signals=[];const handler=createChatHandler({env:{DASHSCOPE_API_KEY:'private'},fetchImpl:async(_,options)=>{

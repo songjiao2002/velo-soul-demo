@@ -2,6 +2,30 @@ import {appFetch,speechSocketURL,getDeviceMedia,isNative} from './app-network.mj
 import {ConversationAudioSession} from './audio-session.mjs';
 import {BUILD} from './build-version.mjs';
 import {StreamingTranscriber} from './asr-stream.mjs';
+// A 150 Hz high-pass reduces mic offsets, wind rumble and mains hum.
+function createSpeechBand(rate) {
+  const angle=2*Math.PI*150/rate, cos=Math.cos(angle), a0=1+Math.sin(angle)/Math.SQRT2;
+  const b0=(1+cos)/(2*a0), a1=-2*cos/a0, a2=2/a0-1;
+  let z1=0,z2=0,previous=0;
+  return input=>{
+    const audio=new Float32Array(input.length);
+    let bandEnergy=0,rawEnergy=0,crossings=0;
+    for(let i=0;i<input.length;i++){
+      const value=input[i],filtered=b0*value+z1;
+      z1=-2*b0*value-a1*filtered+z2;
+      z2=b0*value-a2*filtered;
+      audio[i]=filtered;
+      bandEnergy+=filtered*filtered;
+      rawEnergy+=value*value;
+      if((filtered>=0)!==(previous>=0))crossings++;
+      previous=filtered;
+    }
+    const hiss=crossings*rate/input.length>5400;
+    const rumble=bandEnergy<rawEnergy*.018;
+    return {audio,rms:Math.sqrt(bandEnergy/input.length),noiseOnly:hiss||rumble};
+  };
+}
+
 // One microphone session per conversation. Utterances are bounded, transient PCM;
 // speech streams to the server; bounded PCM is retained only for outage fallback.
 export function encodeWav(chunks, sampleRate) {
@@ -129,14 +153,14 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
   toBase64 = s => globalThis.btoa(s), now=Date.now, setTimer = (...args) => globalThis.setTimeout(...args), clearTimer = (...args) => globalThis.clearTimeout(...args)} = {}) {
   let streamDisabledUntil=0;
   return class MicrophoneRecognition {
-    constructor() { this.active = false; this.chunks = []; this.preroll = []; this.noise = .002; this.total = this.quiet = this.candidate = this.voiced = 0; this.startTimeoutMs=isNative()?100000:50000; }
+    constructor() { this.active = false; this.chunks = []; this.preroll = []; this.noise = .002; this.total = this.quiet = this.candidate = this.candidateGap = this.voiced = 0; this.startTimeoutMs=isNative()?100000:50000; }
     start() {
       this.active = true;
       input.attach(this).catch(error => { if (this.active) this.fail(error.name === 'NotAllowedError' ? 'not-allowed' : error.message === 'unsupported' ? 'unsupported' : 'audio-capture'); });
     }
     resetCapture(){
       if(!this.active||this.finalizing)return;
-      this.stream?.close();this.stream=null;this.chunks=[];this.preroll=[];this.total=this.quiet=this.candidate=this.voiced=0;
+      this.stream?.close();this.stream=null;this.chunks=[];this.preroll=[];this.total=this.quiet=this.candidate=this.candidateGap=this.voiced=0;this.filter=null;this.rate=null;
       this.speech=false;this.started=false;this.quietReported=false;this.noise=.002;this.onaudiorecovering?.();
     }
     watchCapture(){
@@ -152,8 +176,13 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
       if(Socket&&location&&now()>=streamDisabledUntil){
         const url=speechSocketURL(location);url.searchParams.set('language',this.language());
         this.stream=new StreamingTranscriber({Socket,url:url.href,setTimer,clearTimer,
-          onPartial:text=>{if(this.active&&this.speech&&this.voiced>=160)this.onresult?.({results:[{0:{transcript:text},isFinal:false}]});},
-          onFinal:text=>{if(this.active)this.deliver(text);},
+          onPartial:text=>{if(this.active&&this.speech&&text.trim())this.onresult?.({results:[{0:{transcript:text},isFinal:false}]});},
+          onFinal:text=>{
+            this.stream=null;
+            if(!this.active||!this.finalizing)return;
+            if(text.trim())this.deliver(text);
+            else this.transcribe();
+          },
           onUnavailable:error=>{this.stream=null;streamDisabledUntil=now()+(['provider_auth','not_configured','rate_limited','provider_quota'].includes(error)?60000:5000);if(!this.active)return;if(['rate_limited','provider_quota'].includes(error))return this.fail(error);if(this.finalizing)this.transcribe();}});
       }
     }
@@ -161,26 +190,37 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
       if (!this.active || this.finalizing) return;
       this.lastSampleAt=now();if(!this.captureTimer)this.watchCapture();
       if (!this.started) { this.started = true; this.onstart?.(); if(!this.active)return; }
-      this.rate = rate;
-      const ms = data.length / rate * 1000;
-      const rms = Math.sqrt(data.reduce((sum, v) => sum + v * v, 0) / data.length);
-      input.onLevel(Math.min(1, rms * 12));
-      // Amplitude alone also admits fan hiss and amplified microphone noise.
-      // Very frequent sign changes indicate broadband hiss, not a voiced onset.
-      let crossings=0;
-      for(let i=1;i<data.length;i++)if((data[i]>=0)!==(data[i-1]>=0))crossings++;
-      const hiss=crossings/Math.max(1,data.length-1)>.35;
-      const loud = !hiss && rms > Math.max(.015, this.noise * 2.8);
+      if(!data.length||!Number.isFinite(rate)||rate<8000)return;
+      if(this.rate!==rate){
+        if(this.rate!==null&&this.rate!==undefined)this.resetCapture();
+        this.rate=rate;
+        this.filter=createSpeechBand(rate);
+      }
+      const ms=data.length/rate*1000;
+      const {audio,rms,noiseOnly}=this.filter(data);
+      input.onLevel(Math.min(1,rms*12));
+      const loud=!noiseOnly&&rms>Math.max(.0065,this.noise*1.8);
+      const continuing=!noiseOnly&&rms>Math.max(.0045,this.noise*1.4);
       if (!this.speech) {
-        this.preroll.push(data);
-        while (this.preroll.length > Math.ceil(rate * .35 / data.length)) this.preroll.shift();
-        this.candidate = loud ? this.candidate + ms : 0;
-        if (!loud) this.noise = Math.max(.001, Math.min(.025, this.noise * .95 + rms * .05));
-        this.quiet += ms;
-        // Start the connection while confirming speech, retaining the click filter.
+        this.preroll.push(audio);
+        while (this.preroll.length > Math.ceil(rate * .55 / data.length)) this.preroll.shift();
+        if(loud){
+          this.candidate+=ms;
+          this.candidateGap=0;
+        }else{
+          this.candidateGap+=ms;
+          if(this.candidateGap>60){
+            this.candidate=0;
+            this.stream?.close();
+            this.stream=null;
+          }
+          const floor=Math.min(rms,noiseOnly ? .0045 : .03);
+          this.noise=Math.max(.001,Math.min(.025,this.noise*.96+floor*.04));
+        }
+        this.quiet+=ms;
+        // Connect before enough speech has arrived to upload any audio.
         if(this.candidate>=80&&!this.stream)this.openStream();
-        if(!loud&&this.stream){this.stream.close();this.stream=null;}
-        if (this.candidate >= 120) {
+        if (loud && this.candidate >= 120) {
           this.speech = true; this.chunks = this.preroll; this.preroll = []; this.quiet = 0; this.voiced = this.candidate;
           this.total = this.chunks.reduce((n, c) => n + c.length, 0) / rate * 1000; this.onspeechstart?.();
           if(this.active)this.openStream();
@@ -188,13 +228,16 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
         } else if (this.quiet > 8000 && !this.quietReported) { this.quietReported = true; this.onquiet?.(); }
         return;
       }
-      this.chunks.push(data); this.total += ms; this.stream?.write(data,rate);
-      this.quiet = loud ? 0 : this.quiet + ms; if (loud) this.voiced += ms;
-      if (this.quiet >= 320 || this.total >= 15000) this.stop();
+      this.chunks.push(audio); this.total += ms; this.stream?.write(audio,rate);
+      this.quiet = continuing ? 0 : this.quiet + ms;
+      if (continuing) this.voiced += ms;
+      // Give longer turns room for a natural pause. Very short calls can finish sooner.
+      const endPause = this.voiced <= 220 ? 360 : 540;
+      if (this.quiet >= endPause || this.total >= 15000) this.stop();
     }
     async stop() {
       if (!this.active || this.finalizing) return;
-      if (!this.speech || this.voiced < 160) { this.abort(); this.onerror?.({error:'no-speech'}); return; }
+      if (!this.speech || this.voiced < 120) { this.abort(); this.onerror?.({error:'no-speech'}); return; }
       this.finalizing = true; input.detach(this); this.onspeechend?.(); this.ontranscribing?.();
       clearTimer(this.captureTimer);this.captureTimer=null;
       if(this.stream&&!this.stream.closed){this.stream.finish();return;}
@@ -202,7 +245,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
     }
     language(){return this.inputLanguage||({'ko-KR':'ko','en-US':'en','zh-CN':'zh'}[this.lang])||'auto';}
     deliver(text){
-      if(!this.speech||this.voiced<160||!text.trim()){this.fail('no-speech');return;}
+      if(!this.speech||this.voiced<120||!text.trim()){this.fail('no-speech');return;}
       this.onresult?.({results:[{0:{transcript:text},isFinal:true}]});
       if(this.active){this.abort();this.onend?.();}
     }

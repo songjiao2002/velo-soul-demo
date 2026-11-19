@@ -11,9 +11,9 @@ switching, continuous voice, GPS and journal use the same companions. Printed
 QR IDs and PNG/SVG bytes are unchanged. See [character implementation](docs/CHARACTERS.md)
 and [design reference](docs/CHARACTER_DESIGN_REFERENCE.md).
 
-Streaming setup: run npm ci (ws is a server-only dependency). The browser connects to /api/transcribe/live on this same origin; Railway proxies PCM16 audio to Qwen-ASR-Realtime using the server key. No key is sent to the browser or placed in a URL. The proxy enforces origin, language, payload, duration, backpressure and shared demo quota limits. QWEN_REALTIME_ASR=off disables streaming; QWEN_ASR_MODEL continues to configure the HTTP fallback.
+Streaming setup: run npm ci (ws is a server-only dependency). The browser connects to /api/transcribe/live on this same origin; Railway proxies PCM16 audio to Qwen-Audio 3.1 ASR Streaming using the server key. Set QWEN_ASR_REALTIME_MODEL to qwen3-asr-flash-realtime to use the previous streaming protocol. No key is sent to the browser or placed in a URL. The proxy enforces origin, language, payload, duration, backpressure and shared demo quota limits. QWEN_REALTIME_ASR=off disables streaming; QWEN_ASR_MODEL continues to configure the HTTP fallback.
 
-References: [official Qwen3-ASR streaming demo](https://github.com/QwenLM/Qwen3-ASR#streaming-demo), [RealtimeSTT](https://github.com/KoljaB/RealtimeSTT), [ws](https://github.com/websockets/ws), and [Qwen streaming events](https://www.alibabacloud.com/help/en/model-studio/qwen-asr-realtime-server-events). The integration uses the existing cloud account, not a self-hosted GPU model.
+References: [official Qwen3-ASR streaming demo](https://github.com/QwenLM/Qwen3-ASR#streaming-demo), [RealtimeSTT](https://github.com/KoljaB/RealtimeSTT), [ws](https://github.com/websockets/ws), and [Qwen streaming events](https://www.alibabacloud.com/help/en/model-studio/qwen-audio-asr-streaming-server-events). The integration uses the existing cloud account, not a self-hosted GPU model.
 
 Validation: 120 automated checks, including incremental revisions, final-only submission, partials across multiple VAD segments, fallback retention, cancellation, PCM duration, same-origin checks and shared quotas. English and Korean generated samples were streamed through the real Qwen API. Device, wind-noise and speaker tests still require a phone.
 

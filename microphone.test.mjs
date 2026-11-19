@@ -60,7 +60,9 @@ function recorder(fetchImpl=async()=>new Response(JSON.stringify({text:'你好'}
  const levels=[],calls=[];
  const input={onLevel:v=>levels.push(v),attach:async r=>{input.receiver=r;},detach:r=>{if(input.receiver===r)input.receiver=null;},release(){this.receiver=null;}};
  const Recognition=createMicrophoneRecognition({input,fetchImpl:(url,options)=>{calls.push({url,...options});return fetchImpl(url,options);},toBase64:s=>Buffer.from(s,'binary').toString('base64')});
- const feed=(value,ms)=>{for(let n=0;n<ms/100;n++)input.receiver?.samples(new Float32Array(1600).fill(value),16000);};
+ const feed=(value,ms)=>{
+  for(let n=0;n<ms/100;n++)input.receiver?.samples(Float32Array.from({length:1600},(_,i)=>value*Math.sin(2*Math.PI*230*i/16000)),16000);
+ };
  return {input,Recognition,feed,levels,calls};
 }
 test('actual PCM triggers listening, level meter, one transcription after silence; quiet input sends nothing',async()=>{
@@ -88,7 +90,7 @@ test('cloud recognition completes the hands-free loop without browser SpeechReco
 test('background hum and broadband hiss never upload hallucinated thanks; spoken thanks remains valid',async()=>{
  const a=recorder(async()=>new Response(JSON.stringify({text:'Thank you.'}))),r=new a.Recognition(),results=[];
  r.onresult=e=>results.push(e.results[0][0].transcript);r.start();await flush();
- a.feed(.012,16000);
+ a.feed(.004,16000);
  let seed=42;
  for(let n=0;n<160;n++){
   const data=Float32Array.from({length:1600},()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return (seed/4294967296*2-1)*.07;});
@@ -97,7 +99,37 @@ test('background hum and broadband hiss never upload hallucinated thanks; spoken
  a.feed(0,1000);assert.equal(a.calls.length,0);assert.deepEqual(results,[]);
  // A voiced utterance with a varying envelope must still reach the recognizer.
  for(let n=0;n<6;n++)a.input.receiver?.samples(Float32Array.from({length:1600},(_,i)=>Math.sin(2*Math.PI*180*i/16000)*(.06+n*.008)),16000);
- a.feed(0,400);await flush();assert.equal(a.calls.length,1);assert.deepEqual(results,['Thank you.']);r.abort();
+ a.feed(0,800);await flush();assert.equal(a.calls.length,1);assert.deepEqual(results,['Thank you.']);r.abort();
+});
+
+test('cycling rumble and a click stay local at common sample rates, while a quiet short word reaches ASR',async()=>{
+ for(const rate of [16000,44100,48000]){
+  const a=recorder(),r=new a.Recognition(),results=[];
+  r.onresult=e=>results.push(e.results[0][0].transcript);r.start();await flush();
+  const frame=Math.round(rate*.02);let offset=0,seed=19;
+  const feed=(samples,kind)=>{
+   for(let n=0;n<samples;n++){
+    const pcm=Float32Array.from({length:frame},(_,i)=>{
+      const t=(offset+i)/rate;
+      if(kind==='wind')return .09*Math.sin(2*Math.PI*42*t)+.035*Math.sin(2*Math.PI*61*t)+.02;
+      if(kind==='hiss'){
+       seed=(Math.imul(seed,1664525)+1013904223)>>>0;
+       return (seed/4294967296*2-1)*.06;
+      }
+      if(kind==='click')return i<5?.8:0;
+      if(kind==='short')return .025*Math.sin(2*Math.PI*195*t)+.013*Math.sin(2*Math.PI*390*t);
+      return 0;
+    });
+    offset+=frame;r.samples(pcm,rate);
+   }
+  };
+  feed(100,'wind');feed(100,'hiss');feed(1,'click');feed(40,'silence');
+  assert.equal(a.calls.length,0,rate+' Hz noise gate');
+  feed(7,'short');feed(17,'silence');assert.equal(a.calls.length,0);
+  feed(1,'silence');await flush();
+  assert.equal(a.calls.length,1,rate+' Hz 140 ms utterance');
+  assert.deepEqual(results,['你好']);
+ }
 });
 
 test('a provider result without confirmed speech cannot become a user message',async()=>{
@@ -139,8 +171,8 @@ test('cloud interruption uses recognized stop commands and aborts late monitor r
  assert.ok(stopped>before);assert.equal(session.state,'listening');assert.equal(a.calls.length,1);session.stop();
 });
 
-test('end of speech submits within half a second while shorter pauses remain in the same turn',async()=>{
- const a=recorder(),r=new a.Recognition();r.start();await flush();a.feed(.08,700);a.feed(0,300);assert.equal(a.calls.length,0);a.feed(.08,300);a.feed(0,300);assert.equal(a.calls.length,0);a.feed(0,100);assert.equal(a.calls.length,1);r.abort();
+test('end of speech submits in about half a second while shorter pauses remain in the same turn',async()=>{
+ const a=recorder(),r=new a.Recognition();r.start();await flush();a.feed(.08,700);a.feed(0,300);assert.equal(a.calls.length,0);a.feed(.08,300);a.feed(0,300);assert.equal(a.calls.length,0);a.feed(0,300);assert.equal(a.calls.length,1);r.abort();
 });
 
 test('silent PCM stays listening, but a stalled capture graph fails and releases its watchdog',async()=>{
