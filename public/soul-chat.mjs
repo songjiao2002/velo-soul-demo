@@ -51,7 +51,7 @@ export function createSoulChat({audioSession,onOpen=()=>{},onTurn=()=>{},getUILa
   let soul='lumi',language='ko',copy=COPY.ko,configured=false,controller=null,epoch=0,utterance=null,latestReply='';
   const find=selector=>dialog.querySelector(selector);
   const microphone=new MicrophoneInput({audioSession,onLevel:level=>{const m=find('#chatMicLevel');if(m)m.value=level;}});
-  const Recognition=createMicrophoneRecognition({input:microphone,Socket:globalThis.WebSocket});let micTimer,chatWakeLock=null;
+  const Recognition=createMicrophoneRecognition({input:microphone,Socket:globalThis.WebSocket,standby:true});let micTimer,chatWakeLock=null;
   function stopSpeech(){stopSpeaking?.();speech.stop();}
   function stopRecognition(){voiceSession.stop();clearTimeout(micTimer);if(recognizer){const r=recognizer;recognizer=null;r.abort();}microphone.release();}
   function cancel(){stopRecognition();epoch++;controller?.abort();controller=null;stopSpeech();}

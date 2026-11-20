@@ -1,7 +1,54 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {createSpeechLanguagePreferences} from './public/input-language.mjs';
 import {translate} from './public/i18n.mjs';
 import {chooseEnglishVoice,phrasePlan,EnglishVoicePlayer} from './public/voice-engine.mjs';
+test('speech input follows the interface until a rider chooses a language, then survives interface and companion changes',()=>{
+ const stored=new Map(),storage={getItem:key=>stored.get(key),setItem:(key,value)=>stored.set(key,value)};
+ let prefs=createSpeechLanguagePreferences(()=>storage);
+ assert.equal(prefs.input('en'),'en');
+ assert.equal(prefs.input('ko'),'ko');
+ assert.equal(prefs.voice('ko','lumi'),'ko');
+ assert.equal(stored.size,0);
+ prefs.select('ko');
+ prefs.select('auto');
+ prefs=createSpeechLanguagePreferences(()=>storage);
+ assert.equal(prefs.input('en'),'auto');
+ assert.equal(prefs.voice('en','bori'),'ko');
+ prefs.select('zh');
+ assert.equal(prefs.voice('ko','bori'),'en');
+ assert.equal(prefs.input('ko'),'zh');
+ assert.equal(prefs.voice('ko','mori'),'zh');
+});
+test('existing voice-only and independent language preferences survive an upgrade',()=>{
+ const stored=new Map([['velo-soul-voice-language','ko']]);
+ const storage={getItem:key=>stored.get(key),setItem:(key,value)=>stored.set(key,value)};
+ assert.equal(createSpeechLanguagePreferences(()=>storage).input('en'),'ko');
+ stored.set('velo-soul-input-language','en');
+ const prefs=createSpeechLanguagePreferences(()=>storage);
+ assert.equal(prefs.input('ko'),'en');
+ assert.equal(prefs.voice('en','lumi'),'ko');
+ const sessionPrefs=createSpeechLanguagePreferences(()=>{throw Error('Storage blocked');});
+ sessionPrefs.select('auto');
+ assert.equal(sessionPrefs.input('en'),'auto');
+ sessionPrefs.select('en');
+ assert.equal(sessionPrefs.input('ko'),'en');
+});
+test('packaged home and ride selectors use the saved input after a stopped conversation',async()=>{
+ const html=await readFile(new URL('./public/index.html',import.meta.url),'utf8');
+ const source=await readFile(new URL('./public/reference-entry.generated.mjs',import.meta.url),'utf8');
+ const voiceSelect=html.match(/<select id="voiceSelect"[^>]*>([\s\S]*?)<\/select>/)[1];
+ assert.deepEqual([...voiceSelect.matchAll(/value="([^"]+)"/g)].map(match=>match[1]),['auto','en','ko','zh']);
+ const rideSettings=source.slice(source.indexOf('function bl()'),source.indexOf('function Jo(riding)'));
+ const render=Function('M','yi','S','Ao','rideLanguages','liveVoicePrivacy',rideSettings+'\nreturn bl();');
+ const options=[['auto','Auto'],['en','English'],['ko','한국어'],['zh','中文']];
+ for(const saved of ['en','ko','auto']){
+  const page=render({active:false,language:'zh'},()=>saved,()=>'en',{en:{}},options,{en:''});
+  const selected=page.match(/name="ride-language" value="([^"]+)" checked/);
+  assert.equal(selected?.[1],saved);
+ }
+});
 test('panda Chinese selection stays Chinese from opening through reply and synthesis',async()=>{
  const {replyLanguage}=await import('./public/input-language.mjs');
  const {soulIntroduction,introductionClip}=await import('./public/soul-intro.mjs');

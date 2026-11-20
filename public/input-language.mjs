@@ -1,4 +1,34 @@
 export function detectInputLanguage(text,fallback='en'){return /[\uac00-\ud7af]/.test(text)?'ko':/[\u3400-\u9fff]/.test(text)?'zh':/[a-z]/i.test(text)?'en':fallback;}
+
+export function createSpeechLanguagePreferences(getStorage=()=>globalThis.localStorage){
+ const inputKey='velo-soul-input-language',voiceKey='velo-soul-voice-language';
+ const spoken=['en','ko','zh'];
+ let input,voice;
+ try{
+  const storage=getStorage();
+  const savedInput=storage.getItem(inputKey),savedVoice=storage.getItem(voiceKey);
+  if(savedInput==='auto'||spoken.includes(savedInput))input=savedInput;
+  if(spoken.includes(savedVoice))voice=savedVoice;
+ }catch{}
+ const defaultVoice=uiLanguage=>uiLanguage==='ko'?'ko':'en';
+ return {
+  input(uiLanguage){return input||voice||defaultVoice(uiLanguage);},
+  voice(uiLanguage,soul){
+   const language=voice||(input!=='auto'&&input)||defaultVoice(uiLanguage);
+   return language==='zh'&&soul!=='mori'?'en':language;
+  },
+  select(value){
+   if(value!=='auto'&&!spoken.includes(value))return;
+   input=value;
+   if(value!=='auto')voice=value;
+   try{
+    const storage=getStorage();
+    storage.setItem(inputKey,value);
+    if(value!=='auto')storage.setItem(voiceKey,value);
+   }catch{}
+  }
+ };
+}
 export function replyLanguage(text,preferred='auto',soul){
  const detected=detectInputLanguage(text,'en');
  if(soul==='mori')return ['en','ko','zh'].includes(preferred)?preferred:detected;

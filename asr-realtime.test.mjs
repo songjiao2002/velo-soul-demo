@@ -37,7 +37,9 @@ test('realtime relay streams partials, revises them, combines VAD segments and s
  const a=await relay(t),ws=new WebSocket(a.url+'?language=ko',{origin:a.origin});t.after(()=>ws.terminate());const events=[];ws.on('message',raw=>events.push(JSON.parse(raw)));await wait(()=>events.some(e=>e.type==='ready'));
  assert.equal(a.options.headers.Authorization,'Bearer secret-test-value');assert.equal(new URL(a.endpoint).hostname,'dashscope-intl.aliyuncs.com');assert.equal(a.upstream.sent[0].session.input_audio_transcription.language,'ko');
  ws.send(Buffer.alloc(3200));await wait(()=>a.upstream.sent.some(e=>e.type==='input_audio_buffer.append'));
+ a.upstream.event({type:'conversation.item.input_audio_transcription.text',item_id:'a',text:'O'});
  a.upstream.event({type:'conversation.item.input_audio_transcription.text',item_id:'a',text:'안',stash:'녕'});await wait(()=>events.some(e=>e.text==='안녕'));
+ assert.equal(events.some(e=>e.text==='O'),false);
  a.upstream.event({type:'conversation.item.input_audio_transcription.completed',item_id:'a',transcript:'안녕하세요.'});
  a.upstream.event({type:'conversation.item.input_audio_transcription.text',item_id:'b',text:'날씨',stash:'가'});await wait(()=>events.some(e=>e.text==='안녕하세요. 날씨가'));assert.ok(!events.some(e=>e.type==='final'));
  ws.send(JSON.stringify({type:'finish'}));await wait(()=>a.upstream.sent.some(e=>e.type==='session.finish'));
@@ -160,16 +162,61 @@ test('streaming resampler preserves 16kHz duration across uneven 44.1/48kHz chun
  for(const rate of [44100,48000,16000]){const encode=createPcm16Encoder();let bytes=0;for(let i=0;i<rate;i+=2048){const frame=encode(new Float32Array(Math.min(2048,rate-i)).fill(.5),rate);bytes+=frame.length;for(let j=0;j<frame.length;j+=2)assert.ok(Math.abs(new DataView(frame.buffer).getInt16(j,true)-16384)<=1);}assert.equal(bytes,32000);}
 });
 
+test('standby waits for activation before reserving or opening a provider',async t=>{
+ const a=await relay(t),url=a.url.replace('/live','/standby')+'?language=en';
+ const quiet=new WebSocket(url,{origin:a.origin});await once(quiet,'open');
+ assert.equal(a.active,0);assert.equal(a.upstream,undefined);quiet.close();await once(quiet,'close');
+ const invalid=new WebSocket(url,{origin:a.origin});await once(invalid,'open');
+ invalid.send(Buffer.alloc(16));await once(invalid,'close');assert.equal(a.upstream,undefined);assert.equal(a.active,0);
+ const rider=new WebSocket(url,{origin:a.origin}),events=[];t.after(()=>rider.terminate());
+ rider.on('message',raw=>events.push(JSON.parse(raw)));await once(rider,'open');
+ rider.send(JSON.stringify({type:'start'}));rider.send(Buffer.alloc(320));
+ await wait(()=>events.some(e=>e.type==='ready'));
+ assert.equal(a.active,1);
+ assert.equal(a.upstream.sent.filter(e=>e.type==='input_audio_buffer.append').length,1);
+ rider.close();await wait(()=>a.active===0);
+});
+
 const voiceFrame=(level,length)=>Float32Array.from({length},(_,i)=>level*Math.sin(2*Math.PI*225*i/16000));
 
-function client(now=Date.now){
+function client(now=Date.now,standby=false){
  const sockets=[],uploads=[];
  class Socket{constructor(url){this.url=url;this.readyState=0;this.bufferedAmount=0;this.sent=[];sockets.push(this);}send(data){this.sent.push(data);}close(){this.readyState=3;}open(){this.readyState=1;this.onopen?.();this.event({type:'ready'});}event(event){this.onmessage?.({data:JSON.stringify(event)});}}
  const input={onLevel(){},attach:async r=>input.receiver=r,detach:r=>{if(input.receiver===r)input.receiver=null;},release(){input.receiver=null;}};
- const Recognition=createMicrophoneRecognition({now,Socket,location:new URL('https://demo.example/?bike=lumi'),input,fetchImpl:async(url,options)=>{uploads.push({url,options});return new Response(JSON.stringify({text:'Fallback complete sentence'}));}});
+ const Recognition=createMicrophoneRecognition({now,Socket,standby,location:new URL('https://demo.example/?bike=lumi'),input,fetchImpl:async(url,options)=>{uploads.push({url,options});return new Response(JSON.stringify({text:'Fallback complete sentence'}));}});
  const feed=(level,ms)=>{for(let i=0;i<ms/100;i++)input.receiver?.samples(voiceFrame(level,1600),16000);};
  return {Recognition,sockets,uploads,feed,input};
 }
+
+test('prepared client stays silent, activates once with its first audio, and falls back if its standby expired',async()=>{
+ for(const expired of [false,true]){
+  const a=client(Date.now,true),r=new a.Recognition();r.inputLanguage='ko';r.start();await tick();
+  const idle=a.sockets[0];assert.equal(new URL(idle.url).pathname,'/api/transcribe/standby');idle.open();
+  a.feed(0,1000);assert.deepEqual(idle.sent,[]);
+  if(expired){idle.close();idle.onclose?.();}
+  a.feed(.1,300);
+  if(expired){
+   assert.equal(a.sockets.length,2);assert.match(a.sockets[1].url,/\/live\?language=ko$/);
+   a.sockets[1].open();assert.ok(a.sockets[1].sent[0] instanceof Uint8Array);
+  }else{
+   assert.equal(a.sockets.length,1);assert.equal(idle.sent[0],'{"type":"start"}');
+   assert.ok(idle.sent[1] instanceof Uint8Array);assert.equal(idle.sent.filter(v=>typeof v==='string').length,1);
+  }
+  r.abort();
+ }
+});
+
+test('speech arriving during the standby handshake is retained through success or an unsupported standby route',async()=>{
+ for(const unsupported of [false,true]){
+  const a=client(Date.now,true),r=new a.Recognition();r.start();await tick();a.feed(.1,300);
+  const standby=a.sockets[0];assert.equal(a.sockets.length,1);assert.deepEqual(standby.sent,[]);
+  if(unsupported)standby.onerror();
+  const active=a.sockets.at(-1);active.open();
+  assert.equal(active.sent.filter(v=>typeof v==='string').length,unsupported?0:1);
+  assert.equal(active.sent.filter(v=>v instanceof Uint8Array).reduce((n,v)=>n+v.length,0),9600);
+  r.abort();
+ }
+});
 
 test('browser sends PCM before silence, displays interim revisions, then sends one confirmed chat turn',async()=>{
  const a=client(),transcripts=[],chats=[],timers=new Map();let id=0;

@@ -9,12 +9,15 @@ let js=await read('app.pretty.js');
 function replace(before,after){if(js.split(before).length!==2)throw Error('Reference anchor changed: '+before.slice(0,100));js=js.replace(before,after);}
 replace('  var Ao = ',(await read('live-adapter.js'))+'\n  var Ao = ');
 replace('      <details class="ride-map-credits"', '      <p class="small" data-no-translate>${liveVoicePrivacy[S()]}</p>\n      <details class="ride-map-credits"');
-replace('["en", "ko"].includes(localStorage.getItem("velo-soul-voice-language"))','["en", "ko", "zh"].includes(localStorage.getItem("velo-soul-voice-language"))');
-replace('W = i === "ko" ? "ko" : "en";','W = i === "zh" ? "zh" : i === "ko" ? "ko" : "en";');
+replace('  ko();','  ko(); syncSpeechLanguage();');
+replace('const selected = M?.language || yi();','const selected = yi();');
+replace('p("rideSettings")?.querySelector("[name=ride-language]:checked")?.value || yi()','yi()');
+replace('  p("voiceSelect").addEventListener','  p("languageSelect").addEventListener("change", () => queueMicrotask(syncSpeechLanguage));\n  p("voiceSelect").addEventListener');
+js=js.replaceAll('p("voiceSelect").value = W;','p("voiceSelect").value = yi();');
 replace('record.generatedDiary?.body ? "" : diaryTranslationMenu(originalDiaryLanguage(record))','diaryTranslationMenu(originalDiaryLanguage(record))');
 replace('Ca(ti[W].farewell, "end")','In(W === "zh" ? "今天的回忆我收好啦，下次见。" : ti[W].farewell, W)');
 if(js.split('Ca(B[P].hello, "hello")').length!==3)throw Error('Intro anchors changed');
-js=js.replaceAll('Ca(B[P].hello, "hello")','In(Ln(P,yi()).text,W)');
+js=js.replaceAll('Ca(B[P].hello, "hello")','playLiveIntroduction()');
 await writeFile(new URL('reference-entry.generated.mjs',publicRoot),(await read('live-imports.txt'))+normalize(js));
 let html=normalize(await read('ride/index.html'));
 html=html.replace('</head>','<link rel="stylesheet" href="native-layout.css?v='+BUILD+'"></head>');
@@ -22,7 +25,8 @@ html=html.replace(/<script>\(function\(\)\{function c\(\)[\s\S]*?<\/script>/g,''
 const aboutVoice={en:'Qwen generates replies, voices and ride diaries. Diaries stay on this device.',ko:'답변, 캐릭터 목소리와 라이딩 일기는 Qwen이 생성해요. 일기는 이 기기에 저장돼요.',zh:'千问生成角色回复、声音和骑行后记。后记保存在本机。'};
 const serviceNote=Object.keys(VOICE_PRIVACY).map(lang=>`<span lang="${lang}">${VOICE_PRIVACY[lang]} ${aboutVoice[lang]}</span>`).join('');
 html=html.replace(/<p class="embedded-service-note"[\s\S]*?<\/p>/,`<p class="embedded-service-note" data-no-translate>${serviceNote}</p>`);
-html=html.replace(/(<select id="voiceSelect"[^>]*>)([\s\S]*?)(<\/select>)/,(all,start,options,end)=>start+options+'<option value="zh" lang="zh">中文 · Lulu</option>'+end);
+html=html.replace('<span id="voiceSelectLabel">음성 언어</span>','<span id="voiceSelectLabel" data-no-translate>Speech input</span>');
+html=html.replace(/<select id="voiceSelect"[^>]*>([\s\S]*?)<\/select>/,(_,options)=>'<select id="voiceSelect" aria-labelledby="voiceSelectLabel"><option value="auto">Auto</option>'+options+'<option value="zh" lang="zh">中文</option></select>');
 await writeFile(new URL('index.html',publicRoot),html);
 for(const file of ['boot.js','app.css','screen.css','interactions.js','character-toon.bundle.mjs'])await writeFile(new URL(file,publicRoot),normalize(await read('ride/'+file)));
 await cp(new URL('ride/assets/',source),new URL('assets/',publicRoot),{recursive:true});

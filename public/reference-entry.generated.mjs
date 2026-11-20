@@ -8,7 +8,7 @@ import {ConversationAudioSession as LiveAudioSession} from './audio-session.mjs'
 import {DeviceCompanionMemory as LiveMemory} from './device-memory.mjs';
 import {IdlePurr as LivePurr} from './idle-purr.mjs';
 import {soulIntroduction as liveIntroduction,introductionClip as liveIntroClip} from './soul-intro.mjs';
-import {replyLanguage as liveReplyLanguage} from './input-language.mjs';
+import {replyLanguage as liveReplyLanguage,createSpeechLanguagePreferences} from './input-language.mjs';
 import {parseSoulQR as liveParseQR} from './soul-core.mjs';
 import {companionQuery,currentSoulQR} from './qr-links.mjs';
 import {companionBrowserLinks as liveBrowserLinks} from './audio-browser.mjs';
@@ -1583,7 +1583,7 @@ import {VOICE_PRIVACY as liveVoicePrivacy} from './voice-privacy.mjs';
       URL.revokeObjectURL(s);
     }
   }
-  var se = "20261119-mobile66";
+  var se = "20261120-mobile67";
   var Ns = null, Ni = null, Za = false;
   function ji() {
     Za = true;
@@ -1596,7 +1596,7 @@ import {VOICE_PRIVACY as liveVoicePrivacy} from './voice-privacy.mjs';
       Ni.mountCharacters();
       return;
     }
-    Ns ??= import("/character-toon.bundle.mjs?v=20261119-mobile66").catch(() => null);
+    Ns ??= import("/character-toon.bundle.mjs?v=20261120-mobile67").catch(() => null);
     Ns.then((module) => {
       if (!Za) return;
       if (module) {
@@ -4685,7 +4685,7 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
 // These bindings reconnect the published UI to the maintained production services.
 // The imported source retains its layout, rendering, navigation and interactions.
 Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S});
-Tt=LiveSpeech;at=LiveMicrophone;ua=liveRecognition;Et=LiveAudioSession;xi=LiveMemory;
+Tt=LiveSpeech;at=LiveMicrophone;ua=options=>liveRecognition({...options,standby:true});Et=LiveAudioSession;xi=LiveMemory;
 const referenceVoiceState=kl;
 kl=function(state){
  const caption=p('heardText');
@@ -4754,11 +4754,48 @@ translateDiary=async function(language){
 const referenceSurface=pt;
 pt=function(...args){liveTranslationController?.abort();return referenceSurface(...args);};
 const referenceTheme=Eo;
-Eo=function(soul){referenceTheme(soul);if(soul!=='mori'&&W==='zh')jn('en');};
+const speechLanguages=createSpeechLanguagePreferences();
+yi=()=>speechLanguages.input(S());
+function playLiveIntroduction(){
+ const intro=Ln(P,yi());
+ In(intro.text,intro.language);
+}
+function syncSpeechLanguage(){
+ W=speechLanguages.voice(S(),P);
+ const select=p('voiceSelect');
+ select.value=yi();
+ p('voiceSelectLabel').textContent={ko:'음성 입력 언어',en:'Speech input',zh:'语音输入语言'}[S()];
+ const choices=[...(p('rideSettings')?.querySelectorAll('[name=ride-language]')||[])];
+ const index=choices.findIndex(option=>option.value===select.value);
+ if(index>=0){
+  choices[index].checked=true;
+  choices[index].closest('.language-options').style.setProperty('--choice-index',index);
+ }
+}
+jn=function(language){
+ speechLanguages.select(language);
+ syncSpeechLanguage();
+ La();
+ if(ae?.active)ae.start(P,W);
+};
+Eo=function(soul){W=speechLanguages.voice(S(),soul);referenceTheme(soul);};
 const referenceStop=Ce;
 Ce=function(){liveIdlePurr?.activity();referenceStop();};
 let liveIdlePurr;
 window.addEventListener('velo:ready',()=>{
+ const settings=p('appSettingsDialog');
+ let inputTapped=false;
+ // The published form dispatches change only if its hidden select changes value.
+ // A rider who taps the current default and saves has chosen it explicitly too.
+ settings.addEventListener('click',event=>{
+   if(event.target.matches('[name="voiceSelectChoice"]'))inputTapped=true;
+   if(inputTapped&&event.target.closest('[data-save-settings]')){
+     const selected=settings.querySelector('[name="voiceSelectChoice"]:checked')?.value;
+     if(selected===p('voiceSelect').value)speechLanguages.select(selected);
+     inputTapped=false;
+   }
+ },true);
+ settings.addEventListener('close',()=>{inputTapped=false;});
  liveIdlePurr=new LivePurr({session:He,canPlay:()=>P==='mori'&&Z&&!document.hidden&&!!M?.active&&['listening','quiet'].includes(M.state)&&!V.isOpen()&&!document.body.classList.contains('voice-playing')});
  const timer=setInterval(()=>liveIdlePurr.tick(),250);
  window.addEventListener('pagehide',()=>{clearInterval(timer);liveIdlePurr.stop();},{once:true});
@@ -4766,7 +4803,7 @@ window.addEventListener('velo:ready',()=>{
 
   var Ao = { en: { more: "Ride settings", finish: "Finish ride", start: "Start ride", language: "Conversation language", close: "Close", capture: "Take a photo" }, ko: { more: "라이딩 설정", finish: "여정 마치기", start: "라이딩 시작", language: "대화 언어", close: "닫기", capture: "사진 찍기" }, zh: { more: "骑行设置", finish: "结束骑行", start: "开始骑行", language: "对话语言", close: "关闭", capture: "抓拍照片" } }, Xr = { ko: { settings: "카메라 설정", title: "곁에서 듣고 있어요", flow: "말하면 답하고, 다시 들어요", sound: "소리 켜기", heard: "내가 한 말", live: "음성 동행" }, en: { settings: "Camera settings", title: "Right here with you", flow: "Speak. Hear your reply. Keep going.", sound: "Enable sound", heard: "You said", live: "VOICE COMPANION" }, zh: { settings: "相机设置", title: "一直在你身边", flow: "你说，我回答，然后继续听", sound: "开启声音", heard: "你刚才说", live: "语音陪伴" } }, W = "en";
   try {
-    ["en", "ko", "zh"].includes(localStorage.getItem("velo-soul-voice-language")) && (W = localStorage.getItem("velo-soul-voice-language"));
+    ["en", "ko"].includes(localStorage.getItem("velo-soul-voice-language")) && (W = localStorage.getItem("velo-soul-voice-language"));
   } catch {
   }
   var p = (i) => document.getElementById(i), ka = p("app"), ri = p("soulAudio"), ba = document.querySelector("[data-install-banner]");
@@ -5044,7 +5081,7 @@ window.addEventListener('velo:ready',()=>{
   function Tn() {
     xe.enter(P), ee === "requesting" && (ve?.stop(), ee = "off", p("cameraStart").disabled = false, p("cameraStart").textContent = "카메라 켜기");
     let i = p("cameraView");
-    i.classList.remove("awakened"), i.offsetWidth, i.classList.add("awakened"), p("cameraLabel").textContent = ee === "live" ? "● LIVE CAMERA" : "CAMERA-FREE PREVIEW", Z = true, M?.active || In(Ln(P,yi()).text,W), p("cameraStatus").textContent = ee === "live" ? "카메라 화면 위에 소울이 나타났어요." : "카메라 없는 애니메이션 미리보기예요.";
+    i.classList.remove("awakened"), i.offsetWidth, i.classList.add("awakened"), p("cameraLabel").textContent = ee === "live" ? "● LIVE CAMERA" : "CAMERA-FREE PREVIEW", Z = true, M?.active || playLiveIntroduction(), p("cameraStatus").textContent = ee === "live" ? "카메라 화면 위에 소울이 나타났어요." : "카메라 없는 애니메이션 미리보기예요.";
   }
   var wa = false;
   function Pn() {
@@ -5723,11 +5760,12 @@ window.addEventListener('velo:ready',()=>{
     let i = new URLSearchParams(location.search), e = i.get("bike");
     i.get("diary") ? openDiary(i.get("diary"), true) : i.get("view") === "journeys" ? gi() : i.get("view") === "scan" ? _o() : Object.hasOwn(B, e) ? (Eo(e), i.get("view") === "camera" ? qo() : di(e)) : showCompanions();
   }
-  ko();
-  p("voiceSelect").value = W;
+  ko(); syncSpeechLanguage();
+  p("voiceSelect").value = yi();
+  p("languageSelect").addEventListener("change", () => queueMicrotask(syncSpeechLanguage));
   p("voiceSelect").addEventListener("change", (i) => {
     let e = M?.active;
-    ue.prepare(), jn(i.target.value), V.setInputLanguage(i.target.value), e ? (M.start(P, yi()), _n()) : !V.isOpen() && ["welcome", "camera"].includes(D) && (Z = true, In(Ln(P,yi()).text,W));
+    ue.prepare(), jn(i.target.value), V.setInputLanguage(i.target.value), e ? (M.start(P, yi()), _n()) : !V.isOpen() && ["welcome", "camera"].includes(D) && (Z = true, playLiveIntroduction());
   });
   p("languageSelect").addEventListener("change", () => {
     Ge.render(), ut.render(), pi.language(), Ue.language(), Se(), document.querySelectorAll("[data-weather-card]").forEach((e) => e.outerHTML = At(S())), fi(), M?.stop(), ae?.stop();
@@ -5854,7 +5892,7 @@ window.addEventListener('velo:ready',()=>{
   const rideLanguages = [["auto", "Auto"], ["en", "English"], ["ko", "한국어"], ["zh", "中文"]];
   function bl() {
     const copy = Ao[S()];
-    const selected = M?.language || yi();
+    const selected = yi();
     const closeIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>';
     return `<dialog class="ride-settings-panel" id="rideSettings" aria-labelledby="rideSettingsTitle">
       <header data-no-translate><h2 id="rideSettingsTitle">${copy.more}</h2><button type="button" class="camera-round" data-action="ride-settings-close" aria-label="${copy.close}">${closeIcon}</button></header>
@@ -5937,12 +5975,12 @@ window.addEventListener('velo:ready',()=>{
     return W;
   }
   function jn(i) {
-    W = i === "zh" ? "zh" : i === "ko" ? "ko" : "en";
+    W = i === "ko" ? "ko" : "en";
     try {
       localStorage.setItem("velo-soul-input-language", i), localStorage.setItem("velo-soul-voice-language", W);
     } catch {
     }
-    p("voiceSelect").value = W;
+    p("voiceSelect").value = yi();
     const choices = p("rideSettings")?.querySelectorAll("[name=ride-language]");
     const selected = [...choices || []].findIndex((option) => option.value === i);
     if (selected >= 0) {
@@ -5954,7 +5992,7 @@ window.addEventListener('velo:ready',()=>{
   function qt() {
     if (ct = false, M?.active) return;
     We(), Ce(), Z = true, La(), ue.prepare();
-    let i = p("rideSettings")?.querySelector("[name=ride-language]:checked")?.value || yi();
+    let i = yi();
     M.start(P, i), _n();
   }
   function Sl() {

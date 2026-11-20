@@ -8,13 +8,35 @@ export function createPcm16Encoder(){
   return out.slice(0,offset);
  };
 }
+// Prepare the app connection while the mic is listening. Only the active
+// transcriber can start a provider task or write any audio.
+export function prepareStandby(Socket,url,setTimer,clearTimer){
+ let socket;
+ try{socket=new Socket(url);}catch{return null;}
+ const timer=setTimer(close,35000);
+ function detach(){
+  clearTimer(timer);
+  if(socket)socket.onclose=socket.onerror=null;
+  const current=socket;socket=null;return current;
+ }
+ function close(){
+  const current=detach();
+  if(current?.readyState===0)current.onerror=()=>{};
+  try{current?.close();}catch{}
+ }
+ socket.onclose=detach;socket.onerror=close;
+ return {close,take(){
+  if(socket&&socket.readyState<=1)return detach();
+  close();return null;
+ }};
+}
 export class StreamingTranscriber {
- constructor({Socket,url,onPartial,onFinal,onUnavailable,setTimer=(...a)=>globalThis.setTimeout(...a),clearTimer=(...a)=>globalThis.clearTimeout(...a)}){
+ constructor({Socket,url,preparedSocket,onPartial,onFinal,onUnavailable,setTimer=(...a)=>globalThis.setTimeout(...a),clearTimer=(...a)=>globalThis.clearTimeout(...a)}){
   Object.assign(this,{onPartial,onFinal,onUnavailable,setTimer,clearTimer});this.queue=[];this.queuedBytes=0;this.encode=createPcm16Encoder();
-  try{this.socket=new Socket(url);}catch{this.setTimer(()=>this.fail(),0);return;}
+  this.needsActivation=Boolean(preparedSocket);
   this.timer=setTimer(()=>this.fail(),6000);
-  this.socket.onopen=()=>{if(this.closed)return;for(const bytes of this.queue)this.send(bytes);this.queue=[];this.queuedBytes=0;if(this.finishing)this.send(JSON.stringify({type:'finish'}));};
-  this.socket.onmessage=event=>{
+  const onOpen=()=>{if(this.closed)return;for(const bytes of this.queue)this.sendAudio(bytes);this.queue=[];this.queuedBytes=0;if(this.finishing)this.send(JSON.stringify({type:'finish'}));};
+  const onMessage=event=>{
    if(this.closed)return;let message;try{message=JSON.parse(event.data);}catch{return this.fail();}
    if(!message||typeof message!=='object'||Array.isArray(message))return this.fail();
    if(message.type==='ready'){this.clearTimer(this.timer);if(this.finishing)this.timer=this.setTimer(()=>this.fail(),10000);}
@@ -23,14 +45,30 @@ export class StreamingTranscriber {
    else if(message.type==='error')this.fail(typeof message.error==='string'?message.error:'network');
    else this.fail();
   };
-  this.socket.onerror=()=>this.fail();this.socket.onclose=()=>{if(!this.closed)this.fail();};
+  const attach=socket=>{
+   this.socket=socket;socket.onopen=onOpen;socket.onmessage=onMessage;
+   socket.onclose=socket.onerror=()=>{
+    if(this.closed||this.socket!==socket)return;
+    if(!this.needsActivation)return this.fail();
+    // A previous server version or a network change can close standby before
+    // any audio left the browser. Carry the same queued PCM to the live route.
+    this.needsActivation=false;
+    socket.onopen=socket.onclose=socket.onmessage=socket.onerror=null;
+    try{socket.close();attach(new Socket(url));}catch{this.fail();}
+   };
+  };
+  try{attach(preparedSocket||new Socket(url));}catch{this.setTimer(()=>this.fail(),0);}
  }
  send(data){if(this.closed)return;if(this.socket.bufferedAmount>131072)return this.fail();try{this.socket.send(data);}catch{this.fail();}}
+ sendAudio(bytes){
+  if(this.needsActivation){this.needsActivation=false;this.send(JSON.stringify({type:'start'}));}
+  this.send(bytes);
+ }
  write(samples,rate){
   if(this.closed||this.finishing)return;const bytes=this.encode(samples,rate);if(!bytes.length)return;
-  if(this.socket?.readyState===1)this.send(bytes);else{this.queue.push(bytes);this.queuedBytes+=bytes.length;if(this.queuedBytes>192000)this.fail();}
+  if(this.socket?.readyState===1)this.sendAudio(bytes);else{this.queue.push(bytes);this.queuedBytes+=bytes.length;if(this.queuedBytes>192000)this.fail();}
  }
  finish(){if(this.closed||this.finishing)return;this.finishing=true;this.clearTimer(this.timer);this.timer=this.setTimer(()=>this.fail(),10000);if(this.socket?.readyState===1)this.send(JSON.stringify({type:'finish'}));}
  fail(error='network'){if(this.closed)return;this.close();this.onUnavailable(error);}
- close(){this.closed=true;this.clearTimer(this.timer);this.queue=[];this.queuedBytes=0;const socket=this.socket;if(socket){socket.onopen=socket.onmessage=socket.onerror=socket.onclose=null;try{socket.close();}catch{}}}
+ close(){this.closed=true;this.clearTimer(this.timer);this.queue=[];this.queuedBytes=0;const socket=this.socket;if(socket){socket.onopen=socket.onmessage=socket.onclose=null;socket.onerror=socket.readyState===0?()=>{}:null;try{socket.close();}catch{}}}
 }

@@ -4,12 +4,47 @@ import {randomUUID} from 'node:crypto';
 import {chatConfig} from './chat-service.mjs';
 import {relayScribeRealtime} from './scribe-realtime.mjs';
 
+function terminateUpstream(socket){
+ if(socket&&socket.readyState!==WebSocket.CLOSED){
+  // ws may emit a final error when an in-progress handshake is terminated.
+  socket.once('error',()=>{});
+  socket.terminate();
+ }
+}
+
 export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,options)=>new WebSocket(url,options)}={}){
  const sockets=new WebSocketServer({noServer:true,maxPayload:32768,perMessageDeflate:false});
+ let waitingClients=0;
+ let idleQwen=null,stopping=false;
+ function removeIdle(){
+  const entry=idleQwen;
+  if(!entry)return null;
+  idleQwen=null;
+  clearTimeout(entry.timer);
+  entry.socket.off('close',discardIdle);
+  entry.socket.off('error',discardIdle);
+  entry.socket.off('message',discardIdle);
+  return entry;
+ }
+ function discardIdle(){
+  terminateUpstream(removeIdle()?.socket);
+ }
+ function keepCompleted(socket,endpoint,apiKey,taskId){
+  if(stopping||socket.readyState!==WebSocket.OPEN){terminateUpstream(socket);return;}
+  discardIdle();
+  // Only a finished duplex task reaches here. Never send audio, heartbeats or
+  // a new run-task to an idle provider connection.
+  idleQwen={socket,endpoint,apiKey,taskId,timer:setTimeout(discardIdle,15000)};
+  idleQwen.timer.unref();
+  socket.once('close',discardIdle);
+  socket.once('error',discardIdle);
+  socket.once('message',discardIdle);
+ }
  server.on('upgrade',(req,socket,head)=>{
   const reject=status=>{socket.end(`HTTP/1.1 ${status} Rejected\r\nConnection: close\r\n\r\n`);};
   let url;try{url=new URL(req.url,'http://localhost');}catch{return reject(400);}
-  if(url.pathname!=='/api/transcribe/live')return reject(404);
+  const standby=url.pathname==='/api/transcribe/standby';
+  if(!standby&&url.pathname!=='/api/transcribe/live')return reject(404);
   if(!req.headers.origin||!allowedRequestOrigin(req))return reject(403);
   // Reject invalid handshakes before reserving the shared paid-service budget.
   if(req.method!=='GET'||req.headers.upgrade?.toLowerCase()!=='websocket'||!/^\s*13\s*$/.test(req.headers['sec-websocket-version']||'')||! /^[+/0-9A-Za-z]{22}==$/.test(req.headers['sec-websocket-key']||''))return reject(400);
@@ -17,26 +52,53 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
   const config=chatConfig(env);
   const useScribe=config.scribeApiKey&&(language==='en'||language==='ko');
   if(env.QWEN_REALTIME_ASR==='off'||(!useScribe&&!config.configured))return reject(503);
-  let release;try{release=reserve();}catch{return reject(429);}
-  socket.once('close',release);
+  if(standby&&waitingClients>=32)return reject(429);
+  let release;
+  function startProvider(client){
+   if(useScribe)relayScribeRealtime(client,{language,apiKey:config.scribeApiKey,connect,release});
+   else relay(client,language,config,release);
+  }
+  function reserveTask(){release=reserve();socket.once('close',release);}
+  if(!standby){try{reserveTask();}catch{return reject(429);}}
   try{
    sockets.handleUpgrade(req,socket,head,client=>{
-    if(useScribe)relayScribeRealtime(client,{language,apiKey:config.scribeApiKey,connect,release});
-    else relay(client,language,config,release);
+    if(!standby){startProvider(client);return;}
+    // Only the rider-to-app connection is ready. Reserve a model task when
+    // the microphone has actually detected speech and is about to send PCM.
+    waitingClients++;
+    const timeout=setTimeout(()=>client.terminate(),45000);
+    timeout.unref();
+    const leave=()=>{
+     clearTimeout(timeout);waitingClients--;
+     client.off('message',activate);client.off('close',leave);client.off('error',onError);
+    };
+    const onError=()=>client.terminate();
+    const activate=(raw,binary)=>{
+     if(binary||raw.length>64||raw.toString()!=='{"type":"start"}'){
+      client.close(1008,'Invalid standby request');return;
+     }
+     leave();
+     try{reserveTask();}catch{
+      client.on('error',onError);client.send(JSON.stringify({type:'error',error:'rate_limited'}));
+      client.close(1013,'Recognition unavailable');return;
+     }
+     startProvider(client);
+    };
+    client.once('message',activate);client.once('close',leave);client.on('error',onError);
    });
-  }catch{release();socket.destroy();}
+  }catch{release?.();socket.destroy();}
  });
- server.on('close',()=>{for(const client of sockets.clients)client.terminate();sockets.close();});
+ server.on('close',()=>{stopping=true;discardIdle();for(const client of sockets.clients)client.terminate();sockets.close();});
  function relay(client,language,config,release){
   let upstream,ready=false,closed=false,finishing=false,finishSent=false,total=0,queued=[],readyTimer,lifeTimer;
   const segments=new Map();
   const model=language==='en'?config.realtimeAsrModelEn:config.realtimeAsrModel;
   const messageModel=model==='qwen-audio-3.1-asr-flash-message';
   const duplex=messageModel||/^qwen-audio-3\.[01]-asr-flash-streaming$/.test(model);
-  const taskId=randomUUID();
+  let taskId=randomUUID(),previousTaskId=null,endpointURL;
   const vocabulary={en:{Mori:2,Popo:2,Lulu:2},ko:{모리:2,포포:2,루루:2},zh:{莫里:2,波波:2,露露:2}}[language];
   const send=event=>{if(client.readyState!==WebSocket.OPEN)return;if(client.bufferedAmount>131072){client.terminate();return;}client.send(JSON.stringify(event));};
-  const cleanup=()=>{if(closed)return;closed=true;clearTimeout(readyTimer);clearTimeout(lifeTimer);queued=[];release();if(upstream&&upstream.readyState!==WebSocket.CLOSED)upstream.terminate();};
+  const cleanup=()=>{if(closed)return;closed=true;clearTimeout(readyTimer);clearTimeout(lifeTimer);queued=[];release();terminateUpstream(detachUpstream());};
   const fail=error=>{if(closed)return;send({type:'error',error});client.close(1011,'Recognition unavailable');cleanup();};
   const transmit=data=>{
    if(closed||upstream.readyState!==WebSocket.OPEN)return;
@@ -53,7 +115,7 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
   };
   const result=()=>[...segments.values()].map(s=>s.final??s.partial??'').filter(Boolean).join(' ').trim().slice(0,1000);
   const unsettledInitial=language==='en' ? /^[\p{Script=Han}\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}]$/u
-    : language==='ko' ? /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]$/u : null;
+    : language==='ko' ? /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Latin}]$/u : null;
   let previousPreview='';
   function sendPreview(provisional){
    const text=result();
@@ -79,9 +141,45 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
    endpoint.protocol='wss:';
    endpoint.pathname=duplex?'/api-ws/v1/inference':'/api-ws/v1/realtime';
    if(!duplex)endpoint.searchParams.set('model',model);
-   upstream=connect(endpoint.href,{headers:{Authorization:'Bearer '+config.apiKey},handshakeTimeout:8000,maxPayload:131072,perMessageDeflate:false});
+   endpointURL=endpoint.href;
+   let existing=null;
+   if(duplex&&idleQwen){
+    if(idleQwen.endpoint===endpointURL&&idleQwen.apiKey===config.apiKey&&idleQwen.socket.readyState===WebSocket.OPEN)existing=removeIdle();
+    else discardIdle();
+   }
+   attachUpstream(existing);
   }catch{return fail('network');}
-  upstream.on('open',()=>{
+  function attachUpstream(existing){
+   previousTaskId=existing?.taskId??null;
+   upstream=existing?.socket??connect(endpointURL,{headers:{Authorization:'Bearer '+config.apiKey},handshakeTimeout:8000,maxPayload:131072,perMessageDeflate:false});
+   upstream.on('error',onTransportFailure);
+   upstream.on('close',onTransportFailure);
+   upstream.on('message',onMessage);
+   if(existing)beginTask();
+   else upstream.once('open',beginTask);
+  }
+  function detachUpstream(){
+   const socket=upstream;
+   if(socket){
+    upstream=null;
+    socket.off('open',beginTask);
+    socket.off('error',onTransportFailure);
+    socket.off('close',onTransportFailure);
+    socket.off('message',onMessage);
+   }
+   return socket;
+  }
+  function onTransportFailure(){
+   if(closed)return;
+   // An idle peer may have closed while the socket still looked open. No PCM
+   // can have reached that task until task-started; keep the queued frames.
+   if(previousTaskId&&!ready){
+    terminateUpstream(detachUpstream());
+    taskId=randomUUID();
+    try{attachUpstream(null);}catch{fail('network');}
+   }else fail('network');
+  }
+  function beginTask(){
    if(duplex){
     const parameters={format:'pcm',sample_rate:16000,max_sentence_silence:420,...(language==='auto'?{}:{language_hints:[language],vocabulary})};
     if(messageModel||model==='qwen-audio-3.1-asr-flash-streaming')parameters.vad_model='near_meeting_16k';
@@ -91,16 +189,17 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
     }
     task('run-task',{task_group:'audio',task:'asr',function:'recognition',model,parameters,input:{}});
    }else emit({type:'session.update',session:{input_audio_format:'pcm',sample_rate:16000,input_audio_transcription:{...(language==='auto'?{}:{language})},turn_detection:{type:'server_vad',threshold:0.2,silence_duration_ms:300}}});
-  });
-  upstream.on('error',()=>fail('network'));
-  upstream.on('close',()=>{if(!closed)fail('network');});
-  upstream.on('message',raw=>{
+  }
+  function onMessage(raw){
    if(closed)return;let event;try{event=JSON.parse(raw);}catch{return fail('invalid_response');}
    if(!event||typeof event!=='object'||Array.isArray(event))return fail('invalid_response');
    const type=duplex?event.header?.event:event.type;
    if(typeof type!=='string')return fail('invalid_response');
-   if(duplex&&event.header.task_id!==taskId)return fail('invalid_response');
-   if(type==='session.updated'||type==='task-started'){
+   if(duplex&&event.header.task_id!==taskId){
+    if(previousTaskId&&event.header.task_id===previousTaskId)return;
+    return fail('invalid_response');
+   }
+   if(type===(duplex?'task-started':'session.updated')){
     if(ready)return;
     clearTimeout(readyTimer);ready=true;send({type:'ready'});for(const pcm of queued)append(pcm);queued=[];finish();
    }else if(duplex&&type==='result-generated'){
@@ -121,17 +220,19 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
     if(typeof event.transcript!=='string')return fail('invalid_response');
     const key=event.item_id||'utterance';if(!segments.has(key)&&segments.size>=40)return fail('invalid_response');
     segments.set(key,{final:event.transcript.slice(0,1000)});sendPreview(false);
-   }else if(type==='session.finished'||type==='task-finished'){
+   }else if(type===(duplex?'task-finished':'session.finished')){
     // A VAD segment may finish during a natural pause. Submit only once our
     // client ends its utterance, using confirmed segments, never tentative text.
-    if(!finishing)return fail('invalid_response');
+    if(!ready||!finishSent)return fail('invalid_response');
     if([...segments.values()].some(s=>s.final===undefined))return fail('invalid_response');
-    send({type:'final',text:result()});client.close(1000,'Utterance complete');cleanup();
+    send({type:'final',text:result()});
+    if(duplex&&client.readyState===WebSocket.OPEN)keepCompleted(detachUpstream(),endpointURL,config.apiKey,taskId);
+    client.close(1000,'Utterance complete');cleanup();
    }else if(type==='error'||type==='task-failed'||type==='conversation.item.input_audio_transcription.failed'){
     const code=event.header?.error_code||event.error?.code||event.code||'';
     fail(/quota|rate|limit/i.test(code)?'provider_quota':/auth|key/i.test(code)?'provider_auth':'provider_unavailable');
    }
-  });
+  }
  }
  return sockets;
 }

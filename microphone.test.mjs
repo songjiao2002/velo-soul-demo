@@ -157,6 +157,44 @@ test('a provider result without confirmed speech cannot become a user message',a
  r.start();await flush();a.feed(0,500);r.deliver('Thank you.');assert.deepEqual(results,[]);assert.deepEqual(errors,['no-speech']);
 });
 
+test('wind and steady low motor noise stay local while faint syllables above the rumble form one complete turn',async()=>{
+ const a=recorder(),r=new a.Recognition(),rate=48000,size=1024;
+ let offset=0,starts=0;
+ r.onspeechstart=()=>starts++;r.start();await flush();
+ function feed(count,voice=()=>0){
+  for(let n=0;n<count;n++){
+   const frame=Float32Array.from({length:size},(_,i)=>{
+    const t=(offset+i)/rate;
+    return .035*Math.sin(2*Math.PI*44*t)+.014*Math.sin(2*Math.PI*67*t)
+      +.0015*Math.sin(2*Math.PI*610*t)+voice(t,n);
+   });
+   offset+=size;r.samples(frame,rate);
+  }
+ }
+ const syllables=(t,n)=>(.005+.00275*Math.sin(n*.73))*Math.sin(2*Math.PI*850*t);
+ feed(60);assert.equal(starts,0);
+ feed(20,syllables);assert.equal(starts,1);
+ feed(14);assert.equal(a.calls.length,0);
+ feed(14,syllables);assert.equal(a.calls.length,0);
+ feed(42);await flush();
+ assert.equal(starts,1);assert.equal(a.calls.length,1);
+});
+
+test('a faint initial fragment is buffered through hesitation and included in the uploaded waveform',async()=>{
+ const a=recorder(),r=new a.Recognition(),rate=16000,size=320;
+ r.start();await flush();
+ function feed(count,amplitude,frequency){
+  for(let n=0;n<count;n++)r.samples(Float32Array.from({length:size},(_,i)=>amplitude*Math.sin(2*Math.PI*frequency*(n*size+i)/rate)),rate);
+ }
+ feed(5,0,0);feed(2,.002,800);feed(26,0,0);
+ assert.equal(a.calls.length,0);
+ feed(18,.06,250);feed(40,0,0);await flush();
+ assert.equal(a.calls.length,1);
+ const wav=Buffer.from(JSON.parse(a.calls[0].body).audio.split(',')[1],'base64');
+ const fragment=Array.from({length:size},(_,i)=>Math.abs(wav.readInt16LE(44+2*(rate*.1+i))));
+ assert.ok(Math.max(...fragment)>45,'quiet prefix is present before the main voice');
+});
+
 function fakeAudio(){
  const contexts=[],tracks=[],processors=[];
  class Context{constructor(){this.state='running';this.sampleRate=48000;this.destination={};contexts.push(this);}resume(){return Promise.resolve();}close(){this.closed=true;return Promise.resolve();}createMediaStreamSource(){return {connect(){},disconnect(){}};}createGain(){return {gain:{},connect(){},disconnect(){}};}createScriptProcessor(){const p={connect(){},disconnect(){this.disconnected=true;}};processors.push(p);return p;}}

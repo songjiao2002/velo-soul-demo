@@ -1,15 +1,16 @@
 import {appFetch,speechSocketURL,getDeviceMedia,isNative} from './app-network.mjs';
 import {ConversationAudioSession} from './audio-session.mjs';
 import {BUILD} from './build-version.mjs';
-import {StreamingTranscriber} from './asr-stream.mjs';
+import {prepareStandby,StreamingTranscriber} from './asr-stream.mjs';
 // A 150 Hz high-pass reduces mic offsets, wind rumble and mains hum.
 function createSpeechBand(rate) {
   const angle=2*Math.PI*150/rate, cos=Math.cos(angle), a0=1+Math.sin(angle)/Math.SQRT2;
   const b0=(1+cos)/(2*a0), a1=-2*cos/a0, a2=2/a0-1;
-  let z1=0,z2=0,previous=0;
+  const midDecay=Math.exp(-2*Math.PI*450/rate);
+  let z1=0,z2=0,previous=0,previousMid=0,averageMid=0,changingFor=0;
   return input=>{
     const audio=new Float32Array(input.length);
-    let bandEnergy=0,rawEnergy=0,crossings=0;
+    let bandEnergy=0,rawEnergy=0,midEnergy=0,crossings=0;
     for(let i=0;i<input.length;i++){
       const value=input[i],filtered=b0*value+z1;
       z1=-2*b0*value-a1*filtered+z2;
@@ -18,11 +19,19 @@ function createSpeechBand(rate) {
       bandEnergy+=filtered*filtered;
       rawEnergy+=value*value;
       if((filtered>=0)!==(previous>=0))crossings++;
+      // A second high-pass measures speech above rumble without thinning the audio we send.
+      previousMid=midDecay*(previousMid+filtered-previous);
+      midEnergy+=previousMid*previousMid;
       previous=filtered;
     }
     const hiss=crossings*rate/input.length>5400;
     const rumble=bandEnergy<rawEnergy*.018;
-    return {audio,rms:Math.sqrt(bandEnergy/input.length),noiseOnly:rawEnergy===0||hiss||rumble};
+    const midRms=Math.sqrt(midEnergy/input.length),seconds=input.length/rate;
+    const changing=Math.abs(midRms-averageMid)>.2*Math.max(midRms,averageMid);
+    changingFor=changing ? .14 : Math.max(0,changingFor-seconds);
+    averageMid=midRms+(averageMid-midRms)*Math.exp(-seconds/.12);
+    const speechBandChanging=rawEnergy>0&&changingFor>0&&!hiss&&midEnergy>rawEnergy*.0009;
+    return {audio,rms:Math.sqrt(bandEnergy/input.length),noiseOnly:rawEnergy===0||hiss||rumble,midRms,speechBandChanging};
   };
 }
 
@@ -149,7 +158,7 @@ export class MicrophoneInput {
   }
 }
 
-export function createMicrophoneRecognition({input = new MicrophoneInput(), Socket, location = globalThis.location, fetchImpl = appFetch,
+export function createMicrophoneRecognition({input = new MicrophoneInput(), Socket, standby=false, location = globalThis.location, fetchImpl = appFetch,
   toBase64 = s => globalThis.btoa(s), now=Date.now, setTimer = (...args) => globalThis.setTimeout(...args), clearTimer = (...args) => globalThis.clearTimeout(...args)} = {}) {
   let streamDisabledUntil=0;
   return class MicrophoneRecognition {
@@ -159,10 +168,15 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
     }
     start() {
       this.active = true;
-      input.attach(this).catch(error => { if (this.active) this.fail(error.name === 'NotAllowedError' ? 'not-allowed' : error.message === 'unsupported' ? 'unsupported' : 'audio-capture'); });
+      input.attach(this).then(()=>{
+        if(!standby||!this.active||this.stream||this.finalizing||!Socket||!location||now()<streamDisabledUntil)return;
+        const url=speechSocketURL(location);url.pathname='/api/transcribe/standby';url.searchParams.set('language',this.language());
+        this.standby=prepareStandby(Socket,url.href,setTimer,clearTimer);
+      }).catch(error => { if (this.active) this.fail(error.name === 'NotAllowedError' ? 'not-allowed' : error.message === 'unsupported' ? 'unsupported' : 'audio-capture'); });
     }
     resetCapture(){
       if(!this.active||this.finalizing)return;
+      this.standby?.close();this.standby=null;
       this.stream?.close();this.stream=null;this.chunks=[];this.preroll=[];this.total=this.quiet=this.voiced=0;this.filter=null;this.rate=null;
       this.resetCandidate();
       this.speech=false;this.started=false;this.quietReported=false;this.noise=.002;this.onaudiorecovering?.();
@@ -179,7 +193,8 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
       if(this.stream)return;
       if(Socket&&location&&now()>=streamDisabledUntil){
         const url=speechSocketURL(location);url.searchParams.set('language',this.language());
-        this.stream=new StreamingTranscriber({Socket,url:url.href,setTimer,clearTimer,
+        const preparedSocket=this.standby?.take();this.standby=null;
+        this.stream=new StreamingTranscriber({Socket,url:url.href,preparedSocket,setTimer,clearTimer,
           onPartial:text=>{if(this.active&&this.speech&&text.trim())this.onresult?.({results:[{0:{transcript:text},isFinal:false}]});},
           onFinal:text=>{
             this.stream=null;
@@ -199,22 +214,25 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
         if(this.rate!==null&&this.rate!==undefined)this.resetCapture();
         this.rate=rate;
         this.filter=createSpeechBand(rate);
+        this.midNoise=.0003;
       }
       const ms=data.length/rate*1000;
-      const {audio,rms,noiseOnly}=this.filter(data);
+      const {audio,rms,noiseOnly,midRms,speechBandChanging}=this.filter(data);
       input.onLevel(Math.min(1,rms*12));
       const strong=!noiseOnly&&rms>Math.max(.0065,this.noise*1.8);
-      const loud=strong||(!noiseOnly&&rms>Math.max(.0039,this.noise*2.1));
+      const softSyllable=speechBandChanging&&midRms>Math.max(.00065,this.midNoise*2.8);
+      const loud=strong||(!noiseOnly&&rms>Math.max(.0039,this.noise*2.1))||softSyllable;
       const continuationFloor=this.voiced<=220 ? .0045 : .003;
-      const continuing=!noiseOnly&&rms>Math.max(continuationFloor,this.noise*1.4);
+      const continuing=(!noiseOnly&&rms>Math.max(continuationFloor,this.noise*1.4))
+        ||(speechBandChanging&&midRms>Math.max(.00045,this.midNoise*2));
       if (!this.speech) {
         this.preroll.push(audio);
-        while (this.preroll.length > Math.ceil(rate * .55 / data.length)) this.preroll.shift();
+        while (this.preroll.length > Math.ceil(rate * .9 / data.length)) this.preroll.shift();
         if(loud){
           this.candidate+=ms;
           this.candidateGap=0;
-          this.candidateMin=Math.min(this.candidateMin,rms);
-          this.candidateMax=Math.max(this.candidateMax,rms);
+          this.candidateMin=Math.min(this.candidateMin,midRms);
+          this.candidateMax=Math.max(this.candidateMax,midRms);
         }else{
           this.candidateGap+=ms;
           if(this.candidateGap>60){
@@ -224,6 +242,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
           }
           const floor=Math.min(rms,noiseOnly ? .0045 : .03);
           this.noise=Math.max(.001,Math.min(.025,this.noise*.96+floor*.04));
+          this.midNoise=Math.max(.00015,Math.min(.025,this.midNoise*.96+midRms*.04));
         }
         this.quiet+=ms;
         // Quiet syllables change level over time. Keep a steady, low-level hum local.
@@ -275,6 +294,6 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
       finally { clearTimer(this.timer); }
     }
     fail(error) { this.abort(); this.onerror?.({error}); }
-    abort() { this.active = false; this.stream?.close();this.stream=null; input.detach(this); this.controller?.abort(); clearTimer(this.timer);clearTimer(this.captureTimer);this.captureTimer=null; this.chunks = []; this.preroll = []; }
+    abort() { this.active = false; this.standby?.close();this.standby=null;this.stream?.close();this.stream=null; input.detach(this); this.controller?.abort(); clearTimer(this.timer);clearTimer(this.captureTimer);this.captureTimer=null; this.chunks = []; this.preroll = []; }
   };
 }

@@ -1,7 +1,7 @@
 // These bindings reconnect the published UI to the maintained production services.
 // The imported source retains its layout, rendering, navigation and interactions.
 Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S});
-Tt=LiveSpeech;at=LiveMicrophone;ua=liveRecognition;Et=LiveAudioSession;xi=LiveMemory;
+Tt=LiveSpeech;at=LiveMicrophone;ua=options=>liveRecognition({...options,standby:true});Et=LiveAudioSession;xi=LiveMemory;
 const referenceVoiceState=kl;
 kl=function(state){
  const caption=p('heardText');
@@ -70,11 +70,48 @@ translateDiary=async function(language){
 const referenceSurface=pt;
 pt=function(...args){liveTranslationController?.abort();return referenceSurface(...args);};
 const referenceTheme=Eo;
-Eo=function(soul){referenceTheme(soul);if(soul!=='mori'&&W==='zh')jn('en');};
+const speechLanguages=createSpeechLanguagePreferences();
+yi=()=>speechLanguages.input(S());
+function playLiveIntroduction(){
+ const intro=Ln(P,yi());
+ In(intro.text,intro.language);
+}
+function syncSpeechLanguage(){
+ W=speechLanguages.voice(S(),P);
+ const select=p('voiceSelect');
+ select.value=yi();
+ p('voiceSelectLabel').textContent={ko:'음성 입력 언어',en:'Speech input',zh:'语音输入语言'}[S()];
+ const choices=[...(p('rideSettings')?.querySelectorAll('[name=ride-language]')||[])];
+ const index=choices.findIndex(option=>option.value===select.value);
+ if(index>=0){
+  choices[index].checked=true;
+  choices[index].closest('.language-options').style.setProperty('--choice-index',index);
+ }
+}
+jn=function(language){
+ speechLanguages.select(language);
+ syncSpeechLanguage();
+ La();
+ if(ae?.active)ae.start(P,W);
+};
+Eo=function(soul){W=speechLanguages.voice(S(),soul);referenceTheme(soul);};
 const referenceStop=Ce;
 Ce=function(){liveIdlePurr?.activity();referenceStop();};
 let liveIdlePurr;
 window.addEventListener('velo:ready',()=>{
+ const settings=p('appSettingsDialog');
+ let inputTapped=false;
+ // The published form dispatches change only if its hidden select changes value.
+ // A rider who taps the current default and saves has chosen it explicitly too.
+ settings.addEventListener('click',event=>{
+   if(event.target.matches('[name="voiceSelectChoice"]'))inputTapped=true;
+   if(inputTapped&&event.target.closest('[data-save-settings]')){
+     const selected=settings.querySelector('[name="voiceSelectChoice"]:checked')?.value;
+     if(selected===p('voiceSelect').value)speechLanguages.select(selected);
+     inputTapped=false;
+   }
+ },true);
+ settings.addEventListener('close',()=>{inputTapped=false;});
  liveIdlePurr=new LivePurr({session:He,canPlay:()=>P==='mori'&&Z&&!document.hidden&&!!M?.active&&['listening','quiet'].includes(M.state)&&!V.isOpen()&&!document.body.classList.contains('voice-playing')});
  const timer=setInterval(()=>liveIdlePurr.tick(),250);
  window.addEventListener('pagehide',()=>{clearInterval(timer);liveIdlePurr.stop();},{once:true});

@@ -8,7 +8,7 @@ import {ConversationAudioSession as LiveAudioSession} from './audio-session.mjs'
 import {DeviceCompanionMemory as LiveMemory} from './device-memory.mjs';
 import {IdlePurr as LivePurr} from './idle-purr.mjs';
 import {soulIntroduction as liveIntroduction,introductionClip as liveIntroClip} from './soul-intro.mjs';
-import {replyLanguage as liveReplyLanguage} from './input-language.mjs';
+import {replyLanguage as liveReplyLanguage,createSpeechLanguagePreferences} from './input-language.mjs';
 import {parseSoulQR as liveParseQR} from './soul-core.mjs';
 import {companionQuery,currentSoulQR} from './qr-links.mjs';
 import {companionBrowserLinks as liveBrowserLinks} from './audio-browser.mjs';
