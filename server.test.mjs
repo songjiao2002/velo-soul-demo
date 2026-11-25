@@ -19,6 +19,10 @@ test('invalid request targets cannot crash API dispatch; pages cannot be framed'
 });
 
 test('final UI, camera modules and decoder use executable MIME and camera policy',async()=>{
+  const vad=await fetch(base+'/vendor/rnnoise/rnnoise.wasm?v='+BUILD);
+  assert.equal(vad.status,200);assert.equal(vad.headers.get('content-type'),'application/wasm');
+  assert.match(vad.headers.get('cache-control'),/immutable/);
+  assert.ok(WebAssembly.validate(await vad.arrayBuffer()));
   for(const p of ['/boot.js','/final.js','/soul-core.mjs','/vendor/jsQR.js']){const r=await fetch(base+p);assert.equal(r.status,200);assert.match(r.headers.get('content-type'),/javascript/);}
   const home=await fetch(base+'/');const html=await home.text();assert.match(html,/id="startupNotice"/);assert.match(html,/id="app"/);assert.match(html,/screen\.css/);assert.doesNotMatch(html,/class="topbar"|class="soul-card"/);assert.doesNotMatch(html,/href="\/qr-|settings-qr/);const management=await fetch(base+'/manage.html');assert.equal(management.status,200);const managementHTML=await management.text();for(const soul of ['lumi','mori','bori'])assert.ok(managementHTML.includes('href="/qr-'+soul+'.png"'));const downloadHTML=await (await fetch(base+'/download.html')).text();assert.match(downloadHTML,/href="\/manage\.html"/);assert.match(html,/boot\.js\?v=/);assert.equal(home.headers.get('permissions-policy'),'camera=(self), microphone=(self), geolocation=(self), speaker-selection=(self)');
 });

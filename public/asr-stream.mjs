@@ -25,7 +25,7 @@ export function prepareStandby(Socket,url,setTimer,clearTimer){
   try{current?.close();}catch{}
  }
  socket.onclose=detach;socket.onerror=close;
- return {close,take(){
+ return {close,get available(){return Boolean(socket&&socket.readyState<=1);},take(){
   if(socket&&socket.readyState<=1)return detach();
   close();return null;
  }};
@@ -62,7 +62,25 @@ export class StreamingTranscriber {
  send(data){if(this.closed)return;if(this.socket.bufferedAmount>131072)return this.fail();try{this.socket.send(data);}catch{this.fail();}}
  sendAudio(bytes){
   if(this.needsActivation){this.needsActivation=false;this.send(JSON.stringify({type:'start'}));}
-  this.send(bytes);
+  // A large capture callback must still fit the relay's 16 KiB frame limit.
+  for(let offset=0;offset<bytes.length&&!this.closed;offset+=16384)this.send(bytes.subarray(offset,offset+16384));
+ }
+ writeBuffered(chunks,rate){
+  // These samples already exist. Send the pre-roll now in 100 ms batches,
+  // without delaying the first packet or holding any subsequent live frame.
+  const batchSize=Math.max(1,Math.round(rate*.1));
+  const batch=new Float32Array(batchSize);
+  let filled=0;
+  for(const chunk of chunks){
+   let offset=0;
+   while(offset<chunk.length&&!this.closed){
+    const count=Math.min(batchSize-filled,chunk.length-offset);
+    batch.set(chunk.subarray(offset,offset+count),filled);
+    filled+=count;offset+=count;
+    if(filled===batchSize){this.write(batch,rate);filled=0;}
+   }
+  }
+  if(filled)this.write(batch.subarray(0,filled),rate);
  }
  write(samples,rate){
   if(this.closed||this.finishing)return;const bytes=this.encode(samples,rate);if(!bytes.length)return;

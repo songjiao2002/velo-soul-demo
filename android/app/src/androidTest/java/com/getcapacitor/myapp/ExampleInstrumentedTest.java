@@ -58,6 +58,8 @@ public class ExampleInstrumentedTest {
         assertEquals("com.velosoul.companion",InstrumentationRegistry.getInstrumentation().getTargetContext().getPackageName());
         awaitTrue("document.body.dataset.screen === 'companions' && document.querySelector('#startupNotice').hidden");
         assertEquals("true",js("window.isSecureContext && Capacitor.isNativePlatform() && !!navigator.mediaDevices?.getUserMedia"));
+        js("window.__vadAsset=null; fetch('/vendor/rnnoise/rnnoise.wasm').then(r=>r.arrayBuffer()).then(b=>WebAssembly.compile(b)).then(m=>window.__vadAsset=WebAssembly.Module.exports(m).some(e=>e.name==='rnnoise_process_frame')).catch(e=>window.__vadAsset=String(e))");
+        awaitTrue("window.__vadAsset === true");
         assertEquals("3",js("document.querySelectorAll('.app-tabbar button').length"));
         assertEquals("true",js("document.documentElement.classList.contains('native-app') && getComputedStyle(document.querySelector('.status-bar')).display === 'none' && getComputedStyle(document.querySelector('.gesture-area')).display === 'none'"));
         assertEquals("1",js("document.querySelectorAll('.app-tabbar [data-nav=companions]').length"));

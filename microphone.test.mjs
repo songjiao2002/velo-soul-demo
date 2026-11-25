@@ -202,7 +202,7 @@ function fakeAudio(){
  return {Context,contexts,tracks,processors,stream};
 }
 test('microphone keeps one stream between turns and releases tracks/context on exit',async()=>{
- const a=fakeAudio();let grants=0;const input=new MicrophoneInput({Context:a.Context,WorkletNode:null,mediaDevices:{getUserMedia:async options=>{assert.equal(options.audio.echoCancellation,true);grants++;return a.stream();}}});
+ const a=fakeAudio();let grants=0;const input=new MicrophoneInput({Context:a.Context,WorkletNode:null,mediaDevices:{getUserMedia:async options=>{assert.equal(options.audio.echoCancellation,true);assert.equal(options.audio.noiseSuppression,true);assert.equal(options.audio.autoGainControl,false);grants++;return a.stream();}}});
  let samples=0;const receiver={active:true,samples:()=>samples++,fail:()=>{}};await input.attach(receiver);a.processors[0].onaudioprocess({inputBuffer:{getChannelData:()=>new Float32Array(2048)}});assert.equal(samples,1);
  input.detach(receiver);await input.attach(receiver);assert.equal(grants,1);input.release();assert.ok(a.tracks[0].stopped);assert.ok(a.contexts[0].closed);assert.equal(a.processors[0].onaudioprocess,null);
 });

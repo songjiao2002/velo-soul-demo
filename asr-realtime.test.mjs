@@ -3,7 +3,7 @@ import WebSocket from 'ws';
 import {attachRealtimeAsr} from './asr-realtime.mjs';
 import {createChatService} from './chat-service.mjs';
 import {createMicrophoneRecognition} from './public/microphone-asr.mjs';
-import {createPcm16Encoder} from './public/asr-stream.mjs';
+import {createPcm16Encoder,StreamingTranscriber} from './public/asr-stream.mjs';
 import {HandsFreeConversation} from './public/hands-free.mjs';
 const tick=()=>new Promise(r=>setImmediate(r));
 const wait=async predicate=>{for(let i=0;i<100;i++){if(predicate())return;await new Promise(r=>setTimeout(r,5));}throw Error('Timed out');};
@@ -38,7 +38,10 @@ test('realtime relay streams partials, revises them, combines VAD segments and s
  assert.equal(a.options.headers.Authorization,'Bearer secret-test-value');assert.equal(new URL(a.endpoint).hostname,'dashscope-intl.aliyuncs.com');assert.equal(a.upstream.sent[0].session.input_audio_transcription.language,'ko');
  ws.send(Buffer.alloc(3200));await wait(()=>a.upstream.sent.some(e=>e.type==='input_audio_buffer.append'));
  a.upstream.event({type:'conversation.item.input_audio_transcription.text',item_id:'a',text:'O'});
+ a.upstream.event({type:'conversation.item.input_audio_transcription.text',item_id:'a',text:'我那'});
+ a.upstream.event({type:'conversation.item.input_audio_transcription.text',item_id:'a',text:'擦干八'});
  a.upstream.event({type:'conversation.item.input_audio_transcription.text',item_id:'a',text:'안',stash:'녕'});await wait(()=>events.some(e=>e.text==='안녕'));
+ assert.deepEqual(events.filter(e=>e.type==='partial').map(e=>e.text),['안녕']);
  assert.equal(events.some(e=>e.text==='O'),false);
  a.upstream.event({type:'conversation.item.input_audio_transcription.completed',item_id:'a',transcript:'안녕하세요.'});
  a.upstream.event({type:'conversation.item.input_audio_transcription.text',item_id:'b',text:'날씨',stash:'가'});await wait(()=>events.some(e=>e.text==='안녕하세요. 날씨가'));assert.ok(!events.some(e=>e.type==='final'));
@@ -162,7 +165,7 @@ test('streaming resampler preserves 16kHz duration across uneven 44.1/48kHz chun
  for(const rate of [44100,48000,16000]){const encode=createPcm16Encoder();let bytes=0;for(let i=0;i<rate;i+=2048){const frame=encode(new Float32Array(Math.min(2048,rate-i)).fill(.5),rate);bytes+=frame.length;for(let j=0;j<frame.length;j+=2)assert.ok(Math.abs(new DataView(frame.buffer).getInt16(j,true)-16384)<=1);}assert.equal(bytes,32000);}
 });
 
-test('standby waits for activation before reserving or opening a provider',async t=>{
+test('a legacy session-creating endpoint waits for activation before reserving or connecting',async t=>{
  const a=await relay(t),url=a.url.replace('/live','/standby')+'?language=en';
  const quiet=new WebSocket(url,{origin:a.origin});await once(quiet,'open');
  assert.equal(a.active,0);assert.equal(a.upstream,undefined);quiet.close();await once(quiet,'close');
@@ -255,14 +258,48 @@ test('malformed browser streaming responses fall back once without losing the ut
 });
 
 
-test('speech starts streaming after 80ms and finalizes at 540ms without cutting a 300ms pause',async()=>{
+test('a brief sound cannot start a live provider task; confirmed speech streams through a 300ms pause',async()=>{
  const a=client(),r=new a.Recognition();r.start();await tick();
  a.input.receiver.samples(voiceFrame(.1,1280),16000);
- assert.equal(a.sockets.length,1);const ws=a.sockets[0];ws.open();
- a.feed(.1,300);a.feed(0,300);
+ assert.equal(a.sockets.length,0);
+ a.feed(.1,300);assert.equal(a.sockets.length,1);const ws=a.sockets[0];ws.open();a.feed(0,300);
  assert.ok(!ws.sent.some(x=>typeof x==='string'&&JSON.parse(x).type==='finish'));
  a.feed(.1,200);a.input.receiver.samples(new Float32Array(8640),16000);
  assert.equal(JSON.parse(ws.sent.at(-1)).type,'finish');r.abort();
+});
+
+test('after a long quiet ride a fresh standby can connect without activating for a brief sound',async()=>{
+ let now=0;
+ const a=client(()=>now,true),r=new a.Recognition();r.start();await tick();
+ const idle=a.sockets[0];idle.close();idle.onclose();
+ now=46000;
+ a.input.receiver.samples(voiceFrame(.1,1280),16000);
+ assert.equal(a.sockets.length,2);
+ const fresh=a.sockets[1];assert.match(fresh.url,/\/standby\?/);fresh.open();
+ assert.deepEqual(fresh.sent,[]);
+ a.feed(0,300);assert.deepEqual(fresh.sent,[]);
+ a.feed(.1,300);assert.equal(fresh.sent[0],'{"type":"start"}');
+ assert.equal(fresh.sent.filter(x=>typeof x==='string').length,1);
+ assert.equal(a.sockets.length,2);r.abort();
+});
+
+test('buffered onset is sent in order in fewer frames while subsequent mic callbacks are sent immediately',()=>{
+ const sent=[];
+ class Socket{constructor(){this.readyState=1;this.bufferedAmount=0;}send(data){sent.push(data);}close(){}}
+ const stream=new StreamingTranscriber({Socket,setTimer:()=>1,clearTimer(){}});
+ const rate=44100;
+ const material=Float32Array.from({length:43171},(_,i)=>.24*Math.sin(.04*i));
+ const chunks=[];
+ for(let i=0;i<material.length;i+=1024)chunks.push(material.subarray(i,i+1024));
+ const encode=createPcm16Encoder();
+ stream.writeBuffered(chunks,rate);
+ assert.equal(sent.length,Math.ceil(material.length/(rate*.1)));
+ assert.deepEqual(Buffer.concat(sent),Buffer.from(encode(material,rate)));
+ const frames=sent.length;
+ stream.write(material.subarray(0,512),rate);
+ assert.equal(sent.length,frames+1);
+ assert.deepEqual(Buffer.from(sent.at(-1)),Buffer.from(encode(material.subarray(0,512),rate)));
+ stream.close();
 });
 
 test('temporary streaming failure retries after five seconds instead of blocking the next minute',async()=>{

@@ -20,7 +20,7 @@ if(js.split('Ca(B[P].hello, "hello")').length!==3)throw Error('Intro anchors cha
 js=js.replaceAll('Ca(B[P].hello, "hello")','playLiveIntroduction()');
 await writeFile(new URL('reference-entry.generated.mjs',publicRoot),(await read('live-imports.txt'))+normalize(js));
 let html=normalize(await read('ride/index.html'));
-html=html.replace('</head>','<link rel="stylesheet" href="native-layout.css?v='+BUILD+'"></head>');
+html=html.replace('</head>',`<link rel="stylesheet" href="native-layout.css?v=${BUILD}"><link rel="preload" as="fetch" type="application/wasm" crossorigin="anonymous" fetchpriority="low" href="/vendor/rnnoise/rnnoise.wasm?v=${BUILD}"></head>`);
 html=html.replace(/<script>\(function\(\)\{function c\(\)[\s\S]*?<\/script>/g,'');
 const aboutVoice={en:'Qwen generates replies, voices and ride diaries. Diaries stay on this device.',ko:'답변, 캐릭터 목소리와 라이딩 일기는 Qwen이 생성해요. 일기는 이 기기에 저장돼요.',zh:'千问生成角色回复、声音和骑行后记。后记保存在本机。'};
 const serviceNote=Object.keys(VOICE_PRIVACY).map(lang=>`<span lang="${lang}">${VOICE_PRIVACY[lang]} ${aboutVoice[lang]}</span>`).join('');

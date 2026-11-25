@@ -1,45 +1,45 @@
 {
-  "version": "20261120-mobile67",
+  "version": "20261125-mobile68",
   "files": {
     "/index.html": {
-      "size": 7406,
-      "sha256": "6f154b7369d0b44bc8edb47736a57849740454ebc881f4a547f833fd10b60b4c",
+      "size": 7561,
+      "sha256": "577ae9ea38e403737483784587de2a71f9786bb77365f1972e0d928a499f4012",
       "br": {
-        "size": 2918,
-        "sha256": "a09bc0cbb2e1452a122b408e8f0114a7a87e4a28d83a46b94cdab468889eb624",
+        "size": 2976,
+        "sha256": "04fe2af7dd43b6ad58a8482e4854afb0d2230b05a518c48fe2ced9586f744792",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 3275,
-        "sha256": "4fb90601695af51c03aebeeb636261f12b6a1be58ce871670d02b259cec68277",
+        "size": 3348,
+        "sha256": "d4c431f852e2f6fd8e8d553d3e6e9ea17abfb7adf4d21b9c2b00ba1a9b8c643a",
         "suffix": ".gz"
       }
     },
     "/boot.js": {
       "size": 2510,
-      "sha256": "78269225bce34f304c1d288dab5abc69c12859522bead11b1f4c7ca62363bd70",
+      "sha256": "fbd8586e586bac3bbd8b1c84c6e10450ddd57f5b4797e492e7d530f8580cc5be",
       "br": {
         "size": 949,
-        "sha256": "62337478944a9712ff5545ee232ca367945222c9c6401500a52c77066dd8b02b",
+        "sha256": "aa141dd2207f300895f05cca4dbbc3e7aceca83cfebbdf7e3d00a73c7c44ad4a",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 1132,
-        "sha256": "820e03de17ce2b6def3450951f3020c63a240013415ab833f3615d1ddfc2d3f2",
+        "size": 1133,
+        "sha256": "cd1c8681d2852a0d0a3c31df5f6b80a7301688607edfaba35aa4b4a87044a503",
         "suffix": ".gz"
       }
     },
     "/app.bundle.js": {
-      "size": 597779,
-      "sha256": "4eed08e825d788bcdfe366a779d0c99cf158904047e986c08e35541eadd1506a",
+      "size": 603759,
+      "sha256": "ea4e5a129eebc558a948e1383aa4d798f945c52fec9c964e9319b8a02cfab64f",
       "br": {
-        "size": 141040,
-        "sha256": "36988afaab06d1ca17d08bfad1462ecd918523d8aed26bc0de399a705a6697f4",
+        "size": 143249,
+        "sha256": "d1afb631ff7f81f83a838eec25184f7318fa411faae6091a9c683717b5fb86a3",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 221501,
-        "sha256": "3f9398158c5e036a74034b7217b40f9c047f49a00e55314a6db805990473aa03",
+        "size": 224110,
+        "sha256": "4b49add2dd8c58b8891207e7c6093400d84e34594a8083f626efcc8cdbbbc742",
         "suffix": ".gz"
       }
     },
@@ -264,6 +264,10 @@
     "/assets/bori-cover-rig.webp": {
       "size": 100238,
       "sha256": "2bfa00b1c0478068a5ff4e252d9aea85e31446f41efc4e1c2571b70bbc386b99"
+    },
+    "/vendor/rnnoise/rnnoise.wasm": {
+      "size": 152656,
+      "sha256": "8b60a2ab88fdae2d1a9f940249d0eb072f28ba8e796f7304347b4e07839c8853"
     }
   }
 }

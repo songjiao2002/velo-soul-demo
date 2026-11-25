@@ -13,7 +13,7 @@ const textFiles=['index.html','boot.js','app.bundle.js','app.css','mobile-v2.css
 const images=['audio/characters13/mori-zh.wav','assets/characters-original-20261025.jpg',...['lumi','mori','bori'].flatMap(id=>['ko','en'].map(lang=>`audio/characters13/${id}-${lang}.wav`)),'soul-blue.webp','soul-mint.webp','soul-orange.webp',...['lumi','mori','bori'].flatMap(s=>[`assets/${s}-puppet.webp`,`assets/${s}-cover-rig.webp`])];
 const manifest={version:BUILD,files:{}};
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
-for(const name of [...textFiles,...images]){
+for(const name of [...textFiles,...images,'vendor/rnnoise/rnnoise.wasm']){
  const bytes=await readFile(new URL(name,root)),entry={size:bytes.length,sha256:digest(bytes)};
  if(textFiles.includes(name)){
   for(const [coding,compressed] of [['br',brotliCompressSync(bytes,{params:{[constants.BROTLI_PARAM_QUALITY]:9}})],['gzip',gzipSync(bytes,{level:9})]]){

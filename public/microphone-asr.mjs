@@ -2,6 +2,7 @@ import {appFetch,speechSocketURL,getDeviceMedia,isNative} from './app-network.mj
 import {ConversationAudioSession} from './audio-session.mjs';
 import {BUILD} from './build-version.mjs';
 import {prepareStandby,StreamingTranscriber} from './asr-stream.mjs';
+import {loadSpeechDetectorFactory} from './speech-detector.mjs';
 // A 150 Hz high-pass reduces mic offsets, wind rumble and mains hum.
 function createSpeechBand(rate) {
   const angle=2*Math.PI*150/rate, cos=Math.cos(angle), a0=1+Math.sin(angle)/Math.SQRT2;
@@ -64,10 +65,19 @@ export class MicrophoneInput {
     this.ownsSession=!audioSession;this.audioSession=audioSession||new ConversationAudioSession({Context,setTimer,clearTimer});
     this.deviceChanged=()=>{if(this.document?.hidden)return;const tracks=this.stream?.getTracks()||[];if(tracks.some(t=>t.readyState==='ended'))this.recoverCapture();else if(tracks.some(t=>t.muted))this.deferMutedRecovery();};
   }
-  constraints(){const deviceId=this.audioSession.inputDeviceId;return {audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,...(deviceId?{deviceId:{exact:deviceId}}:{})},video:false};}
+  constraints(){
+    const deviceId=this.audioSession.inputDeviceId;
+    // Automatic gain can amplify a running motor during gaps between words.
+    return {audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:false,...(deviceId?{deviceId:{exact:deviceId}}:{})},video:false};
+  }
   async open(){
     if(this.opening)return this.opening;
     if(!this.mediaDevices?.getUserMedia||!this.Context)throw Error('unsupported');
+    if(globalThis.document&&globalThis.WebAssembly&&!this.detectorFactory&&!this.detectorPending){
+      this.detectorPending=true;
+      loadSpeechDetectorFactory().then(factory=>{this.detectorFactory=factory;})
+        .catch(()=>{}).finally(()=>{this.detectorPending=false;});
+    }
     const serial=this.serial;
     this.opening=(async()=>{
       const context=this.audioSession.acquire(this,{onInterrupt:()=>this.receiver?.resetCapture?.(),onFailure:()=>{this.routeFailed=true;this.receiver?.fail('audio-capture');},changeInput:()=>this.recoverCapture(true),getInput:()=>this.stream?.getTracks()[0]});this.context=context;
@@ -158,7 +168,7 @@ export class MicrophoneInput {
   }
 }
 
-export function createMicrophoneRecognition({input = new MicrophoneInput(), Socket, standby=false, location = globalThis.location, fetchImpl = appFetch,
+export function createMicrophoneRecognition({input = new MicrophoneInput(), createDetector, Socket, standby=false, location = globalThis.location, fetchImpl = appFetch,
   toBase64 = s => globalThis.btoa(s), now=Date.now, setTimer = (...args) => globalThis.setTimeout(...args), clearTimer = (...args) => globalThis.clearTimeout(...args)} = {}) {
   let streamDisabledUntil=0;
   return class MicrophoneRecognition {
@@ -166,19 +176,29 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
     resetCandidate(){
       this.candidate=0;this.candidateGap=0;this.candidateMin=Infinity;this.candidateMax=0;
     }
+    releaseDetector(){
+      const detector=this.detector;
+      this.detector=null;this.detectorPreroll=null;
+      try{detector?.destroy();}catch{/* A failed WASM instance may already be unusable. */}
+    }
     start() {
       this.active = true;
-      input.attach(this).then(()=>{
-        if(!standby||!this.active||this.stream||this.finalizing||!Socket||!location||now()<streamDisabledUntil)return;
-        const url=speechSocketURL(location);url.pathname='/api/transcribe/standby';url.searchParams.set('language',this.language());
-        this.standby=prepareStandby(Socket,url.href,setTimer,clearTimer);
-      }).catch(error => { if (this.active) this.fail(error.name === 'NotAllowedError' ? 'not-allowed' : error.message === 'unsupported' ? 'unsupported' : 'audio-capture'); });
+      input.attach(this).then(()=>this.prepareConnection()).catch(error => { if (this.active) this.fail(error.name === 'NotAllowedError' ? 'not-allowed' : error.message === 'unsupported' ? 'unsupported' : 'audio-capture'); });
+    }
+    prepareConnection(){
+      if(!standby||!this.active||this.stream||this.finalizing||!Socket||!location||this.standby?.available)return;
+      const time=now();
+      if(time<streamDisabledUntil||time<this.retryStandbyAt)return;
+      const url=speechSocketURL(location);url.pathname='/api/transcribe/standby';url.searchParams.set('language',this.language());
+      this.retryStandbyAt=time+5000;
+      this.standby=prepareStandby(Socket,url.href,setTimer,clearTimer);
     }
     resetCapture(){
       if(!this.active||this.finalizing)return;
       this.standby?.close();this.standby=null;
       this.stream?.close();this.stream=null;this.chunks=[];this.preroll=[];this.total=this.quiet=this.voiced=0;this.filter=null;this.rate=null;
       this.resetCandidate();
+      this.releaseDetector();this.detectorFailed=false;
       this.speech=false;this.started=false;this.quietReported=false;this.noise=.002;this.onaudiorecovering?.();
     }
     watchCapture(){
@@ -218,12 +238,36 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
       }
       const ms=data.length/rate*1000;
       const {audio,rms,noiseOnly,midRms,speechBandChanging}=this.filter(data);
+      let recentOnset=false;
+      const factory=createDetector||input.detectorFactory;
+      let localVoice;
+      if(!this.detectorFailed){
+        try{
+          if(factory&&!this.detector){
+            this.detector=factory();
+            let ageAfterOnset=Infinity;
+            for(const buffered of this.detectorPreroll||[]){
+              ageAfterOnset=this.detector.observe(buffered,rate).onset?0:ageAfterOnset+buffered.length/rate;
+            }
+            recentOnset=ageAfterOnset<.36;
+            this.detectorPreroll=null;
+          }
+          localVoice=this.detector?.observe(data,rate,this.speech);
+          if(!this.detector&&input.detectorPending){
+            this.detectorPreroll??=[];
+            this.detectorPreroll.push(data);
+            while(this.detectorPreroll.length>Math.ceil(rate*.9/data.length))this.detectorPreroll.shift();
+          }
+          else if(!this.detector)this.detectorPreroll=null;
+        }catch{this.releaseDetector();this.detectorFailed=true;}
+      }
       input.onLevel(Math.min(1,rms*12));
       const strong=!noiseOnly&&rms>Math.max(.0065,this.noise*1.8);
       const softSyllable=speechBandChanging&&midRms>Math.max(.00065,this.midNoise*2.8);
       const loud=strong||(!noiseOnly&&rms>Math.max(.0039,this.noise*2.1))||softSyllable;
       const continuationFloor=this.voiced<=220 ? .0045 : .003;
-      const continuing=(!noiseOnly&&rms>Math.max(continuationFloor,this.noise*1.4))
+      const audible=(!noiseOnly&&rms>.0004)||(speechBandChanging&&midRms>.0004);
+      const continuing=localVoice ? localVoice.continuing&&audible : (!noiseOnly&&rms>Math.max(continuationFloor,this.noise*1.4))
         ||(speechBandChanging&&midRms>Math.max(.00045,this.midNoise*2));
       if (!this.speech) {
         this.preroll.push(audio);
@@ -246,14 +290,16 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
         }
         this.quiet+=ms;
         // Quiet syllables change level over time. Keep a steady, low-level hum local.
-        const voiceOnset=loud&&(strong||this.candidateMax>=this.candidateMin*1.4);
+        const voiceOnset=localVoice ? (recentOnset||(localVoice.onset&&audible))
+          : !input.detectorPending&&loud&&(strong||this.candidateMax>=this.candidateMin*1.4);
         if(!voiceOnset&&this.candidate>=240)this.resetCandidate();
-        if(voiceOnset&&this.candidate>=80&&!this.stream)this.openStream();
-        if (voiceOnset && this.candidate >= 120) {
+        if(voiceOnset&&this.candidate>=40)this.prepareConnection();
+        if (voiceOnset && (localVoice || this.candidate >= 120)) {
           this.speech = true; this.chunks = this.preroll; this.preroll = []; this.quiet = 0; this.voiced = this.candidate;
+          if(localVoice)this.voiced=Math.max(40,Math.min(120,this.voiced));
           this.total = this.chunks.reduce((n, c) => n + c.length, 0) / rate * 1000; this.onspeechstart?.();
           if(this.active)this.openStream();
-          if(this.active)for(const chunk of this.chunks)this.stream?.write(chunk,rate);
+          if(this.active)this.stream?.writeBuffered(this.chunks,rate);
         } else if (this.quiet > 8000 && !this.quietReported) { this.quietReported = true; this.onquiet?.(); }
         return;
       }
@@ -294,6 +340,6 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), Sock
       finally { clearTimer(this.timer); }
     }
     fail(error) { this.abort(); this.onerror?.({error}); }
-    abort() { this.active = false; this.standby?.close();this.standby=null;this.stream?.close();this.stream=null; input.detach(this); this.controller?.abort(); clearTimer(this.timer);clearTimer(this.captureTimer);this.captureTimer=null; this.chunks = []; this.preroll = []; }
+    abort() { this.active = false; this.standby?.close();this.standby=null;this.stream?.close();this.stream=null;this.releaseDetector();input.detach(this);this.controller?.abort();clearTimer(this.timer);clearTimer(this.captureTimer);this.captureTimer=null;this.chunks=[];this.preroll=[]; }
   };
 }
