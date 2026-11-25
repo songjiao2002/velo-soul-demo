@@ -2,7 +2,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import {randomUUID} from 'node:crypto';
-import {FirstSpeechStreams} from './first-speech.mjs';
+import {createVoiceOpeningStream,FirstSpeechStreams} from './first-speech.mjs';
+import {createVoiceSentenceReader,readVoiceReply} from './public/chat-stream.mjs';
 import {relaySpeech,trimSpeechWave} from './speech-stream.mjs';
 import {createChatHandler,createChatService} from './chat-service.mjs';
 import {CloudSpeechPlayer} from './public/cloud-speech.mjs';
@@ -41,7 +42,7 @@ async function firstSpeechFixture(t,{text='Breezy! ',deferChat=false,ttsFailure=
   if(url.endsWith('/chat/completions')){
    const body=new ReadableStream({start(controller){
     const send=value=>controller.enqueue(Buffer.from(value));
-    send(chatDelta(text));
+    for(const part of Array.isArray(text)?text:[text])send(chatDelta(part));
     const finish=()=>{send(chatStop);controller.close();};
     if(deferChat)endChat.promise.then(finish);else finish();
    }});
@@ -68,6 +69,86 @@ async function firstSpeechFixture(t,{text='Breezy! ',deferChat=false,ttsFailure=
  const chat=(firstSpeechId,language='en',soul='bori',signal)=>post('/api/chat',{firstSpeechId,voice:true,soul,language,messages:[{role:'user',content:'Hello'}]},signal);
  return {first,endChat,endTts,receivedWave,calls,chat,post};
 }
+
+function observeOpening(soul,language,settings){
+ const deltas=[],phrases=[];let subtitle='';
+ const reader=createVoiceSentenceReader(soul,p=>phrases.push(p));
+ const stream=createVoiceOpeningStream({soul,language},delta=>{
+  deltas.push(delta);subtitle+=delta;reader(subtitle);
+ },settings);
+ return {stream,deltas,phrases,finish:async()=>{await stream.finish();reader(subtitle,true);stream.stop();}};
+}
+
+test('an unrecorded opening is visible immediately and the shipped reader receives the whole first sentence',async()=>{
+ for(const [language,parts,first] of [
+  ['en',['Y','eah',',',' take',' it',' easy','.'],'Yeah, take it easy.'],
+  ['en',['Yeah',' ','take it easy.',' Next'],'Yeah take it easy.'],
+  ['ko',['그','래',',',' 천천히',' 가자','.'],'그래, 천천히 가자.'],
+  ['zh',['好','呀','，','一起','出发','。'],'好呀，一起出发。'],
+  ['zh',['哎，','看看','那只鸟','！'],'哎，看看那只鸟！'],
+ ]){
+  const t=observeOpening('mori',language);
+  await t.stream.push(parts[0]);
+  assert.ok(t.deltas[0].trim());
+  assert.deepEqual(t.phrases,[]);
+  for(const part of parts.slice(1))await t.stream.push(part);
+  await t.finish();
+  assert.equal(t.deltas.join('').trim(),parts.join('').trim());
+  assert.equal(t.phrases[0],first);
+ }
+});
+
+test('ordinary starts, standalone sentences and exact recorded openings retain their original delta cadence',async()=>{
+ for(const [soul,language,parts] of [
+  ['mori','en',['Mm',',',' take it easy.']],['bori','en',['Oh,',' nice.']],
+  ['lumi','zh',['嗯','，','我们慢慢来。']],['mori','ko',['음',',',' 천천히 가자.']],
+  ['lumi','en',['Yeah',' ','we can stop.']],['mori','en',['Wind',',',' rain.']],
+  ['mori','en',['Yeah','!']],['mori','en',['Yes','.',' Take your time.']]
+ ]){
+  const t=observeOpening(soul,language);
+  for(let i=0;i<parts.length;i++){
+   await t.stream.push(parts[i]);
+   assert.equal(t.deltas.join(''),parts.slice(0,i+1).join(''),parts.join(''));
+  }
+  await t.finish();assert.equal(t.deltas.join(''),parts.join(''));
+ }
+});
+
+test('opening wait has a timer and a size bound, and pending output flushes in order on provider error',async()=>{
+ const fake=()=>{let fire;return {timers:{setTimer:fn=>{fire=fn;return 1;},clearTimer:()=>{fire=null;}},fire:()=>fire?.()};};
+ const f=fake(),slow=observeOpening('mori','en',f.timers);
+ await slow.stream.push('Yeah,');await slow.stream.push(' take');
+ assert.deepEqual(slow.deltas,['Yeah']);
+ f.fire();await slow.stream.push(' it easy.');
+ await slow.finish();assert.deepEqual(slow.deltas,['Yeah',', take',' it easy.']);
+ const big=observeOpening('mori','en',{maxChars:12});
+ await big.stream.push('Yeah,');await big.stream.push(' a very long one');
+ assert.deepEqual(big.deltas,['Yeah',', a very long one']);await big.finish();
+ const failed=observeOpening('mori','en');
+ await failed.stream.push('Yeah,');await failed.stream.push(' take');
+ await failed.stream.finish(false);failed.stream.stop();
+ assert.deepEqual(failed.deltas,['Yeah',', take']);
+ const noPeriod=observeOpening('mori','en');
+ await noPeriod.stream.push('Yeah,');await noPeriod.stream.push(' take it easy');
+ await noPeriod.finish();
+ assert.equal(noPeriod.deltas.join(''),'Yeah, take it easy');
+ const controller=new AbortController(),c=fake(),lost=observeOpening('mori','en',{signal:controller.signal,...c.timers});
+ await lost.stream.push('Yeah,');controller.abort();c.fire();await lost.finish();
+ assert.deepEqual(lost.deltas,['Yeah']);
+});
+
+test('a streaming chat and the already-shipped player claim one synthesis for the actual observed Lulu reply', {timeout:5000},async t=>{
+ const text=['Yeah',',',' take',' it',' easy','.'],f=await firstSpeechFixture(t,{text}),id=randomUUID();
+ const response=await f.chat(id,'en','mori');
+ const full=text.join(''),captions=[],sentences=[];
+ const result=await readVoiceReply(response,{soul:'mori',onText:s=>captions.push(s),onSentence:s=>sentences.push(s)});
+ assert.equal(result.reply,full);assert.equal(captions[0],'Yeah');assert.deepEqual(sentences,[full]);
+ await f.first.promise;f.endTts.resolve();
+ const input={firstSpeechId:id,soul:'mori',language:'en',text:sentences[0]};
+ assert.match(await (await f.post('/api/speech/stream',input)).text(),/"done":true/);
+ assert.equal((await f.post('/api/speech',input)).status,409);
+ assert.deepEqual(f.calls,[full]);
+});
 
 test('first speech starts before the rest of the reply and live PCM is claimed exactly once', {timeout:5000},async t=>{
  const f=await firstSpeechFixture(t,{deferChat:true}),id=randomUUID();

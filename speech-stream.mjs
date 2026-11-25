@@ -107,7 +107,43 @@ function speechEdges(){
  };
 }
 
-export function trimSpeechWave(wave){
+// Subtle changes to presence and syllable dynamics for the fixed system voices.
+// Work at the original 24 kHz sample clock. No pitch shifting or lookahead.
+const deliveryTones={
+ playful:{level:1.02,presence:.26,accent:.12,fall:0},
+ gentle:{level:.96,presence:-.20,accent:-.045,fall:.015},
+ serious:{level:1.01,presence:.10,accent:-.075,fall:.075}
+};
+function speechTone(tone){
+ if(!Object.hasOwn(deliveryTones,tone))return null;
+ const {level,presence,accent,fall}=deliveryTones[tone];
+ let low=0,fast=0,slow=0,odd=null;
+ return {
+  push(pcm){
+   if(odd!==null){pcm=Buffer.concat([Buffer.from([odd]),pcm]);odd=null;}
+   if(pcm.length%2){odd=pcm.at(-1);pcm=pcm.subarray(0,-1);}
+   const out=Buffer.allocUnsafe(pcm.length);
+   for(let at=0;at<pcm.length;at+=2){
+    const sample=pcm.readInt16LE(at),magnitude=Math.abs(sample);
+    low+=.32*(sample-low); // One-pole shelf near 1.5 kHz.
+    fast+=(magnitude>fast?.007:.002)*(magnitude-fast);
+    slow+=.00055*(magnitude-slow);
+    // The floor keeps background and soft consonants out of the accent detector.
+    const change=Math.max(-1,Math.min(1,(fast-slow)/(slow+900)));
+    const gain=level+accent*Math.max(0,change)+fall*Math.min(0,change);
+    const voiced=sample===0?0:(sample+presence*(sample-low))*gain;
+    // A soft knee protects even full-scale waveforms without flat-topped peaks.
+    const peak=Math.abs(voiced),knee=30000,headroom=2766;
+    const bounded=peak<=knee?voiced:Math.sign(voiced)*(knee+headroom*(-Math.expm1(-(peak-knee)/headroom)));
+    out.writeInt16LE(Math.round(bounded),at);
+   }
+   return out;
+  },
+  finish(){if(odd!==null)throw Error('invalid_audio');}
+ };
+}
+
+export function trimSpeechWave(wave,{tone='neutral'}={}){
  // These paired sizes are the canonical 44-byte streaming header used on the
  // provider's complete HTTP downloads. Mixed or unfamiliar lengths pass through.
  if(wave.length<44||wave.toString('ascii',0,4)!=='RIFF'||wave.toString('ascii',8,12)!=='WAVE')return wave;
@@ -131,8 +167,10 @@ export function trimSpeechWave(wave){
    const pcm=wave.subarray(start),first=firstSound(pcm),last=lastSound(pcm);
    const head=trimLength(first<0&&size>=maxLead?maxLead:first);
    const tail=last<0?0:Math.max(0,Math.min(maxTail,size-last-2-keepTail));
-   if(!head&&!tail&&!sentinel)return wave;
-   const result=Buffer.concat([wave.subarray(0,start),wave.subarray(start+head,wave.length-tail)]);
+   const delivery=speechTone(tone);
+   if(!head&&!tail&&!sentinel&&!delivery)return wave;
+   const trimmed=wave.subarray(start+head,wave.length-tail);
+   const result=Buffer.concat([wave.subarray(0,start),delivery?delivery.push(trimmed):trimmed]);
    result.writeUInt32LE(result.length-8,4);
    result.writeUInt32LE(size-head-tail,at+4);
    return result;
@@ -144,9 +182,14 @@ export function trimSpeechWave(wave){
 
 // Provider SSE stays on the server. Only bounded PCM and an explicit completion
 // marker reach the browser; credentials, provider URLs and errors never do.
-export async function relaySpeech(response,emit,{trimPadding=false,providerError=()=>new Error('provider_stream_error')}={}){
+export async function relaySpeech(response,emit,{trimPadding=false,tone='neutral',providerError=()=>new Error('provider_stream_error')}={}){
  if(!response.body||!response.headers.get('content-type')?.includes('text/event-stream'))throw new Error('invalid_stream');
- const edges=trimPadding?speechEdges():null;
+ const edges=trimPadding?speechEdges():null,delivery=speechTone(tone);
+ async function sendPcm(pcm){
+  if(!pcm?.length)return;
+  if(delivery)pcm=delivery.push(pcm);
+  if(pcm.length)await emit({audio:pcm.toString('base64'),rate:24000});
+ }
  const decoder=new TextDecoder();let pending='',header=Buffer.alloc(0),ready=false,done=false,total=0;
  async function line(value){
   if(!value.startsWith('data:'))return;
@@ -175,7 +218,7 @@ export async function relaySpeech(response,emit,{trimPadding=false,providerError
     ready=true;header=Buffer.alloc(0);
    }
    if(edges)pcm=edges.push(pcm);
-   if(pcm.length)await emit({audio:pcm.toString('base64'),rate:24000});
+   await sendPcm(pcm);
   }
   if(data.output?.finish_reason==='stop')done=true;
  }
@@ -188,7 +231,7 @@ export async function relaySpeech(response,emit,{trimPadding=false,providerError
  }
  pending+=decoder.decode();if(pending.trim())await line(pending.trimEnd());
  if(!ready||!done)throw new Error('incomplete_audio');
- const tail=edges?.finish();
- if(tail?.length)await emit({audio:tail.toString('base64'),rate:24000});
+ await sendPcm(edges?.finish());
+ delivery?.finish();
  await emit({done:true});
 }
