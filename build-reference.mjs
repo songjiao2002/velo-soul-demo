@@ -8,6 +8,14 @@ const normalize=text=>text.replaceAll('\r\n','\n').replaceAll('/ride/','/').repl
 let js=await read('app.pretty.js');
 function replace(before,after){if(js.split(before).length!==2)throw Error('Reference anchor changed: '+before.slice(0,100));js=js.replace(before,after);}
 replace('  var Ao = ',(await read('live-adapter.js'))+'\n  var Ao = ');
+replace('    ${bl()}','    ${bl()}\n    ${rideTalkPanel(language, !!M?.active, M?.state || "off", !!M?.audioIssue, Xr[language].sound)}');
+replace('      <fieldset class="ride-language"','      <button type="button" data-action="ride-text-chat" data-no-translate>${rideTextChatLabel[S()]}</button>\n      <fieldset class="ride-language"');
+replace('        case "voice-start":','        case "ride-voice-toggle":\n          ct = false; Sl(); break;\n        case "ride-text-chat":\n          openRideTextChat(); break;\n        case "voice-start":');
+// A restored camera URL renders ride settings immediately and needs its language table initialized.
+const openInitialView='  Vo();\n  D !== "journal" && setTimeout(Go, 0);';
+replace(openInitialView,'');
+const readyEvent='  window.dispatchEvent(new window.Event("velo:ready"));';
+replace(readyEvent,openInitialView+'\n'+readyEvent);
 replace('      <details class="ride-map-credits"', '      <p class="small" data-no-translate>${liveVoicePrivacy[S()]}</p>\n      <details class="ride-map-credits"');
 replace('  ko();','  ko(); syncSpeechLanguage();');
 replace('const selected = M?.language || yi();','const selected = yi();');

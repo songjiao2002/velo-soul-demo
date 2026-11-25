@@ -4890,7 +4890,7 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
     };
     const finishPress = (startedAt) => {
       if (performance.now() - startedAt < holdMs || !y || D !== "camera") return;
-      ul();
+      requestRideFinish();
     };
     shutter.addEventListener("pointerdown", (event) => {
       if (!event.isPrimary || event.button !== 0) return;
@@ -5102,6 +5102,10 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
   document.addEventListener("change", (i) => {
     i.target.id === "rideNote" && Ot();
   });
+  function requestRideFinish() {
+    const dialog = p("finishRideDialog");
+    if (y && dialog && !dialog.open) dialog.showModal();
+  }
   function ul() {
     if (!y) return;
     ui(), j = { ...y, seconds: Math.max(0, Math.floor((Date.now() - y.started) / 1e3)), diaryVersion: 2, diaryGeneration: "writing" }, y = null;
@@ -5513,9 +5517,6 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
         case "ride-settings-close":
           p("rideSettings")?.close();
           break;
-        case "camera-exit":
-          ye = false, D === "ride" ? ui() : (y = null, di(P));
-          break;
         case "voice-start":
           qt();
           break;
@@ -5580,7 +5581,16 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
           cl();
           break;
         case "finish":
-          ul();
+          requestRideFinish();
+          break;
+        case "ride-finish-cancel":
+          p("finishRideDialog")?.close();
+          break;
+        case "ride-finish-confirm":
+          if (p("finishRideDialog")?.open) {
+            p("finishRideDialog").close();
+            ul();
+          }
           break;
         case "save":
           ml();
@@ -5593,6 +5603,7 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
   });
   p("infoDialog").querySelector(".dialog-close").onclick = () => p("infoDialog").close();
   document.addEventListener("keydown", (i) => {
+    if (p("finishRideDialog")?.open) return;
     let e = document.querySelector(".camera-settings[open]");
     if (i.key === "Escape" && e) {
       e.open = false, e.querySelector("summary").focus(), i.preventDefault();
@@ -5668,6 +5679,10 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
     let i = document.querySelector("dialog[open]");
     if (i) {
       i.close();
+      return;
+    }
+    if (y && p("finishRideDialog")) {
+      requestRideFinish();
       return;
     }
     if (p("rideCameraModal")) {
@@ -5785,12 +5800,21 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
     const photos = riding ? y.photos : ht;
     const holdHint = { en: "Tap to take a photo. Hold to finish the ride.", ko: "누르면 촬영, 길게 누르면 여정을 마쳐요.", zh: "轻按拍照，长按结束骑行。" }[language];
     const photoLabel = { en: "Download latest photo", ko: "최근 사진 저장", zh: "下载最近的照片" }[language];
+    const finish = {
+      en: { title: "Finish this ride?", body: "Your ride will end and your companion will write its diary.", cancel: "Keep riding" },
+      ko: { title: "라이딩을 마칠까요?", body: "라이딩을 마치면 친구가 이번 여정의 일기를 써요.", cancel: "계속 달리기" },
+      zh: { title: "结束这次骑行？", body: "结束后，你的伙伴会写下这次骑行的日记。", cancel: "继续骑行" }
+    }[language];
     return ol(riding ? "ride" : "encounter") + Xs(language) + `
     <div class="camera-top">
-      <button class="camera-round" data-action="camera-exit" aria-label="${copy.close}" data-no-translate><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button>
+      <button type="button" class="ride-end-button" data-action="finish" aria-haspopup="dialog" data-no-translate>${copy.finish}</button>
       <div class="camera-name" data-no-translate><b>${B[P].en}</b></div>
       <button type="button" class="camera-round" data-action="ride-settings-open" aria-haspopup="dialog" aria-label="${copy.more}" data-no-translate><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button>
     </div>
+    <dialog id="finishRideDialog" class="ride-end-dialog diary-delete-dialog" aria-labelledby="finishRideTitle" aria-describedby="finishRideBody" data-no-translate>
+      <h2 id="finishRideTitle">${finish.title}</h2><p id="finishRideBody">${finish.body}</p>
+      <div class="settings-actions"><button type="button" data-action="ride-finish-cancel" autofocus>${finish.cancel}</button><button type="button" data-action="ride-finish-confirm">${copy.finish}</button></div>
+    </dialog>
     ${bl()}
     <div class="camera-live-caption" data-no-translate><p id="heardText" class="heard-text" aria-live="off"></p><p id="cameraCaption" role="status" aria-live="polite" aria-atomic="true"></p></div>
     <div class="camera-bottom">
@@ -5798,7 +5822,6 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
       <div class="camera-capture-controls">
         <button class="camera-photo-preview" id="downloadPhoto" data-action="download-photo" aria-label="${photoLabel}" data-no-translate ${photos.length ? "" : "disabled"}><img id="cameraThumb" alt="" ${photos.length ? 'src="' + ie(photos.at(-1)) + '"' : "hidden"}><span id="cameraPhotoCount">${photos.length}</span></button>
         <button class="camera-shutter" id="capturePhoto" data-action="capture" data-camera-live="false" aria-label="${copy.capture} · ${holdHint}" title="${holdHint}" data-no-translate><span></span></button>
-        ${riding ? `<button class="ride-finish" data-action="finish" data-no-translate>${copy.finish}</button>` : ""}
       </div>
       <button type="button" class="camera-scene-tab" data-scene-mode="map" aria-pressed="false" data-no-translate>${scene.map}</button>
     </div>`;

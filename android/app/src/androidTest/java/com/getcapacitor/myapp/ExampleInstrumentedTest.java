@@ -100,5 +100,15 @@ public class ExampleInstrumentedTest {
         awaitTrue("document.body.dataset.screen === 'journal'");
         js("window.__nativeApi=null;fetch('https://velo-soul-demo-production.up.railway.app/api/chat/status',{cache:'no-store'}).then(r=>window.__nativeApi=r.ok).catch(e=>window.__nativeApi=String(e))");
         awaitTrue("window.__nativeApi === true");
+        js("location.search='?bike=mori&qr=l2-942fb6e8'");
+        awaitTrue("document.body.dataset.screen === 'welcome'");
+        js("document.querySelector('[data-action=encounter]').click()");
+        awaitTrue("document.querySelector('[data-action=ride-voice-toggle]')?.getBoundingClientRect().height > 0 && document.querySelector('[data-action=finish]')?.getBoundingClientRect().height > 0");
+        js("document.querySelector('[data-action=finish]').click()");
+        awaitTrue("document.querySelector('#finishRideDialog')?.open");
+        js("document.querySelector('[data-action=ride-finish-cancel]').click();document.querySelector('[data-scene-mode=map]').click()");
+        awaitTrue("document.querySelector('[data-scene-mode=map]')?.getAttribute('aria-pressed') === 'true' && !document.querySelector('#finishRideDialog')?.open");
+        js("document.querySelector('[data-action=finish]').click();document.querySelector('[data-action=ride-finish-confirm]').click()");
+        awaitTrue("document.body.dataset.screen === 'finish' && !!document.querySelector('#rideNote')");
     }
 }

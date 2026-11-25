@@ -3,6 +3,18 @@
 Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S});
 Tt=LiveSpeech;at=LiveMicrophone;ua=options=>liveRecognition({...options,standby:true});Et=LiveAudioSession;xi=LiveMemory;
 const referenceVoiceState=kl;
+function syncRideTalk(state=M?.state||'off'){
+ paintRideTalk(document.querySelector('.ride-talk-panel'),S(),!!M?.active,state,!!M?.audioIssue);
+}
+document.addEventListener('velo:screen',()=>syncRideTalk());
+function openRideTextChat(){
+ p('rideSettings')?.close();
+ V.open(P);
+ const input=document.querySelector('.soul-chat[open] #chatInput');
+ const composer=input?.closest('details');
+ if(composer)composer.open=true;
+ input?.focus();
+}
 kl=function(state){
  const caption=p('heardText');
  if(caption?.dataset.transcriptState==='interim'&&(!M?.active||['starting','listening','reconnecting','audio_reconnecting','speaking_no_interrupt'].includes(state))){
@@ -10,6 +22,7 @@ kl=function(state){
    delete caption.dataset.transcriptState;
  }
  referenceVoiceState(state);
+ syncRideTalk(state);
 };
 wt=class extends LiveConversation {
  constructor(options={}){super({...options,prefetchSpeech:(text,language,soul)=>ue.preload(text,{language,soul}),stopSpeech:()=>{ue.cancelPrefetches();options.stopSpeech?.();}});}

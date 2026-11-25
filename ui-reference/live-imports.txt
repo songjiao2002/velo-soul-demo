@@ -3,6 +3,7 @@ import {generateRideDiary as liveDiary,DIARY_GENERATION_COPY as liveDiaryCopy} f
 import {rideDiary as liveRideDiary,DIARY_COPY as liveDiaryLabels} from './journey-diary.mjs';
 import {CloudSpeechPlayer as LiveSpeech} from './cloud-speech.mjs';
 import {HandsFreeConversation as LiveConversation} from './hands-free.mjs';
+import {rideTalkPanel,paintRideTalk,rideTextChatLabel} from './ride-voice-controls.mjs';
 import {MicrophoneInput as LiveMicrophone,createMicrophoneRecognition as liveRecognition} from './microphone-asr.mjs';
 import {ConversationAudioSession as LiveAudioSession} from './audio-session.mjs';
 import {DeviceCompanionMemory as LiveMemory} from './device-memory.mjs';

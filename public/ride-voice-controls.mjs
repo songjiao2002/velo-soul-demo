@@ -19,3 +19,35 @@ export function paintRideVoiceControls(document,language,active,state){
  }
  for(const label of document.querySelectorAll('.ride-voice-controls [data-live-status]')){label.textContent=c[state]||c.failed;label.className=routine.has(state)?'sr-only':'ride-voice-error';}
 }
+
+export const rideTextChatLabel={en:'Type a message',ko:'글로 대화하기',zh:'文字聊天'};
+const microphoneIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"/></svg>';
+const stopIcon='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="3"/></svg>';
+
+function talkStatus(language,state,active){
+ const labels=HANDS_FREE_COPY[language];
+ if(state==='off')return '';
+ return (active&&compact[language][state])||labels[state]||labels.failed;
+}
+
+export function rideTalkPanel(language,active,state,audioIssue,replayLabel){
+ const labels=HANDS_FREE_COPY[language];
+ return `<section class="ride-talk-panel" data-no-translate>
+   <button type="button" class="ride-talk-toggle" data-action="ride-voice-toggle" aria-pressed="${active}">${microphoneIcon}${stopIcon}<span>${active?labels.stop:labels.start}</span></button>
+   <span class="ride-talk-status" role="status">${talkStatus(language,state,active)}</span>
+   <button type="button" data-action="ride-text-chat" ${!active&&state!=='off'?'':'hidden'}>${rideTextChatLabel[language]}</button>
+   <button type="button" data-action="audio-unlock" ${active&&audioIssue?'':'hidden'}>${replayLabel}</button>
+ </section>`;
+}
+
+export function paintRideTalk(panel,language,active,state,audioIssue){
+ if(!panel)return;
+ const toggle=panel.querySelector('.ride-talk-toggle');
+ toggle.setAttribute('aria-pressed',String(active));
+ toggle.querySelector('span').textContent=HANDS_FREE_COPY[language][active?'stop':'start'];
+ const status=panel.querySelector('[role="status"]');
+ const text=talkStatus(language,state,active);
+ if(status.textContent!==text)status.textContent=text;
+ panel.querySelector('[data-action="ride-text-chat"]').hidden=active||state==='off';
+ panel.querySelector('[data-action="audio-unlock"]').hidden=!active||!audioIssue;
+}
