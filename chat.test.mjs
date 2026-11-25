@@ -70,6 +70,17 @@ test('each character loads its real skill and forwards bounded history with serv
   assert.equal(call.body.max_tokens,320);assert.equal(JSON.stringify(result).includes('test-secret-only'),false);
  }
 });
+test('an invitation to keep quiet models only the selected conversation language',async()=>{
+ let system;
+ const service=createChatService({env,fetchImpl:async(_,options)=>{
+  system=JSON.parse(options.body).messages[0].content;return success();
+ }});
+ for(const [language,example] of [['zh','好。'],['ko','알겠어.'],['en','Okay.']]){
+  await service.reply({...input('lumi',language),voice:true});
+  const instruction=system.split('\n').find(line=>line.startsWith('If they ask for quiet'));
+  assert.ok(instruction.includes(`(for example: ${example})`));
+ }
+});
 test('location events use the server catalog and explicitly distinguish simulations',async()=>{
  const systems=[];const service=createChatService({env,fetchImpl:async(_,options)=>{systems.push(JSON.parse(options.body).messages[0].content);return success();}});
  for(const source of ['gps','simulation'])await service.reply({...input('bori'),event:{placeId:'daelim-changgo',source,name:'Invented Store',lat:1.23456789}});

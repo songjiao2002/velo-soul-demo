@@ -337,7 +337,8 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
         if(!vision){
           const priorities=[
             'Handle the rider’s last turn first. Match the requested output language.',
-            'If they ask for quiet or decline a suggestion, reply with a brief acknowledgment such as "Okay" or "알겠어". End the turn. Do not announce quiet mode, microphone changes or other app actions.',
+            'Base factual claims on details the rider or the supplied context actually gave. A hill alone tells you nothing about traction, traffic, weather or how the rider feels. Answer a pace question directly without filling in the scene.',
+            `If they ask for quiet or decline a suggestion, acknowledge it in ${LANGUAGES[payload.language]} alone (for example: ${{zh:'好。',ko:'알겠어.',en:'Okay.'}[payload.language]}). End the turn. Do not announce quiet mode, microphone changes or other app actions.`,
             'If your suggestion disappointed them, acknowledge that outcome and take responsibility in one brief sentence. End the turn without a new detail, question, silver lining or replacement suggestion.',
             'If they ask which of several details you like, name one detail that fits your personality and say why. Do not combine details, imagine new sights or smells, or ask a follow-up.',
             'These instructions take priority over each character’s usual reply length when applicable.'
