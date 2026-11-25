@@ -5104,7 +5104,9 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
   });
   function requestRideFinish() {
     const dialog = p("finishRideDialog");
-    if (y && dialog && !dialog.open) dialog.showModal();
+    if (!y || !dialog || dialog.open) return;
+    if (p("rideSettings")?.open) p("rideSettings").close();
+    dialog.showModal();
   }
   function ul() {
     if (!y) return;
@@ -5775,6 +5777,7 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
     const closeIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>';
     return `<dialog class="ride-settings-panel" id="rideSettings" aria-labelledby="rideSettingsTitle">
       <header data-no-translate><h2 id="rideSettingsTitle">${copy.more}</h2><button type="button" class="camera-round" data-action="ride-settings-close" aria-label="${copy.close}">${closeIcon}</button></header>
+      <button type="button" data-action="finish" aria-haspopup="dialog" data-no-translate>${copy.finish}</button>
       <button id="cameraStart" data-action="camera-start">카메라 켜기</button>
       <span class="sr-only" id="cameraStatus" role="status"></span>
       <button data-action="gps" data-gps-toggle data-no-translate>GPS</button>
@@ -5807,7 +5810,6 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
     }[language];
     return ol(riding ? "ride" : "encounter") + Xs(language) + `
     <div class="camera-top">
-      <button type="button" class="ride-end-button" data-action="finish" aria-haspopup="dialog" data-no-translate>${copy.finish}</button>
       <div class="camera-name" data-no-translate><b>${B[P].en}</b></div>
       <button type="button" class="camera-round" data-action="ride-settings-open" aria-haspopup="dialog" aria-label="${copy.more}" data-no-translate><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button>
     </div>

@@ -103,12 +103,14 @@ public class ExampleInstrumentedTest {
         js("location.search='?bike=mori&qr=l2-942fb6e8'");
         awaitTrue("document.body.dataset.screen === 'welcome'");
         js("document.querySelector('[data-action=encounter]').click()");
-        awaitTrue("document.querySelector('[data-action=ride-voice-toggle]')?.getBoundingClientRect().height > 0 && document.querySelector('[data-action=finish]')?.getBoundingClientRect().height > 0");
+        awaitTrue("document.querySelector('[data-action=ride-voice-toggle]')?.getBoundingClientRect().height > 0 && !document.querySelector('.camera-top [data-action=finish]')");
+        js("document.querySelector('[data-action=ride-settings-open]').click()");
+        awaitTrue("document.querySelector('#rideSettings[open] [data-action=finish]')?.getBoundingClientRect().height >= 44");
         js("document.querySelector('[data-action=finish]').click()");
         awaitTrue("document.querySelector('#finishRideDialog')?.open");
         js("document.querySelector('[data-action=ride-finish-cancel]').click();document.querySelector('button[data-scene-mode=map]').click()");
         awaitTrue("!!document.querySelector('.camera-fullscreen[data-scene-mode=map]') && document.querySelector('button[data-scene-mode=map]')?.getAttribute('aria-pressed') === 'true' && !document.querySelector('#finishRideDialog')?.open");
-        js("document.querySelector('[data-action=finish]').click();document.querySelector('[data-action=ride-finish-confirm]').click()");
+        js("document.querySelector('[data-action=ride-settings-open]').click();document.querySelector('[data-action=finish]').click();document.querySelector('[data-action=ride-finish-confirm]').click()");
         awaitTrue("document.body.dataset.screen === 'finish' && !!document.querySelector('#rideNote')");
     }
 }

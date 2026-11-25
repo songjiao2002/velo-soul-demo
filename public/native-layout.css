@@ -13,22 +13,11 @@ html.native-app body {
 .camera-fullscreen .camera-top {
   grid-template-columns: 1fr auto 1fr;
 }
-.camera-fullscreen .camera-top > :last-child { justify-self: end; }
-.ride-end-button {
-  justify-self: start;
-  min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid #ddd;
-  border-radius: 22px;
-  background: #fff;
-  color: #222;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.2;
-  white-space: nowrap;
-}
+.camera-fullscreen .camera-top .camera-name { grid-column: 2; grid-row: 1; }
+.camera-fullscreen .camera-top [data-action="ride-settings-open"] { grid-column: 3; grid-row: 1; justify-self: end; }
+.camera-fullscreen .ride-settings-panel > [data-action="finish"] { min-height: 44px; }
 .ride-end-dialog .settings-actions > button { min-height: 44px; }
+.camera-fullscreen .ride-end-dialog [data-action="ride-finish-cancel"] { color: #252525; background: #f4f4f4; }
 .ride-end-dialog [data-action="ride-finish-confirm"] { background: #252525; color: white; }
 
 .ride-talk-panel {
