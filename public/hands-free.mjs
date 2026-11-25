@@ -44,7 +44,7 @@ export const HANDS_FREE_COPY={
 };
 
 export class HandsFreeConversation {
- constructor({Recognition=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition,fetchImpl=appFetch,getContext=()=>({}),speak=()=>{},prefetchSpeech=()=>{},stopSpeech=()=>{},releaseInput=()=>{},onState=()=>{},onTranscript=()=>{},onReply=()=>{},onTurn=()=>{},getOpening=()=>null,onOpening=()=>{},introduced=new Set(),setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{Recognition,fetchImpl,getContext,speak,prefetchSpeech,stopSpeech,releaseInput,onState,onTranscript,onReply,onTurn,getOpening,onOpening,introduced,setTimer,clearTimer});this.active=false;this.epoch=0;this.recognizer=null;this.controller=null;this.timer=null;this.state='off';this.histories={lumi:[],mori:[],bori:[]};}
+ constructor({Recognition=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition,fetchImpl=appFetch,getContext=()=>({}),speak=()=>{},canPrepareFirstSpeech=()=>false,prefetchSpeech=()=>{},stopSpeech=()=>{},releaseInput=()=>{},onState=()=>{},onTranscript=()=>{},onReply=()=>{},onTurn=()=>{},getOpening=()=>null,onOpening=()=>{},introduced=new Set(),setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{Recognition,fetchImpl,getContext,speak,canPrepareFirstSpeech,prefetchSpeech,stopSpeech,releaseInput,onState,onTranscript,onReply,onTurn,getOpening,onOpening,introduced,setTimer,clearTimer});this.active=false;this.epoch=0;this.recognizer=null;this.controller=null;this.timer=null;this.state='off';this.histories={lumi:[],mori:[],bori:[]};}
  setState(state){this.state=state;this.stateSince=Date.now();this.onState(state,this.active);}
  disconnect(){const r=this.recognizer;this.recognizer=null;if(r){r.onresult=r.onend=r.onerror=r.onspeechstart=r.onspeechend=r.onstart=r.onquiet=r.ontranscribing=r.onaudiorecovering=null;try{r.abort();}catch{}}}
  stopInterrupt(){this.clearTimer(this.interruptTimer);this.interruptTimer=null;this.interruptSpeech=false;this.playbackFinished=false;const r=this.interruptRecognizer;this.interruptRecognizer=null;if(r){r.onresult=r.onend=r.onerror=r.onspeechstart=r.ontranscribing=null;try{r.abort();}catch{}}}
@@ -102,12 +102,14 @@ export class HandsFreeConversation {
   try{
    if(!request){
     const extra=this.getContext(needsCamera(text)),messages=[...this.histories[this.soul].slice(-10),{role:'user',content:text}];
-    request={url:extra.image?'/api/chat/scene':'/api/chat',body:JSON.stringify({voice:true,soul:this.soul,language,messages,context:extra.context,image:extra.image})};
+    request={url:extra.image?'/api/chat/scene':'/api/chat',body:{voice:true,soul:this.soul,language,messages,context:extra.context,image:extra.image}};
    }
-   const response=await this.fetchImpl(request.url,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/x-ndjson'},signal:controller.signal,body:request.body});
+   // A retry gets its own ID. Only the player for this turn may claim the audio.
+   const firstSpeechId=request.url==='/api/chat'&&!needsCamera(text)&&this.canPrepareFirstSpeech()?globalThis.crypto?.randomUUID?.():undefined;
+   const response=await this.fetchImpl(request.url,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/x-ndjson'},signal:controller.signal,body:JSON.stringify({...request.body,firstSpeechId})});
    const valid=()=>this.active&&serial===this.epoch;
    const streamed=response.ok&&response.headers.get('content-type')?.includes('application/x-ndjson');
-   let speaking=false,complete=false;const queue=[];
+   let speaking=false,complete=false,firstReplySegment=true;const queue=[];
    const prepareNext=()=>{
     const next=queue[0];
     if(speaking&&valid()&&!temporaryLimits.has(this.state)&&next&&!next.prepared&&next.text.length<=540){
@@ -120,7 +122,9 @@ export class HandsFreeConversation {
     const next=queue.shift();
     if(!next){if(complete)this.finishPlayback(serial);return;}
     speaking=true;
-    this.output(next.text,language,serial,()=>{},()=>{speaking=false;drain();});
+    const speechOptions=firstReplySegment?{firstReplySegment:true,firstSpeechId}:undefined;
+    firstReplySegment=false;
+    this.output(next.text,language,serial,()=>{},()=>{speaking=false;drain();},false,speechOptions);
     prepareNext();
    };
    const enqueue=value=>{
@@ -148,7 +152,7 @@ export class HandsFreeConversation {
   }
   finally{this.clearTimer(timeout);if(this.controller===controller)this.controller=null;}
  }
- output(text,language,serial,onState=()=>{},onEnded,retried=false){
+ output(text,language,serial,onState=()=>{},onEnded,retried=false,speechOptions){
   if(!this.active||serial!==this.epoch)return false;this.disconnect();this.clearTimer(this.timer);this.setState('synthesizing');
   let played=false,settled=false;
   this.speak(text,language,this.soul,(state,detail)=>{
@@ -162,14 +166,14 @@ export class HandsFreeConversation {
     this.stopInterrupt();this.spokenPhrases=[];this.stopSpeech();this.setState(state);
     this.timer=this.setTimer(()=>{
      if(!this.active||serial!==this.epoch)return;
-     if(!played&&!retried)this.output(text,language,serial,onState,onEnded,true);
+     if(!played&&!retried)this.output(text,language,serial,onState,onEnded,true,speechOptions?.firstReplySegment?{firstReplySegment:true}:undefined);
      else if(played&&onEnded){this.setState('synthesizing');onEnded();}
      else{
       const next=++this.epoch;this.controller?.abort();this.finishPlayback(next);
      }
     },retryDelay(state,detail?.retryAfter));
    }else if(['blocked','unavailable'].includes(state)){settled=true;this.audioIssue=true;this.stopInterrupt();this.setState('audio_retry');this.resumeAfter(serial,1500);}
-  });return true;
+  },speechOptions);return true;
  }
  finishPlayback(serial){
   if(this.monitorLimit){

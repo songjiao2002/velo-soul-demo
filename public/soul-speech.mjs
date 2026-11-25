@@ -1,3 +1,4 @@
+import {SPEECH_TEMPO} from './speech-tempo.mjs';
 // Shared playback for chat, GPS and camera replies. Late callbacks cannot
 // revive a stopped voice or overlap the next reply.
 export class SoulSpeechPlayer {
@@ -18,7 +19,7 @@ export class SoulSpeechPlayer {
    const voice=voices.find(v=>v.lang.toLowerCase()===preferred.toLowerCase())||
     voices.find(v=>locale==='zh'?/^(?:cmn\b|zh(?:$|-(?:hans|tw)\b))/i.test(v.lang):v.lang.toLowerCase().startsWith(locale));
    const u=new this.Utterance(text);this.utterance=u;u.lang=voice?.lang||preferred;if(voice)u.voice=voice;
-   u.rate=soul==='mori'?.86:soul==='bori'?1.03:1;
+   u.rate=(soul==='mori'?.86:soul==='bori'?1.03:1)*SPEECH_TEMPO;
    u.onstart=()=>{if(serial!==this.serial)return;this.clearTimer(this.timer);report('playing');};
    u.onend=()=>{if(serial!==this.serial)return;this.clearTimer(this.timer);this.utterance=null;report('ended');};
    u.onerror=e=>{if(serial!==this.serial)return;this.clearTimer(this.timer);this.utterance=null;report(e.error==='not-allowed'?'blocked':'unavailable');};

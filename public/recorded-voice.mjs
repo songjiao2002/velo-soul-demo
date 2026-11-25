@@ -1,6 +1,7 @@
 import {SOUL_INTRO,introductionClip} from './soul-intro.mjs';
 import {SCENARIOS} from './soul-core.mjs';
 import {BUILD} from './build-version.mjs';
+import {setMediaTempo} from './speech-tempo.mjs';
 
 export const VOICE_PROFILES={
  lumi:{locale:'en-US',label:'EN · 미국식 영어 · 가볍고 호기심 있게'},
@@ -32,7 +33,7 @@ export class RecordedVoicePlayer {
   this.stop();const serial=this.serial,a=this.audio;
   const report=state=>{if(serial===this.serial)this.onState(state);};
   const fail=state=>{if(serial!==this.serial)return;this.stop();this.onState(state);};
-  a.src=src;a.muted=false;a.volume=1;a.playbackRate=1;
+  a.src=src;a.muted=false;a.volume=1;setMediaTempo(a);
   a.onplaying=()=>{if(serial!==this.serial)return;clearTimeout(this.timer);report('playing');};
   a.onended=()=>{if(serial!==this.serial)return;clearTimeout(this.timer);report('ended');};
   a.onerror=()=>fail('error');

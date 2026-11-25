@@ -59,6 +59,33 @@ test('stop cancels pending generation and ignores its late response; old cleanup
  let resolve;const a=playerSetup(()=>new Promise(r=>resolve=r));await a.player.prepare();const first=a.player.speak('First');await flush();const firstResolve=resolve;
  const second=a.player.speak('Second');await flush();assert.ok(a.requests[0].options.signal.aborted);firstResolve(new Response(wav));await first;assert.equal(a.timers.size,1);a.player.stop();resolve(new Response(wav));await second;assert.equal(a.sources.filter(s=>s.buffer?.duration===2).length,0);a.player.dispose();
 });
+test('preparation requires usable playback and only the first PCM request includes the turn ID',async()=>{
+ const a=playerSetup();assert.equal(a.player.canPrepareFirstSpeech(),false);
+ assert.equal(await a.player.prepare(),true);assert.equal(a.player.canPrepareFirstSpeech(),true);
+ a.player.audioSession={playbackMode:'media'};assert.equal(a.player.canPrepareFirstSpeech(),false);
+ a.player.native.audio={muted:false};a.player.native.prepared=true;assert.equal(a.player.canPrepareFirstSpeech(),true);
+ a.player.native.audio.muted=true;assert.equal(a.player.canPrepareFirstSpeech(),false);a.player.native.audio=null;
+ a.player.audioSession=undefined;
+ const text=('A little further. ').repeat(38).trim(),parts=speechChunks(text);
+ const id=crypto.randomUUID(),play=a.player.speak(text,{firstReplySegment:true,firstSpeechId:id,soul:'bori',language:'en'});
+ for(let i=0;i<parts.length;i++){
+  await flush();assert.equal(a.requests[i].url,'/api/speech/stream');
+  assert.deepEqual(JSON.parse(a.requests[i].options.body),{text:parts[i],soul:'bori',language:'en',...(i===0?{firstSpeechId:id}:{})});
+  a.sources.at(-1).onended();
+ }
+ await play;a.player.dispose();
+});
+test('an exact opening uses the original packaged voice and a missing file uses the normal PCM request',async()=>{
+ for(const missing of [false,true]){
+  const a=playerSetup(async url=>missing&&url.startsWith('/audio/')?new Response('',{status:404}):new Response(wav));
+  await a.player.prepare();
+  const id=crypto.randomUUID(),play=a.player.speak('Mm,',{soul:'mori',language:'en',firstReplySegment:true,firstSpeechId:id});
+  await flush();assert.match(a.requests[0].url,/^\/audio\/fast-openings\/mori-en-mm-comma\.wav/);
+  assert.equal(a.requests.length,missing?2:1);
+  if(missing)assert.deepEqual(JSON.parse(a.requests[1].options.body),{text:'Mm,',soul:'mori',language:'en',firstSpeechId:id});
+  a.sources.at(-1).onended();await play;a.player.dispose();
+ }
+});
 test('blocked output reports an actionable state and long replies are split without dropping words',async()=>{
  const a=playerSetup(),states=[];await a.player.speak('Hi',{onState:s=>states.push(s)});assert.equal(states.at(-1),'blocked');assert.equal(a.requests.length,0);
  const text=('A lovely tree. ').repeat(100).trim(),parts=speechChunks(text);assert.ok(parts.length>1);assert.ok(parts.every(p=>p.length<=540));assert.equal(parts.join(' '),text);

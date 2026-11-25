@@ -1,6 +1,31 @@
 // Keep the lead-in to Lulu's breath and first consonant. The cloned voice
 // sometimes produces several hundred milliseconds of near-silence before it.
 const bytesPerMs=48; // 24 kHz mono PCM16
+export function createSpeechWave(){
+ const chunks=[];
+ let size=0,complete=false;
+ return {
+  append(frame){
+   if(frame.done){complete=true;return;}
+   if(complete||frame.rate!==24000||!frame.audio)throw Error('invalid_audio');
+   const bytes=Buffer.from(frame.audio,'base64');
+   size+=bytes.length;
+   if(size>4000000)throw Error('invalid_audio');
+   chunks.push(bytes);
+  },
+  finish(){
+   if(!complete||!size||size%2)throw Error('invalid_audio');
+   const header=Buffer.alloc(44);
+   header.write('RIFF');header.writeUInt32LE(36+size,4);
+   header.write('WAVEfmt ',8);header.writeUInt32LE(16,16);
+   header.writeUInt16LE(1,20);header.writeUInt16LE(1,22);
+   header.writeUInt32LE(24000,24);header.writeUInt32LE(48000,28);
+   header.writeUInt16LE(2,32);header.writeUInt16LE(16,34);
+   header.write('data',36);header.writeUInt32LE(size,40);
+   return Buffer.concat([header,...chunks],size+44);
+  }
+ };
+}
 const keepLead=80*bytesPerMs, maxLead=720*bytesPerMs;
 function firstSound(pcm,from=0){
  for(let at=from;at+1<Math.min(pcm.length,maxLead);at+=2){

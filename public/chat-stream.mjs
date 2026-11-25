@@ -27,55 +27,46 @@ function sentenceDot(text,end){
  const phrase=prefix.slice(0,-1).trim();
  return shortPhrase.test(phrase)||acknowledgement.test(phrase);
 }
-let chineseWords;
 function chineseLead(input){
- // Keep the last word in the buffer; the next delta may continue it (看 → 看看).
  const text=input.trimStart(),start=input.length-text.length;
- const pause=/^\p{Script=Han}{1,8}[，、；：…～—]+/u.exec(text);
+ const pause=/^\p{Script=Han}+[，、；：…～—]+/u.exec(text);
  if(pause)return start+pause[0].length;
- const finalParticle=/^\p{Script=Han}{2,4}[吧呀啦呢嘛啊哦](?:[，、…～]+|$)/u.exec(text);
+ const finalParticle=/^\p{Script=Han}{1,9}[吧呀啦呢嘛啊哦](?:[，、…～]+|$)/u.exec(text);
  if(finalParticle)return start+finalParticle[0].length;
- if(typeof globalThis.Intl?.Segmenter!=='function'){
-  // Five characters plus one lookahead bounds startup on older WebViews.
-  // Keep a reduplicated verb (看看、走走) together in the next speech chunk.
-  const match=/^\p{Script=Han}{6}/u.exec(text);
-  if(!match)return 0;
-  const chars=Array.from(match[0]),count=chars[4]===chars[5]?4:5;
-  return start+chars.slice(0,count).join('').length;
- }
- if(!/^\p{Script=Han}{4}/u.test(text))return 0;
- chineseWords??=new Intl.Segmenter('zh',{granularity:'word'});
- let end=0;
- for(const {index} of chineseWords.segment(text)){
-  if(index>5)break;
-  if(index>=3)end=index;
- }
- return end?start+end:0;
+ // A word boundary alone can leave a modifier hanging ("我们一起", "前面的").
+ // Recognize complete short invitations without separating 看看 or dropping a particle.
+ const action=/^(?:(?:我们|咱们|你|我)?(?:一起|先|再)?(?:慢慢来|慢点骑|歇一歇|歇会儿|试试看|看看|等等我|缓一缓|歇歇脚|放松点|停一下)|别着急|不用急|我陪你)(?=\p{Script=Han})/u.exec(text);
+ return action?start+action[0].length:0;
 }
 
+const englishPhrase=/^(?:slow down|easy does it|take it easy|hold on|hang on|ride on|let['’]s (?:ride|rest|stop)|sounds (?:good|great)|that sounds (?:good|great|lovely|fun)|i(?:'m|’m| am) here|i know|keep going|good idea|half an hour)$/iu;
+const koreanEnding=/(?:요|죠|하네|좋네|있네|같네|구나|잖아|할게|갈게|볼게|같아|좋아|괜찮아|하자|가자|보자|쉬자|천천히 가|알겠어|좋겠다|싶다)$/u;
+const clauseJoin=/^\s*(?:(?:but|because|while|although|so that|and then)\b|(?:그런데|하지만|그러니까|그러면)\s)/iu;
 function firstPhraseEnd(text,soul){
  const han=/^\s*\p{Script=Han}/u.test(text);
  const chinese=han?chineseLead(text):0;
  if(chinese)return chinese;
- // Wait for a real word boundary in space-delimited speech.
+ // Prefer the speaker's punctuation when more than one boundary arrived together.
+ let early=0;
  for(const match of text.matchAll(/[\s,，、;；:：…~～—]+/gu)){
   const prefix=text.slice(0,match.index).trim();
   const letters=prefix.match(/[\p{L}\p{N}]/gu)?.length||0;
   const pause=/\S/u.test(match[0]),end=match.index+match[0].length;
   if(!letters||abbreviation.test(prefix))continue;
-  // An article belongs to the following noun ("half an hour").
-  if(!pause&&/\b(?:a|an|the)$/iu.test(prefix))continue;
   if(/\d$/u.test(prefix)&&/^[,:]/u.test(match[0]))continue;
   if(/^(?:https?|ftp)$/iu.test(prefix)&&match[0][0]===':')continue;
-  if(shortPhrase.test(prefix)||acknowledgement.test(prefix)&&(pause||soul==='mori'))return end;
-  if(pause?letters>=2:letters>=5)return end;
+  if(pause&&(letters>=2||acknowledgement.test(prefix)))return end;
+  if(pause)continue;
+  if(shortPhrase.test(prefix)||englishPhrase.test(prefix)||soul==='mori'&&/^[a-z]/iu.test(prefix)&&acknowledgement.test(prefix)){early=end;continue;}
+  if(/^\p{Script=Hangul}/u.test(prefix)&&koreanEnding.test(prefix)){early=end;continue;}
+  if(letters>=8&&clauseJoin.test(text.slice(end)))early=end;
  }
- return 0;
+ return early;
 }
 
-export async function readVoiceReply(response,{soul,onText,onSentence}){
- const reader=response.body.getReader(),decoder=new TextDecoder();let pending='',text='',spoken=0,result;
- const sentences=final=>{
+export function createVoiceSentenceReader(soul,onSentence){
+ let spoken=0;
+ return (text,final=false)=>{
   const remaining=text.slice(spoken);
   let consumed=0;
   for(const match of remaining.matchAll(/[。！？!?]+|\.+/gu)){
@@ -93,10 +84,15 @@ export async function readVoiceReply(response,{soul,onText,onSentence}){
   }
   if(final&&text.slice(spoken).trim()){const tail=text.slice(spoken).trim();if(/[\p{L}\p{N}]/u.test(tail))onSentence(tail);spoken=text.length;}
  };
+}
+
+export async function readVoiceReply(response,{soul,onText,onSentence}){
+ const reader=response.body.getReader(),decoder=new TextDecoder();let pending='',text='',result;
+ const sentences=createVoiceSentenceReader(soul,onSentence);
  const line=raw=>{
   if(!raw.trim())return;const frame=JSON.parse(raw);if(frame.error)throw conversationServiceError(frame,response.headers);if(result)throw Error('invalid_response');
-  if(frame.type==='delta'&&typeof frame.text==='string'){text+=frame.text;if(text.length>10000)throw Error('invalid_response');onText(text);sentences(false);}
-  else if(frame.type==='complete'&&frame.soul===soul&&typeof frame.reply==='string'&&frame.reply.trim()===text.trim()){result=frame;sentences(true);}
+  if(frame.type==='delta'&&typeof frame.text==='string'){text+=frame.text;if(text.length>10000)throw Error('invalid_response');onText(text);sentences(text);}
+  else if(frame.type==='complete'&&frame.soul===soul&&typeof frame.reply==='string'&&frame.reply.trim()===text.trim()){result=frame;sentences(text,true);}
   else throw Error('invalid_response');
  };
  try{while(!result){const chunk=await reader.read();if(chunk.done)break;pending+=decoder.decode(chunk.value,{stream:true});if(pending.length>131072)throw Error('invalid_response');let end;while((end=pending.indexOf('\n'))>=0){line(pending.slice(0,end));pending=pending.slice(end+1);}}if(!result)throw Error('incomplete_response');return result;}

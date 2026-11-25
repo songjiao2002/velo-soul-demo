@@ -8,9 +8,13 @@ const normalize=text=>text.replaceAll('\r\n','\n').replaceAll('/ride/','/').repl
 let js=await read('app.pretty.js');
 function replace(before,after){if(js.split(before).length!==2)throw Error('Reference anchor changed: '+before.slice(0,100));js=js.replace(before,after);}
 replace('  var Ao = ',(await read('live-adapter.js'))+'\n  var Ao = ');
+replace('a.playbackRate = 1, a.onplaying', 'liveSetMediaTempo(a), a.onplaying');
 replace('on(this.bike, this.memory.theme, this.getLanguage() === "zh" ? "en" : this.getLanguage())','on(this.bike, this.memory.theme, this.getLanguage())');
 replace('W === "ko" ? Di.mori[0].line','W === "zh" ? "唔，骑得有点快啦。想慢一点就慢一点吧。" : W === "ko" ? Di.mori[0].line');
-replace('source: Kt(i, t, e), onState: (n) => {','source: Kt(i, t, e), onState: (n, failure) => {');
+replace('function In(i, e, t = P, a = () => {\n  }) {','function In(i, e, t = P, a = () => {}, speechOptions) {');
+replace('function ze(i, e, t = P, a = () => {\n  }) {','function ze(i, e, t = P, a = () => {}, speechOptions) {');
+replace(' : In(i, e, t, a);',' : In(i, e, t, a, speechOptions);');
+replace('source: Kt(i, t, e), onState: (n) => {','...speechOptions, source: Kt(i, t, e), onState: (n, failure) => {');
 replace('}[n]), a(n);','}[n] || (liveLimitCopy[S()][n] || "") + liveRetryAfter(S(),failure?.retryAfter)), a(n,failure);');
 replace('    ${bl()}','    ${bl()}\n    ${rideTalkPanel(language, !!M?.active, M?.state || "off", !!M?.audioIssue, Xr[language].sound)}');
 replace('      <fieldset class="ride-language"','      <button type="button" data-action="ride-text-chat" data-no-translate>${rideTextChatLabel[S()]}</button>\n      <fieldset class="ride-language"');

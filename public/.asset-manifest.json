@@ -1,45 +1,45 @@
 {
-  "version": "20261125-mobile75",
+  "version": "20261125-mobile76",
   "files": {
     "/index.html": {
       "size": 7561,
-      "sha256": "268c3e688ec4b6487a131d3e29318e5c509c3d74cb71b6978c262b32348b5390",
+      "sha256": "e412488ab62255d74c174eafbac18be03cb13dafc64cc42ced6a6c306bdd11fe",
       "br": {
         "size": 2976,
-        "sha256": "783b6c26de2825fabfec000138703821fea2f866784e69d248ba543f496ad23a",
+        "sha256": "54b9ef76938eba8eb74b7e7bc91232a4a257f70c5f3de3a4b1827fa2e391bca0",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 3349,
-        "sha256": "5cb58fa8ad7a584d96e18cb425e953dab001f3db35c3cfe2d837a6a411d401e9",
+        "size": 3348,
+        "sha256": "befc61bcfcf1bc718f5f9b5906ba70e156aecde424ff701583a0e55dd011d925",
         "suffix": ".gz"
       }
     },
     "/boot.js": {
       "size": 2510,
-      "sha256": "1c108fdda37b759ba1bf9774dabc1039bb44132deb495c240b10a2761122f1a9",
+      "sha256": "c3e76a20d7792d4da3d578c5ba04ed0f3e0eb452e9f0ebf76f280d17ebb264ed",
       "br": {
         "size": 949,
-        "sha256": "e1b5423ed7c9d33adf71a1c513a497385a0d0f26f399b562b8dc76178b11f7cf",
+        "sha256": "dd6d211ec409d5f1bcb23a6eccca4ff4b1d7a838f8b1348fd607df16716ce979",
         "suffix": ".br"
       },
       "gzip": {
         "size": 1133,
-        "sha256": "142b93de5fb5df5f8083f58517382062bcaebbdd741aaf48b599e83349c3cdc2",
+        "sha256": "1f13960fcbd8b144f7741bcde13532a5eb5c63cf588d275d2d253df1d10d0d2d",
         "suffix": ".gz"
       }
     },
     "/app.bundle.js": {
-      "size": 625053,
-      "sha256": "05f584bdb52cded27b382741210d1aabf8f508bd56d612bae2c5dedb5d966fd6",
+      "size": 629791,
+      "sha256": "5896dd05737cfcf3105b311a4c1e701feaa8c4d9d83e4761a5710277c808affd",
       "br": {
-        "size": 149114,
-        "sha256": "765f49a173264ff683c5ea78649fabf14c1464b722e35226f6b579da55d6505f",
+        "size": 151032,
+        "sha256": "f44b4044fe1a30384721cfe628ca094fff89711316cb37546fa0169d7d246821",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 232975,
-        "sha256": "c5a45f031b03e8d234cca89784c5b485bae5386e0ff20261ba3f965b3a144d96",
+        "size": 234980,
+        "sha256": "046090ed89e9728f446ff42fc237bb9e41af8512c5e1414b4a9ccf8c39a5c41b",
         "suffix": ".gz"
       }
     },
@@ -272,6 +272,78 @@
     "/assets/bori-cover-rig.webp": {
       "size": 100238,
       "sha256": "2bfa00b1c0478068a5ff4e252d9aea85e31446f41efc4e1c2571b70bbc386b99"
+    },
+    "/audio/fast-openings/lumi-en-oh-comma.wav": {
+      "size": 40124,
+      "sha256": "114cdabcafd7be3a07d2cedd707cef58f43608aa5bc5c3b94cf4bd17bb9aad90"
+    },
+    "/audio/fast-openings/lumi-en-got-it-period.wav": {
+      "size": 25004,
+      "sha256": "9bd7e8b6cc7a0e0bbbcc017bbbbeff41f6e8893a6c671ed6514d9b348c9b2fbd"
+    },
+    "/audio/fast-openings/lumi-ko-ne-comma.wav": {
+      "size": 28364,
+      "sha256": "9a142bf9915c6c429bc0906e252c14e325e378c8601dfe57c49c1f31199da634"
+    },
+    "/audio/fast-openings/lumi-ko-maja-comma.wav": {
+      "size": 40364,
+      "sha256": "88a4ed20247ead56563ef6a89700f220ff946b9d692021bba20c530c6eb86403"
+    },
+    "/audio/fast-openings/lumi-zh-wa-comma.wav": {
+      "size": 20924,
+      "sha256": "ac192a1d716f662ed0eb2cc3e95b792f4a662dadffab22de44d761200dc290c4"
+    },
+    "/audio/fast-openings/lumi-zh-en-comma.wav": {
+      "size": 28604,
+      "sha256": "bc3281a3afc7813e826f8d3aeaa75f6480e78841f48f68e14013d126147e73d1"
+    },
+    "/audio/fast-openings/mori-en-mm-comma.wav": {
+      "size": 74204,
+      "sha256": "f8adcac769f9f5e7bb216e3c25a2a298c1708465cc6f66cc026ff3cdcd22681b"
+    },
+    "/audio/fast-openings/mori-en-mm-period.wav": {
+      "size": 89084,
+      "sha256": "ce3b2da50e0864afc6583281521d467c7ab7c3cb3b79df533d91c5ac45892386"
+    },
+    "/audio/fast-openings/mori-ko-eum-comma.wav": {
+      "size": 27884,
+      "sha256": "2c8a2c24578e1b2bb24e515b329d36cb574db7792771fe1c864b7fe4b6dc0895"
+    },
+    "/audio/fast-openings/mori-ko-eung-comma.wav": {
+      "size": 26444,
+      "sha256": "9de845333718d107e0a129a84b6778b71cfdbc47545ee555fec2fe14c3ac536d"
+    },
+    "/audio/fast-openings/mori-zh-en-comma.wav": {
+      "size": 27164,
+      "sha256": "771b0c58a0fe99152d2b0ea1f59328182ce0329ccde99c3ca34ccff74e1026f0"
+    },
+    "/audio/fast-openings/mori-zh-hao-comma.wav": {
+      "size": 27644,
+      "sha256": "6081fa30a528c1fcd204f27cc6e39cad7fe600c216f7b157a6a21db6d7ff5880"
+    },
+    "/audio/fast-openings/bori-en-oh-comma.wav": {
+      "size": 28604,
+      "sha256": "23543301ba4b9b5c0b8066ceed5a715de2b3c2ef1775136e4946e1785c944803"
+    },
+    "/audio/fast-openings/bori-en-thanks.wav": {
+      "size": 28844,
+      "sha256": "6a5fd5af1b107f04a0e12066ff383575a59fe70ff2922030386513c4dfb14f73"
+    },
+    "/audio/fast-openings/bori-ko-algesseo-comma.wav": {
+      "size": 51884,
+      "sha256": "a70d86cfc0fe6812a56bc9726dd908f68a2f6f09afb644a5b9f5f00750532b91"
+    },
+    "/audio/fast-openings/bori-ko-eung-comma.wav": {
+      "size": 36284,
+      "sha256": "1466a91fbbbf550b85abd4dc117d3bf672f9d027cad7fcd53b3d683c68bfa300"
+    },
+    "/audio/fast-openings/bori-zh-hao-comma.wav": {
+      "size": 17324,
+      "sha256": "624a75f76981e4cb2c2dc4f582ff32bba2f1234b0fd9af6593e64fcdae3f09a9"
+    },
+    "/audio/fast-openings/bori-zh-en-comma.wav": {
+      "size": 63164,
+      "sha256": "b9a73981fa36fd85813c712d0ab6b6ab92c27af081b00a5782d493ae012b6282"
     },
     "/vendor/rnnoise/rnnoise.wasm": {
       "size": 152656,

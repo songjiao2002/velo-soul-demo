@@ -2,6 +2,7 @@ import {readFile,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {brotliCompressSync,gzipSync,constants} from 'node:zlib';
 import {BUILD} from './public/build-version.mjs';
+import {FAST_OPENINGS} from './public/fast-openings.mjs';
 
 // Commit generated files so the production image requires no build toolchain.
 const root=new URL('./public/',import.meta.url);
@@ -13,7 +14,7 @@ const textFiles=['index.html','boot.js','app.bundle.js','app.css','mobile-v2.css
 const images=['assets/characters-original-20261025.jpg',...['lumi','mori','bori'].flatMap(id=>['ko','en','zh'].map(lang=>`audio/characters13/${id}-${lang}.wav`)),'soul-blue.webp','soul-mint.webp','soul-orange.webp',...['lumi','mori','bori'].flatMap(s=>[`assets/${s}-puppet.webp`,`assets/${s}-cover-rig.webp`])];
 const manifest={version:BUILD,files:{}};
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
-for(const name of [...textFiles,...images,'vendor/rnnoise/rnnoise.wasm']){
+for(const name of [...textFiles,...images,...FAST_OPENINGS.map(clip=>clip.path.slice(1)),'vendor/rnnoise/rnnoise.wasm']){
  const bytes=await readFile(new URL(name,root)),entry={size:bytes.length,sha256:digest(bytes)};
  if(textFiles.includes(name)){
   for(const [coding,compressed] of [['br',brotliCompressSync(bytes,{params:{[constants.BROTLI_PARAM_QUALITY]:9}})],['gzip',gzipSync(bytes,{level:9})]]){

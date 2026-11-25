@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {HandsFreeConversation} from './public/hands-free.mjs';
+import {createVoiceSentenceReader} from './public/chat-stream.mjs';
 const flush=()=>new Promise(r=>setImmediate(r));
 function setup(fetchImpl,options={}){
  const recognizers=[],calls=[],voices=[],states=[],timers=new Map();let timerId=0,stops=0;
@@ -191,12 +192,38 @@ test('streamed answer speaks its first sentence before completion and queues lat
  a.voices[0].callback('ended');assert.equal(a.voices.length,2);assert.equal(a.voices[1].text,'Let us ride.');a.voices[1].callback('ended');a.run(100);assert.equal(a.recognizers.at(-1).active,true);a.session.stop();
 });
 
+test('only the first spoken phrase claims each eligible voice turn, and a retry uses a fresh ID',async()=>{
+ const voices=[];
+ const reply='Easy! Keep pedaling.';
+ const frames=[{type:'delta',text:reply},{type:'complete',soul:'bori',reply}].map(x=>JSON.stringify(x)+'\n').join('');
+ let attempts=0;
+ const a=setup(()=>++attempts===1?new Response(JSON.stringify({error:'service_busy'}),{status:429}):new Response(frames,{headers:{'Content-Type':'application/x-ndjson'}}),{
+  getContext:()=>({}),canPrepareFirstSpeech:()=>true,speak:(text,language,soul,done,options)=>voices.push({text,language,soul,done,options})
+ });
+ a.session.start('bori','en');a.recognizers[0].hear('Can we slow down?');await flush();
+ a.run(1000);await flush();
+ const ids=a.calls.map(call=>call.body.firstSpeechId);
+ assert.match(ids[0],/^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i);
+ assert.notEqual(ids[1],ids[0]);
+ assert.deepEqual(voices[0].options,{firstSpeechId:ids[1],firstReplySegment:true});
+ assert.equal(voices[0].language,'en');assert.equal(voices[0].soul,'bori');
+ voices[0].done('ended');assert.equal(voices[1].options,undefined);a.session.stop();
+});
+test('voice turns without usable streaming output and camera queries omit early speech IDs',async()=>{
+ for(const [canStream,question,image] of [[false,'Can we slow down?',false],[true,'What do you see?',false],[true,'What do you see?',true]]){
+  const a=setup(null,{canPrepareFirstSpeech:()=>canStream,getContext:()=>image?{image:'frame'}:{}});
+  a.session.start('bori','en');a.recognizers[0].hear(question);await flush();
+  assert.equal(Object.hasOwn(a.calls[0].body,'firstSpeechId'),false);a.session.stop();
+ }
+});
 test('English and Korean first clauses start TTS before the rest arrives without repeating text',async()=>{
- for(const [language,first,rest] of [['en','I am feeling ','cozy, let us ride!'],['ko','오늘은 기분이 ','좋아, 같이 달리자!']]){
+ for(const [language,prefix,complement,rest] of [['en','I am feeling ','cozy,',' let us ride!'],['ko','오늘은 기분이 ','좋아,',' 같이 달리자!']]){
   let stream;const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}));
   a.session.start('mori',language);a.recognizers[0].hear(language==='ko'?'오늘 기분 어때?':'How are you?');await flush();
   const emit=frame=>stream.enqueue(new TextEncoder().encode(JSON.stringify(frame)+'\n'));
-  emit({type:'delta',text:first});await flush();assert.equal(a.voices[0].text,first.trim());assert.equal(a.session.histories.mori.length,0);
+  emit({type:'delta',text:prefix});await flush();assert.equal(a.voices.length,0);
+  const first=prefix+complement;
+  emit({type:'delta',text:complement});await flush();assert.equal(a.voices[0].text,first);assert.equal(a.session.histories.mori.length,0);
   emit({type:'delta',text:rest});await flush();assert.equal(a.voices.length,1);
   a.voices[0].callback('ended');assert.equal(a.voices[1].text,rest.trim());
   emit({type:'complete',soul:'mori',reply:first+rest});await flush();assert.equal(a.voices.length,2);
@@ -225,14 +252,15 @@ test('a broken streamed answer stops already started speech and does not save a 
 });
 
 
-test('Lulu starts Mandarin at a word boundary by the fifth character and keeps 看看 together',async()=>{
+test('Lulu holds the Mandarin modifier until its short action is complete, keeping 看看 together',async()=>{
  let stream;const prepared=[];const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}),{prefetchSpeech:(...args)=>prepared.push(args)});
  a.session.start('mori','zh');a.recognizers[0].hear('你看到了什么');await flush();
  const emit=frame=>stream.enqueue(new TextEncoder().encode(JSON.stringify(frame)+'\n'));
  emit({type:'delta',text:'我们一起'});await flush();assert.equal(a.voices.length,0);
- emit({type:'delta',text:'看'});await flush();assert.equal(a.voices[0].text,'我们一起');assert.equal(a.session.histories.mori.length,0);
- emit({type:'delta',text:'看河边的风景吧。'});await flush();assert.equal(a.voices.length,1);assert.equal(prepared[0][0],'看看河边的风景吧。');
- emit({type:'complete',soul:'mori',reply:'我们一起看看河边的风景吧。'});await flush();a.voices[0].callback('ended');assert.equal(a.voices[1].text,'看看河边的风景吧。');
+ emit({type:'delta',text:'看'});await flush();assert.equal(a.voices.length,0);assert.equal(a.session.histories.mori.length,0);
+ emit({type:'delta',text:'看河'});await flush();assert.equal(a.voices[0].text,'我们一起看看');
+ emit({type:'delta',text:'边的风景吧。'});await flush();assert.equal(a.voices.length,1);assert.equal(prepared[0][0],'河边的风景吧。');
+ emit({type:'complete',soul:'mori',reply:'我们一起看看河边的风景吧。'});await flush();a.voices[0].callback('ended');assert.equal(a.voices[1].text,'河边的风景吧。');
  assert.equal(a.voices.map(v=>v.text).join(''),'我们一起看看河边的风景吧。');a.session.stop();
 });
 
@@ -267,22 +295,22 @@ test('without a word segmenter, an early Mandarin pause ends the first phrase cl
  a.voices[1].callback('ended');a.session.stop();
 });
 
-test('older WebViews begin Mandarin by six Han characters without cutting a repeated verb or a surrogate pair',async t=>{
+test('older WebViews start a complete short action early and retain every character in longer phrases',async t=>{
  const descriptor=Object.getOwnPropertyDescriptor(Intl,'Segmenter');
  Object.defineProperty(Intl,'Segmenter',{...descriptor,value:undefined});
  t.after(()=>Object.defineProperty(Intl,'Segmenter',descriptor));
- for(const [prefix,more,rest,first,second] of [
-  ['我们一起去','河','边。','我们一起去','河边。'],
-  ['我们一起看','看','河边。','我们一起','看看河边。'],
-  ['𠮷田一起看','看','河边。','𠮷田一起','看看河边。']
+ for(const [prefix,more,rest,first] of [
+  ['我们先','慢点骑，','前面下坡。','我们先慢点骑，'],
+  ['我们一起看','看河','边。','我们一起看看'],
+  ['𠮷田一起看','看','河边。',null]
  ]){
   let stream;const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}));
   a.session.start('mori','zh');a.recognizers[0].hear('出发吗');await flush();
   const emit=frame=>stream.enqueue(new TextEncoder().encode(JSON.stringify(frame)+'\n'));
   emit({type:'delta',text:prefix});await flush();assert.equal(a.voices.length,0);
-  emit({type:'delta',text:more});await flush();assert.deepEqual(a.voices.map(v=>v.text),[first]);
+  emit({type:'delta',text:more});await flush();assert.deepEqual(a.voices.map(v=>v.text),first?[first]:[]);
   emit({type:'delta',text:rest});emit({type:'complete',soul:'mori',reply:prefix+more+rest});await flush();
-  a.voices[0].callback('ended');assert.equal(a.voices[1].text,second);a.session.stop();
+  a.voices[0].callback('ended');assert.equal(a.voices.map(v=>v.text).join(''),prefix+more+rest);a.session.stop();
  }
 });
 
@@ -293,7 +321,8 @@ test('a short prefix cannot cut Yesterday in half, and other characters keep the
   const delta=text=>stream.enqueue(new TextEncoder().encode(JSON.stringify({type:'delta',text})+'\n'));
   if(soul==='mori'){
    delta('Yes');await flush();assert.equal(a.voices.length,0);
-   delta('terday ');await flush();assert.equal(a.voices[0].text,'Yesterday');
+   delta('terday ');await flush();assert.equal(a.voices.length,0);
+   delta('felt warmer,');await flush();assert.equal(a.voices[0].text,'Yesterday felt warmer,');
   }else{
    delta('Sure ');await flush();assert.equal(a.voices.length,0);
    delta('thing!');await flush();assert.equal(a.voices[0].text,'Sure thing!');
@@ -339,6 +368,26 @@ test('all companions request real speech for a complete short phrase in the firs
  }
 });
 
+test('each companion holds incomplete subjects, modifiers and complements across individual deltas',()=>{
+ const examples=[
+  ['Should we ','slow down here?'],['That sounds ','lovely,'],['I would ','take the shady path.'],
+  ['The bend near the ','river looks steep.'],['We are looking at ','the same bridge.'],
+  ['오늘은 바람이 ','잔잔하네요.'],['저기 보이는 ','자전거 예쁘다.'],['이 동네 ','길이 좁네.'],
+  ['我觉得这个','路口好安静。'],['那只戴着','红围巾的小狗好可爱。'],['你说的那','座桥在前面。']
+ ];
+ for(const soul of ['lumi','mori','bori']){
+  for(const [opening,end] of examples){
+   const spoken=[],read=createVoiceSentenceReader(soul,phrase=>spoken.push(phrase));
+   let text='';for(const char of opening){text+=char;read(text);}
+   assert.deepEqual(spoken,[],opening);read(opening+end,true);
+   assert.equal(spoken.join(' '),opening+end,opening);
+  }
+  for(const early of ['Slow down ','That sounds lovely ','잠깐 쉬자 ','出发吧','先慢点骑，']){
+   const spoken=[],read=createVoiceSentenceReader(soul,phrase=>spoken.push(phrase));read(early);
+   assert.deepEqual(spoken,[early.trim()],early);
+  }
+ }
+});
 test('streamed initials, abbreviations and decimal points stay in the spoken text even across deltas',async()=>{
  for(const [start,tail] of [
   ['Dr. ','Lee rides here!'],['U.S. ','routes are long!'],['e.g. ','an elm!'],['3.','50 km ahead!']

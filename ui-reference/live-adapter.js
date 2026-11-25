@@ -4,7 +4,7 @@
 Ft=liveDeviceMedia;
 Qt=liveOutputLanguage;ds=livePlaceFallback;on=liveBikeMemoryLine;
 la=liveWeatherLine;mn=liveWeatherGreeting;
-Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S});
+Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S,canPrepareFirstSpeech:()=>!M?.active&&Z&&ue.canPrepareFirstSpeech()});
 Tt=LiveSpeech;at=LiveMicrophone;ua=options=>liveRecognition({...options,standby:true});Et=LiveAudioSession;xi=LiveMemory;
 Ga=rideVoiceControlsMarkup;
 fs=paintRideVoiceControls;
@@ -31,7 +31,7 @@ kl=function(state){
  syncRideTalk(state);
 };
 wt=class extends LiveConversation {
- constructor(options={}){super({...options,prefetchSpeech:(text,language,soul)=>ue.preload(text,{language,soul}),stopSpeech:()=>{ue.cancelPrefetches();options.stopSpeech?.();}});}
+ constructor(options={}){super({...options,canPrepareFirstSpeech:()=>Z&&ue.canPrepareFirstSpeech(),prefetchSpeech:(text,language,soul)=>ue.preload(text,{language,soul}),stopSpeech:()=>{ue.cancelPrefetches();options.stopSpeech?.();}});}
 };
 Ds=liveIntroduction;Kt=liveIntroClip;
 Mi=(text,language='auto')=>liveReplyLanguage(text,language,P);

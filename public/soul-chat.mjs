@@ -38,7 +38,7 @@ export function renderVoiceTranscript(log,makeMessage,text,confirmed=true){
   log.scrollTop=log.scrollHeight;
 }
 
-export function createSoulChat({audioSession,onOpen=()=>{},onTurn=()=>{},getUILanguage=getLanguage,getInputLanguage=getLanguage,onInputLanguage=()=>{},getContext=()=>({}),speakReply,stopSpeaking,canSpeak=()=>true,prepareSpeech=()=>{},introduced=new Set(),getOpening=()=>null,onVoiceStart=()=>{},onVoiceIdle=()=>{},onClose=()=>{}}={}){
+export function createSoulChat({audioSession,onOpen=()=>{},onTurn=()=>{},getUILanguage=getLanguage,getInputLanguage=getLanguage,onInputLanguage=()=>{},getContext=()=>({}),speakReply,stopSpeaking,canSpeak=()=>true,canPrepareFirstSpeech,prepareSpeech=()=>{},introduced=new Set(),getOpening=()=>null,onVoiceStart=()=>{},onVoiceIdle=()=>{},onClose=()=>{}}={}){
   const speech=new CloudSpeechPlayer({audioSession});let autoRead=true,shareContext=true;
   const histories={lumi:[],mori:[],bori:[]},lastReplyLanguages={};
   const dialog=document.createElement('dialog');dialog.className='soul-chat';dialog.dataset.noTranslate='';
@@ -81,7 +81,8 @@ export function createSoulChat({audioSession,onOpen=()=>{},onTurn=()=>{},getUILa
     finally{clearTimeout(timer);if(serial===epoch&&dialog.open){controller=null;controls(false);input.focus();}}
   }
   const voiceSession=new HandsFreeConversation({Recognition,onTurn,introduced,getOpening,onOpening:(text,lang)=>{latestReply=text;replyLanguage=lang;find('#chatLog').append(message('assistant',text));find('#chatListen').disabled=false;},releaseInput:()=>microphone.release(),getContext:withImage=>shareContext?getContext(withImage):{},stopSpeech,
-    speak:(text,lang,id,onState)=>{if(speakReply)speakReply(text,lang,id,onState);else speech.speak(text,{language:lang,soul:id,onState});},
+    canPrepareFirstSpeech:()=>autoRead&&canSpeak()&&(speakReply?Boolean(canPrepareFirstSpeech?.()):speech.canPrepareFirstSpeech()),
+    speak:(text,lang,id,onState,options)=>{if(speakReply)speakReply(text,lang,id,onState,options);else speech.speak(text,{...options,language:lang,soul:id,onState});},
     onState:state=>{
       if(!voiceSession.active||['starting','listening','reconnecting','audio_reconnecting','speaking_no_interrupt'].includes(state))find('[data-transcript-state="interim"]')?.remove();
       if(state==='listening')setTimeout(onVoiceIdle,350);paintSoulExpression(dialog,state==='speaking'?'talking':['thinking','transcribing','synthesizing'].includes(state)?'thinking':['listening','hearing','quiet'].includes(state)?'listening':'rest');if(!voiceSession.active){chatWakeLock?.release().catch(()=>{});chatWakeLock=null;}if(!dialog.open)return;const c=HANDS_FREE_COPY[language];const button=find('#chatMic');if(button){button.textContent=voiceSession.active?c.stop:c.start;button.setAttribute('aria-pressed',String(voiceSession.active));}dialog.dataset.voiceState=state;setStatus(c[state]||c.failed);const retry=find('#chatAudioRetry');if(retry)retry.hidden=!voiceSession.audioIssue;},

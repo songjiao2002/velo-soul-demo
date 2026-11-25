@@ -38,7 +38,7 @@ function rig(){const tasks=new Map(),states=[],spoken=[];let count=0,voices=[],l
 }
 test('speech waits for delayed voices and falls back to a language when the list stays empty',()=>{
  const a=rig();a.player.speak('Hello',{language:'en',soul:'mori'});assert.equal(a.spoken.length,0);
- a.setVoices([{name:'Korean',lang:'ko-KR'},{name:'English',lang:'en-GB'}]);assert.equal(a.spoken.length,1);assert.equal(a.spoken[0].voice.lang,'en-GB');assert.equal(a.spoken[0].rate,.86);
+ a.setVoices([{name:'Korean',lang:'ko-KR'},{name:'English',lang:'en-GB'}]);assert.equal(a.spoken.length,1);assert.equal(a.spoken[0].voice.lang,'en-GB');assert.equal(a.spoken[0].rate,.86*1.16);
  a.spoken[0].onstart();a.spoken[0].onend();assert.equal(a.tasks.size,0);assert.equal(a.states.at(-1),'ended');
  const b=rig();b.player.speak('안녕',{language:'ko'});b.runTimer();assert.equal(b.spoken[0].lang,'ko-KR');assert.equal(b.spoken[0].voice,undefined);b.player.stop();
  const c=rig();c.setVoices([{lang:'en-US'},{lang:'zh-HK'},{lang:'zh-CN'}]);c.player.speak('你好',{language:'zh'});assert.equal(c.spoken[0].voice.lang,'zh-CN');c.player.stop();

@@ -1,6 +1,7 @@
 import {appFetch} from './app-network.mjs';
 import {isConversationLimit} from './conversation-limits.mjs';
 import {speechFileBytes} from './speech-response.mjs';
+import {characterRate,setMediaTempo} from './speech-tempo.mjs';
 // Optional media-element playback for browsers whose Web Audio route is wrong.
 // It uses complete WAV responses, trading first-audio latency for a different
 // playback path. It cannot select Bluetooth when the host app forbids it.
@@ -35,19 +36,34 @@ export class NativeSpeechPlayer {
   this.preloads.set(key,entry);while(this.preloads.size>8){const first=this.preloads.keys().next().value;this.preloads.get(first).controller.abort();this.preloads.delete(first);}return entry.promise;
  }
  cancelPrefetches(){for(const [key,entry]of this.preloads)if(entry.dynamic){entry.controller.abort();this.preloads.delete(key);}}
- async speak(parts,{language,soul,source,report,allowed=()=>true}){
+ async speak(parts,{language,soul,source,firstSource,firstSpeechId,report,allowed=()=>true}){
   this.stop();const serial=this.serial,valid=()=>serial===this.serial;
   if(!this.audio){report('unavailable');return;}const controller=this.controller=new AbortController();
   try{
-   for(const part of parts){
+   for(const [index,part] of parts.entries()){
     if(!valid())return;if(!allowed()){report('blocked');return;}
+    if(index===0&&firstSource&&!source){
+     const local=await this.preload(part,{language,soul,source:firstSource});
+     if(!valid())return;if(!allowed()){report('blocked');return;}
+     if(local?.byteLength>=44){
+      let started=false;
+      try{
+       await this.playBytes(local,{soul,serial,report:state=>{if(state==='playing')started=true;report(state);}});
+       continue;
+      }catch(error){
+       if(!valid())return;
+       if(started||error.name==='NotAllowedError')throw error;
+       // A missing or undecodable bundled opener uses the normal whole-file voice.
+      }
+     }
+    }
     const key=JSON.stringify([source||'',part,language,soul]);let bytes=this.cache.get(key);
     if(!bytes&&this.preloads.has(key)){
      const entry=this.preloads.get(key);bytes=await entry.promise;if(!valid())return;
      if(entry.failure){this.preloads.delete(key);throw entry.failure;}
     }
     if(!bytes){this.fetchTimer=this.setTimer(()=>controller.abort(),35000);
-     const response=await this.fetchImpl(source||'/api/speech',{signal:controller.signal,...(source?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:part,language,soul})})});
+     const response=await this.fetchImpl(source||'/api/speech',{signal:controller.signal,...(source?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:part,language,soul,firstSpeechId:index===0?firstSpeechId:undefined})})});
      bytes=await speechFileBytes(response);this.clearTimer(this.fetchTimer);this.fetchTimer=null;
      if(!valid())return;if(bytes.byteLength<44||bytes.byteLength>4000000)throw Error('audio');this.remember(key,bytes);
     }
@@ -59,7 +75,7 @@ export class NativeSpeechPlayer {
   finally{if(valid()){this.clearTimer(this.fetchTimer);this.fetchTimer=null;this.controller=null;this.playing=false;this.clearSource();}}
  }
  playBytes(bytes,{soul,serial,report,mime='audio/wav'}){
-  const a=this.audio;this.clearSource();this.objectURL=this.URL.createObjectURL(new Blob([bytes],{type:mime}));a.src=this.objectURL;a.volume=1;a.playbackRate=soul==='mori'?.94:soul==='bori'?1.04:1;this.playing=true;
+  const a=this.audio;this.clearSource();this.objectURL=this.URL.createObjectURL(new Blob([bytes],{type:mime}));a.src=this.objectURL;a.volume=1;setMediaTempo(a,characterRate(soul));this.playing=true;
   return new Promise((resolve,reject)=>{
    let timer,token,finished=false;const valid=()=>serial===this.serial&&!finished;
    const finish=error=>{if(finished)return;finished=true;this.clearTimer(timer);a.onplaying=a.onended=a.onerror=a.onloadedmetadata=null;if(token!==undefined)this.mouth?.stop(token);if(this.finish===finish)this.finish=null;this.playing=false;a.pause();error?reject(error):resolve();};

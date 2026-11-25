@@ -1,7 +1,11 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
 import {SpeechAudioCache} from './public/speech-cache.mjs';
 import {CloudSpeechPlayer} from './public/cloud-speech.mjs';
+import {FAST_OPENINGS, getFastOpeningSource} from './public/fast-openings.mjs';
+import {readVoiceReply} from './public/chat-stream.mjs';
 
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const pcm=Buffer.from([0,64,0,192,0,32,0,224]);
@@ -62,4 +66,56 @@ test('oversized streams still play but do not retain audio, and dispose clears c
  await a.speak('A');await a.speak('A');assert.equal(a.requests.length,2);assert.equal(a.player.cache.bytes,0);
  a.player.cache=new SpeechAudioCache();await a.speak('B');assert.equal(a.player.cache.size,1);
  a.player.dispose();assert.equal(a.player.cache.bytes,0);assert.equal(a.player.cache.size,0);
+});
+
+test('each packaged opening matches the exact first phrase emitted by the reply reader',async()=>{
+ const lulu={soul:'mori',language:'en'};
+ assert.notEqual(getFastOpeningSource('Mm,',lulu),getFastOpeningSource('Mm.',lulu));
+ for(const text of ['mm,','Mm','Mm!','Mm, let’s go.',' Mm,'])assert.equal(getFastOpeningSource(text,lulu),undefined);
+ assert.equal(getFastOpeningSource('Mm,',{soul:'bori',language:'en'}),undefined);
+ assert.equal(getFastOpeningSource('Mm,',{...lulu,language:'ko'}),undefined);
+ const combinations=new Set();
+ for(const clip of FAST_OPENINGS){
+  combinations.add(`${clip.soul}-${clip.language}`);
+  const {soul,language,text}=clip;
+  const first=language==='zh'?text:`${text} `;
+  const tail={en:'Here we go.',ko:'함께 가자.',zh:'一起走吧。'}[language];
+  const frames=[{type:'delta',text:first},{type:'delta',text:tail},{type:'complete',soul,reply:first+tail}];
+  const stream=new Response(frames.map(frame=>JSON.stringify(frame)+'\n').join(''));
+  const phrases=[];
+  await readVoiceReply(stream,{soul,onText:()=>{},onSentence:phrase=>phrases.push(phrase)});
+  assert.equal(phrases[0],text,clip.path);
+  assert.equal(new URL(getFastOpeningSource(phrases[0],clip),'https://example.test').pathname,clip.path);
+ }
+ assert.equal(combinations.size,9);
+});
+
+test('packaged character openings contain distinct audible PCM and little leading silence',async()=>{
+ const hashes=new Set();
+ for(const {path} of FAST_OPENINGS){
+  const wave=await readFile(new URL(`./public${path}`,import.meta.url));
+  assert.equal(wave.toString('ascii',0,4),'RIFF',path);
+  assert.equal(wave.toString('ascii',8,16),'WAVEfmt ',path);
+  assert.equal(wave.readUInt32LE(4),wave.length-8,path);
+  assert.equal(wave.readUInt16LE(20),1,path); // PCM mono, 24 kHz, 16 bit
+  assert.equal(wave.readUInt16LE(22),1,path);
+  assert.equal(wave.readUInt32LE(24),24000,path);
+  assert.equal(wave.readUInt16LE(34),16,path);
+  assert.equal(wave.toString('ascii',36,40),'data',path);
+  assert.equal(wave.readUInt32LE(40),wave.length-44,path);
+  const pcm=wave.subarray(44),energy=[];
+  for(let offset=0;offset+240<=pcm.length;offset+=240){
+   let sum=0;
+   for(let at=offset;at<offset+240;at+=2)sum+=pcm.readInt16LE(at)**2;
+   energy.push(Math.sqrt(sum/120)); // RMS for each five milliseconds of decoded samples
+  }
+  const peak=Math.max(...energy);
+  assert.ok(peak>280,path);
+  const audible=Math.max(60,peak*.04),onset=energy.findIndex(level=>level>=audible);
+  assert.ok(onset>=0 && onset*5<=100,path);
+  assert.ok(energy.filter(level=>level>=audible).length>=7,path);
+  const digest=createHash('sha256').update(pcm).digest('hex');
+  assert.ok(!hashes.has(digest),path);
+  hashes.add(digest);
+ }
 });

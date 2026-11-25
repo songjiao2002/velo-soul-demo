@@ -1,6 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import {randomUUID} from 'node:crypto';
+import {FirstSpeechStreams} from './first-speech.mjs';
 import {relaySpeech,trimPandaWave} from './speech-stream.mjs';
 import {createChatHandler,createChatService} from './chat-service.mjs';
 import {CloudSpeechPlayer} from './public/cloud-speech.mjs';
@@ -25,6 +27,152 @@ function speechAfterQuiet(quietMs){
  return Buffer.concat([header,audio]);
 }
 const frameAudio=frames=>Buffer.concat(frames.filter(f=>f.audio).map(f=>Buffer.from(f.audio,'base64')));
+
+const chatDelta=content=>'data: '+JSON.stringify({choices:[{delta:{content}}]})+'\n\n';
+const chatStop='data: {"choices":[{"finish_reason":"stop"}]}\n\n';
+function deferred(){
+ let resolve;
+ const promise=new Promise(r=>{resolve=r;});
+ return {promise,resolve};
+}
+async function firstSpeechFixture(t,{text='Breezy! ',deferChat=false,ttsFailure=false,env={}}={}){
+ const first=deferred(),endChat=deferred(),endTts=deferred(),receivedWave=deferred(),calls=[];
+ const handler=createChatHandler({env:{DASHSCOPE_API_KEY:'fixture',...env},fetchImpl:async(url,options)=>{
+  if(url.endsWith('/chat/completions')){
+   const body=new ReadableStream({start(controller){
+    const send=value=>controller.enqueue(Buffer.from(value));
+    send(chatDelta(text));
+    const finish=()=>{send(chatStop);controller.close();};
+    if(deferChat)endChat.promise.then(finish);else finish();
+   }});
+   return new Response(body,{headers:{'Content-Type':'text/event-stream'}});
+  }
+  const request=JSON.parse(options.body);
+  calls.push(request.input.text);first.resolve(options.signal);
+  if(ttsFailure)return Response.json({error:{code:'Arrearage'}},{status:429});
+  assert.equal(options.headers['X-DashScope-SSE'],'enable');
+  return new Response(new ReadableStream({start(controller){
+   options.signal.addEventListener('abort',()=>{try{controller.error(options.signal.reason);}catch{}},{once:true});
+   controller.enqueue(Buffer.from(sse(wav)));
+   endTts.promise.then(()=>{try{controller.enqueue(Buffer.from(done));controller.close();}catch{}});
+  }}),{headers:{'Content-Type':'text/event-stream'}});
+ }});
+ const server=http.createServer((req,res)=>{
+  if(req.url==='/api/speech')req.once('end',receivedWave.resolve);
+  return handler(req,res);
+ });
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ t.after(()=>{endChat.resolve();endTts.resolve();return new Promise(r=>{server.close(r);server.closeAllConnections();});});
+ const base='http://127.0.0.1:'+server.address().port;
+ const post=(path,body,signal)=>fetch(base+path,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/x-ndjson',Origin:base},body:JSON.stringify(body),signal});
+ const chat=(firstSpeechId,language='en',soul='bori',signal)=>post('/api/chat',{firstSpeechId,voice:true,soul,language,messages:[{role:'user',content:'Hello'}]},signal);
+ return {first,endChat,endTts,receivedWave,calls,chat,post};
+}
+
+test('first speech starts before the rest of the reply and live PCM is claimed exactly once', {timeout:5000},async t=>{
+ const f=await firstSpeechFixture(t,{deferChat:true}),id=randomUUID();
+ const pendingChat=f.chat(id),signal=await f.first.promise;
+ assert.deepEqual(f.calls,['Breezy!']);assert.equal(signal.aborted,false);
+ const input={firstSpeechId:id,text:'Breezy!',soul:'bori',language:'en'};
+ const pending=await f.post('/api/speech/stream',input);
+ const reader=pending.body.getReader();
+ const first=JSON.parse(new TextDecoder().decode((await reader.read()).value).trim());
+ assert.equal(first.audio,wav.subarray(44).toString('base64'));
+ assert.equal((await f.post('/api/speech/stream',input)).status,409);
+ f.endTts.resolve();f.endChat.resolve();
+ assert.match(new TextDecoder().decode((await reader.read()).value),/"done":true/);
+ assert.match(await (await pendingChat).text(),/complete/);
+ assert.equal((await f.post('/api/speech',input)).status,409);
+ assert.deepEqual(f.calls,['Breezy!']);
+});
+
+test('Android can claim the actual final phrase as one exact WAV, never starting another synthesis', {timeout:5000},async t=>{
+ const f=await firstSpeechFixture(t,{text:'山'}),id=randomUUID();
+ const chat=await f.chat(id,'zh','lumi');
+ assert.match(await chat.text(),/complete/);
+ await f.first.promise;f.endTts.resolve();
+ const input={firstSpeechId:id,soul:'lumi',language:'zh',text:'山'};
+ const r=await f.post('/api/speech',input);
+ assert.equal(r.headers.get('content-type'),'audio/wav');assert.deepEqual(Buffer.from(await r.arrayBuffer()),wav);
+ assert.equal((await f.post('/api/speech/stream',input)).status,409);assert.deepEqual(f.calls,['山']);
+});
+
+test('an opted-in first phrase reports a real provider quota error once on either endpoint', {timeout:5000},async t=>{
+ for(const path of ['/api/speech','/api/speech/stream']){
+  const f=await firstSpeechFixture(t,{ttsFailure:true}),id=randomUUID();
+  await (await f.chat(id)).text();await f.first.promise;
+  const r=await f.post(path,{firstSpeechId:id,text:'Breezy!',soul:'bori',language:'en'});
+  assert.equal(r.status,429);assert.deepEqual(await r.json(),{error:'provider_quota'});assert.equal(f.calls.length,1);
+ }
+});
+
+test('aborting an Android WAV download cancels upstream audio before EOF and frees the shared slot', {timeout:5000},async t=>{
+ const f=await firstSpeechFixture(t,{env:{QWEN_MAX_CONCURRENT_REQUESTS:'2'}}),id=randomUUID();
+ await (await f.chat(id)).text();
+ const upstream=await f.first.promise,input={firstSpeechId:id,soul:'bori',language:'en',text:'Breezy!'};
+ const controller=new AbortController();
+ const download=f.post('/api/speech',input,controller.signal);
+ await f.receivedWave.promise;
+ assert.equal((await f.post('/api/speech/stream',input)).status,409);
+ controller.abort();await assert.rejects(download);
+ if(!upstream.aborted)await new Promise(resolve=>upstream.addEventListener('abort',resolve,{once:true}));
+ assert.equal((await f.post('/api/speech/stream',input)).status,409);
+ const next=randomUUID();
+ await (await f.chat(next)).text();
+ f.endTts.resolve();
+ assert.equal((await f.post('/api/speech',{...input,firstSpeechId:next})).status,200);
+ assert.deepEqual(f.calls,['Breezy!','Breezy!']);
+});
+
+test('offline openings, older clients, malformed IDs and occupied shared slots leave normal synthesis available', {timeout:5000},async t=>{
+ for(const [id,text,env] of [[undefined,'Swift!',{}],['not-a-uuid','Swift!',{}],[randomUUID(),'Oh,',{}],[randomUUID(),'Swift!',{QWEN_MAX_CONCURRENT_REQUESTS:'1'}]]){
+  const f=await firstSpeechFixture(t,{text,env});
+  await (await f.chat(id)).text();
+  assert.equal(f.calls.length,0);
+  const normal=f.post('/api/speech/stream',{firstSpeechId:id,soul:'bori',language:'en',text});
+  await f.first.promise;f.endTts.resolve();
+  assert.match(await (await normal).text(),/"done":true/);assert.deepEqual(f.calls,[text]);
+ }
+});
+
+test('a first-speech claim binds the exact role, language and full text, and orphans release capacity',async()=>{
+ const timers=new Map();let tick=0,upstream;
+ const registry=new FirstSpeechStreams(async(_input,{signal,emit})=>{
+  upstream=signal;await emit({audio:'AQI=',rate:24000});await emit({done:true});
+ },{maxEntries:1,setTimer:fn=>{timers.set(++tick,fn);return tick;},clearTimer:id=>timers.delete(id)});
+ const id=randomUUID(),chat=new AbortController(),stream=new AbortController();
+ const options={signal:stream.signal,emit:()=>{}};
+ assert.ok(registry.start(id,payload,chat.signal));
+ for(const different of [{soul:'lumi'},{language:'zh'},{text:payload.text+' '}]){
+  assert.equal(await registry.deliver(id,{...payload,...different},options),'missing');
+ }
+ assert.equal(registry.start(randomUUID(),payload,chat.signal),undefined);
+ timers.get(1)();
+ assert.ok(upstream.aborted);assert.equal(await registry.deliver(id,payload,options),'missing');
+ assert.ok(registry.start(randomUUID(),payload,chat.signal));chat.abort();assert.ok(upstream.aborted);
+});
+
+test('disconnecting or timing out a backpressured claimant aborts synthesis and releases its reader', {timeout:3000},async()=>{
+ for(const cancellation of ['client','deadline','chat']){
+  const entered=deferred(),released=deferred(),timers=new Map();let tick=0;
+  const registry=new FirstSpeechStreams(async(input,{signal,emit})=>{
+   try{
+    const frame={audio:'A'.repeat(65536),rate:24000};
+    for(let i=0;i<4;i++)await emit(frame);
+   }finally{released.resolve(signal);}
+  },{setTimer:fn=>{timers.set(++tick,fn);return tick;},clearTimer:id=>timers.delete(id)});
+  const id=randomUUID(),chat=new AbortController(),client=new AbortController();
+  registry.start(id,payload,chat.signal);
+  const serving=registry.deliver(id,payload,{signal:client.signal,emit:async(frame,signal)=>{
+   entered.resolve();
+   await new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(signal.reason),{once:true}));
+  }});
+  await entered.promise;
+  if(cancellation==='client')client.abort();else if(cancellation==='chat')chat.abort();else timers.get(2)();
+  await assert.rejects(serving);assert.ok((await released.promise).aborted);
+  assert.equal(await registry.deliver(id,payload,{signal:new AbortController().signal,emit:()=>{}}),'used');
+ }
+});
 
 test('an exact public acknowledgement replays complete identical audio without another synthesis',async()=>{
  const clip=speechAfterQuiet(220),url='https://dashscope-result-sgp.oss-ap-southeast-1.aliyuncs.com/ack.wav';

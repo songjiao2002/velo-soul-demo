@@ -20,6 +20,20 @@ test('media compatibility reuses one native element, caches clips and never requ
 test('saved media test loads only the introduction and does not call the speech API',async()=>{
  const a=setup();await a.player.prepare();await a.player.speak(['intro'],{...a.options,source:'/audio/intro/lumi-ko.wav'});assert.equal(a.requests.length,1);assert.equal(a.requests[0][0],'/audio/intro/lumi-ko.wav');assert.equal(a.getCaptures(),0);assert.equal(a.urls.size,0);a.player.dispose();a.devices.dispose();
 });
+test('a packaged first phrase on the media route plays once and falls back to its own generated voice if missing',async()=>{
+ for(const missing of [false,true]){
+  const a=setup(),firstSource='/audio/fast-openings/test.wav',firstSpeechId=crypto.randomUUID();
+  a.setFetch(url=>missing&&url===firstSource?new Response('',{status:404}):new Response(new Uint8Array(100)));
+  await a.player.speak(['Hi!','Slow down.'],{...a.options,firstSource,firstSpeechId});
+  assert.deepEqual(a.requests.map(([url])=>url),missing?[firstSource,'/api/speech','/api/speech']:[firstSource,'/api/speech']);
+  const generated=a.requests.filter(([url])=>url==='/api/speech').map(([,opt])=>JSON.parse(opt.body));
+  assert.ok(generated.every(body=>body.language==='ko'&&body.soul==='lumi'));
+  if(missing)assert.equal(generated[0].firstSpeechId,firstSpeechId);
+  assert.equal(Object.hasOwn(generated.at(-1),'firstSpeechId'),false);
+  assert.equal(generated.at(-1).text,'Slow down.');assert.deepEqual(a.states,['playing','playing','ended']);
+  a.player.dispose();a.devices.dispose();
+ }
+});
 test('native speech shares a pending weather preload instead of generating the same greeting twice',async()=>{
  const a=setup();let finish;a.setFetch(()=>new Promise(r=>finish=r));const preloaded=a.player.preload('weather',a.options),spoken=a.player.speak(['weather'],a.options);assert.equal(a.requests.length,1);finish(new Response(new Uint8Array(100)));await preloaded;await spoken;assert.deepEqual(a.states,['playing','ended']);assert.equal(a.requests.length,1);a.player.dispose();a.devices.dispose();
 });

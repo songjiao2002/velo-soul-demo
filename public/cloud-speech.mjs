@@ -2,6 +2,8 @@ import {appFetch} from './app-network.mjs';
 import {NativeSpeechPlayer} from './native-speech.mjs';
 import {SpeechMouthClock} from './speech-mouth.mjs';
 import {SpeechAudioCache} from './speech-cache.mjs';
+import {SpeechTempo,characterRate,fasterSpeechBuffer} from './speech-tempo.mjs';
+import {getFastOpeningSource} from './fast-openings.mjs';
 import {conversationServiceError,isConversationLimit} from './conversation-limits.mjs';
 import {requireSpeechResponse,speechFileBytes} from './speech-response.mjs';
 // Dynamic replies use real audio, independent of installed speechSynthesis voices.
@@ -28,6 +30,10 @@ export class CloudSpeechPlayer {
   return entry.promise;
  }
  cancelPrefetches(){this.native.cancelPrefetches();for(const [key,entry] of this.preloads)if(entry.dynamic){entry.controller.abort();this.preloads.delete(key);}}
+ canPrepareFirstSpeech(){
+  if(this.audioSession?.playbackMode==='media')return Boolean(this.native.audio&&this.native.prepared&&!this.native.audio.muted);
+  return this.context?.state==='running'&&typeof globalThis.ReadableStream==='function'&&typeof globalThis.TextDecoder==='function';
+ }
  prepare(){
   if(this.audioSession?.playbackMode==='media')return this.native.prepare();
   try{
@@ -43,28 +49,33 @@ export class CloudSpeechPlayer {
  stop(){this.audioSession?.setPlayback?.(this,false);this.serial++;this.native.stop();this.mouth?.stop();this.controller?.abort();this.controller=null;this.streamStop?.();this.clearTimer(this.timer);this.clearTimer(this.playTimer);if(this.source){this.source.onended=null;try{this.source.stop();this.source.disconnect();}catch{}this.source=null;}this.finishPlayback?.();this.finishPlayback=null;}
  async playStream(response,{soul,valid,report,received}){
   const context=this.context,reader=response.body.getReader(),decoder=new TextDecoder(),nodes=new Set();
-  const rate=soul==='mori'?.94:soul==='bori'?1.04:1;
-  let pending='',bytes=0,carry=null,done=false,played=false,next=context.currentTime+.03,tailTimer,resolveTail,mouthToken;
+  const rate=characterRate(soul),tempo=new SpeechTempo(24000);
+  let pending='',bytes=0,carry=null,done=false,played=false,next=context.currentTime+.015,tailTimer,resolveTail,mouthToken;
   let samplesToCache=[],sampleCount=0;
   const tail=new Promise(resolve=>resolveTail=resolve);
   const cleanup=()=>{if(mouthToken!==undefined)this.mouth?.stop(mouthToken);this.clearTimer(tailTimer);reader.cancel().catch(()=>{});for(const source of nodes){source.onended=null;try{source.stop();source.disconnect();}catch{}}nodes.clear();resolveTail();if(this.streamStop===cleanup)this.streamStop=null;};
   this.streamStop=cleanup;
-  const frame=value=>{
-   const data=JSON.parse(value);if(data.error)throw conversationServiceError(data,response.headers,'invalid_audio');if(done)throw new Error('invalid_audio');
-   if(data.done){done=true;return;}
-   if(data.rate!==24000||typeof data.audio!=='string'||!data.audio||data.audio.length>6000000)throw new Error('invalid_audio');
-   const binary=globalThis.atob(data.audio);bytes+=binary.length;if(bytes>4000000)throw new Error('invalid_audio');
-   const pcm=new Uint8Array(binary.length+(carry===null?0:1));let at=0;if(carry!==null)pcm[at++]=carry;for(const char of binary)pcm[at++]=char.charCodeAt(0);
-   carry=pcm.length%2?pcm.at(-1):null;const count=Math.floor(pcm.length/2);if(!count)return;
-   const buffer=context.createBuffer(1,count,24000),samples=buffer.getChannelData(0),view=new DataView(pcm.buffer);
-   for(let i=0;i<count;i++)samples[i]=view.getInt16(i*2,true)/32768;
+  const schedule=samples=>{
+   const count=samples.length;if(!count)return;
+   const buffer=context.createBuffer(1,count,24000);buffer.getChannelData(0).set(samples);
    sampleCount+=count;
    if(sampleCount*4>this.cache.maxBytes)samplesToCache=null;
    else samplesToCache?.push(samples);
    const source=context.createBufferSource();source.buffer=buffer;source.playbackRate.value=rate;source.connect(this.audioSession?.getOutput()||context.destination);nodes.add(source);
    source.onended=()=>{source.onended=null;source.disconnect();nodes.delete(source);if(done&&!nodes.size)resolveTail();};
-   next=Math.max(next,context.currentTime+.03);if(!played)mouthToken=this.mouth?.begin(()=>context.state==='running'?context.currentTime:null,soul);this.mouth?.enqueue(samples,24000,next,rate,mouthToken);source.start(next);next+=count/24000/rate;
+   next=Math.max(next,context.currentTime+.015);if(!played)mouthToken=this.mouth?.begin(()=>context.state==='running'?context.currentTime:null,soul);this.mouth?.enqueue(samples,24000,next,rate,mouthToken);source.start(next);next+=count/24000/rate;
    if(!played){played=true;report('playing');}
+  };
+  const frame=value=>{
+   const data=JSON.parse(value);if(data.error)throw conversationServiceError(data,response.headers,'invalid_audio');if(done)throw new Error('invalid_audio');
+   if(data.done){done=true;schedule(tempo.push(new Float32Array(0),true));return;}
+   if(data.rate!==24000||typeof data.audio!=='string'||!data.audio||data.audio.length>6000000)throw new Error('invalid_audio');
+   const binary=globalThis.atob(data.audio);bytes+=binary.length;if(bytes>4000000)throw new Error('invalid_audio');
+   const pcm=new Uint8Array(binary.length+(carry===null?0:1));let at=0;if(carry!==null)pcm[at++]=carry;for(const char of binary)pcm[at++]=char.charCodeAt(0);
+   carry=pcm.length%2?pcm.at(-1):null;const count=Math.floor(pcm.length/2);if(!count)return;
+   const samples=new Float32Array(count),view=new DataView(pcm.buffer);
+   for(let i=0;i<count;i++)samples[i]=view.getInt16(i*2,true)/32768;
+   schedule(tempo.push(samples));
   };
   try{
    while(valid()&&!done){
@@ -85,11 +96,12 @@ export class CloudSpeechPlayer {
    }
   }finally{cleanup();reader.releaseLock();}
  }
- async speak(text,{language='en',soul='lumi',source,onState=()=>{}}={}){
+ async speak(text,{language='en',soul='lumi',source,firstSpeechId,firstReplySegment=false,onState=()=>{}}={}){
   this.stop();const serial=this.serial,valid=()=>serial===this.serial,report=(state,detail)=>{if(valid()){this.audioSession?.setPlayback?.(this,['loading','playing'].includes(state));onState(state,detail);}};
   const parts=speechChunks(text);if(!parts.length){report('ended');return;}
   report('loading');
-  if(this.audioSession?.playbackMode==='media')return this.native.speak(parts,{language,soul,source,report});
+  const firstSource=firstReplySegment&&!source?getFastOpeningSource(text,{language,soul}):undefined;
+  if(this.audioSession?.playbackMode==='media')return this.native.speak(parts,{language,soul,source,firstSource,firstSpeechId,report});
   if(!this.context){report('blocked');return;}
   if(this.context.state!=='running'){
    let resumeTimer;
@@ -99,19 +111,20 @@ export class CloudSpeechPlayer {
   }
   const context=this.context,controller=new AbortController();this.controller=controller;let fetchTimer;
   try{
-   for(const part of parts){
+   for(const [index,part] of parts.entries()){
     if(!valid())return;
+    const partSource=source||(index===0?firstSource:undefined);
     const key=JSON.stringify([part,language,soul]);let buffer=this.cache.get(key);
-    if(!buffer&&(source||this.preloads.has(key))){
-     const pending=this.preloads.get(key)?.promise||this.preload(part,{language,soul,source}),entry=this.preloads.get(key);
+    if(!buffer&&(partSource||this.preloads.has(key))){
+     const pending=this.preloads.get(key)?.promise||this.preload(part,{language,soul,source:partSource}),entry=this.preloads.get(key);
      const bytes=await pending;if(!valid())return;
      if(entry?.failure){this.preloads.delete(key);throw entry.failure;}
-     if(bytes){try{buffer=await context.decodeAudioData(bytes.slice(0));}catch{}if(!valid())return;}
+     if(bytes){try{buffer=fasterSpeechBuffer(context,await context.decodeAudioData(bytes.slice(0)));}catch{}if(!valid())return;}
      if(buffer)this.cache.set(key,buffer);
     }
     if(!buffer){
      fetchTimer=this.timer=this.setTimer(()=>controller.abort(),35000);
-     const response=await this.fetchImpl('/api/speech/stream',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({text:part,language,soul})});
+     const response=await this.fetchImpl('/api/speech/stream',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({text:part,language,soul,firstSpeechId:index===0?firstSpeechId:undefined})});
      await requireSpeechResponse(response);
      if(!valid()){response.body?.cancel().catch(()=>{});return;}
      if(response.headers.get('content-type')?.includes('application/x-ndjson')){
@@ -119,14 +132,14 @@ export class CloudSpeechPlayer {
       if(completed&&valid())this.cache.set(key,completed);continue;
      }
      const bytes=await speechFileBytes(response);if(!valid())return;
-     buffer=await context.decodeAudioData(bytes);this.clearTimer(fetchTimer);
+     buffer=fasterSpeechBuffer(context,await context.decodeAudioData(bytes));this.clearTimer(fetchTimer);
      if(!valid())return;
      this.cache.set(key,buffer);
     }
     if(context.state!=='running'){report('blocked');return;}
     await new Promise((resolve,reject)=>{
      const source=context.createBufferSource();this.source=source;source.buffer=buffer;
-     source.playbackRate.value=soul==='mori'?.94:soul==='bori'?1.04:1;source.connect(this.audioSession?.getOutput()||context.destination);
+     source.playbackRate.value=characterRate(soul);source.connect(this.audioSession?.getOutput()||context.destination);
      let playTimer,mouthToken;
      const finish=()=>{if(mouthToken!==undefined)this.mouth?.stop(mouthToken);this.clearTimer(playTimer);source.onended=null;source.disconnect();if(this.source===source)this.source=null;if(this.finishPlayback===finish)this.finishPlayback=null;resolve();};
      this.finishPlayback=finish;source.onended=finish;

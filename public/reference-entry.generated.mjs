@@ -2,6 +2,7 @@ import {appFetch as liveFetch,getDeviceMedia as liveDeviceMedia} from './app-net
 import {generateRideDiary as liveDiary,DIARY_GENERATION_COPY as liveDiaryCopy} from './diary-generation.mjs';
 import {rideDiary as liveRideDiary,DIARY_COPY as liveDiaryLabels} from './journey-diary.mjs';
 import {CloudSpeechPlayer as LiveSpeech} from './cloud-speech.mjs';
+import {setMediaTempo as liveSetMediaTempo} from './speech-tempo.mjs';
 import {HandsFreeConversation as LiveConversation} from './hands-free.mjs';
 import {rideTalkPanel,paintRideTalk,rideTextChatLabel,rideVoiceControlsMarkup,paintRideVoiceControls} from './ride-voice-controls.mjs';
 import {MicrophoneInput as LiveMicrophone,createMicrophoneRecognition as liveRecognition} from './microphone-asr.mjs';
@@ -1591,7 +1592,7 @@ import {conversationLanguageLabel,conversationLanguagePicker} from './encounter-
       URL.revokeObjectURL(s);
     }
   }
-  var se = "20261125-mobile75";
+  var se = "20261125-mobile76";
   var Ns = null, Ni = null, Za = false;
   function ji() {
     Za = true;
@@ -1604,7 +1605,7 @@ import {conversationLanguageLabel,conversationLanguagePicker} from './encounter-
       Ni.mountCharacters();
       return;
     }
-    Ns ??= import("/character-toon.bundle.mjs?v=20261125-mobile75").catch(() => null);
+    Ns ??= import("/character-toon.bundle.mjs?v=20261125-mobile76").catch(() => null);
     Ns.then((module) => {
       if (!Za) return;
       if (module) {
@@ -4678,7 +4679,7 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
       }, s = (o) => {
         t === this.serial && (this.stop(), this.onState(o));
       };
-      a.src = e, a.muted = false, a.volume = 1, a.playbackRate = 1, a.onplaying = () => {
+      a.src = e, a.muted = false, a.volume = 1, liveSetMediaTempo(a), a.onplaying = () => {
         t === this.serial && (clearTimeout(this.timer), n("playing"));
       }, a.onended = () => {
         t === this.serial && (clearTimeout(this.timer), n("ended"));
@@ -4696,7 +4697,7 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
 Ft=liveDeviceMedia;
 Qt=liveOutputLanguage;ds=livePlaceFallback;on=liveBikeMemoryLine;
 la=liveWeatherLine;mn=liveWeatherGreeting;
-Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S});
+Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S,canPrepareFirstSpeech:()=>!M?.active&&Z&&ue.canPrepareFirstSpeech()});
 Tt=LiveSpeech;at=LiveMicrophone;ua=options=>liveRecognition({...options,standby:true});Et=LiveAudioSession;xi=LiveMemory;
 Ga=rideVoiceControlsMarkup;
 fs=paintRideVoiceControls;
@@ -4723,7 +4724,7 @@ kl=function(state){
  syncRideTalk(state);
 };
 wt=class extends LiveConversation {
- constructor(options={}){super({...options,prefetchSpeech:(text,language,soul)=>ue.preload(text,{language,soul}),stopSpeech:()=>{ue.cancelPrefetches();options.stopSpeech?.();}});}
+ constructor(options={}){super({...options,canPrepareFirstSpeech:()=>Z&&ue.canPrepareFirstSpeech(),prefetchSpeech:(text,language,soul)=>ue.preload(text,{language,soul}),stopSpeech:()=>{ue.cancelPrefetches();options.stopSpeech?.();}});}
 };
 Ds=liveIntroduction;Kt=liveIntroClip;
 Mi=(text,language='auto')=>liveReplyLanguage(text,language,P);
@@ -5881,13 +5882,12 @@ window.addEventListener('velo:ready',()=>{
   p("languageSelect").addEventListener("change", Oo);
   bs({ getLanguage: S });
 
-  function In(i, e, t = P, a = () => {
-  }) {
+  function In(i, e, t = P, a = () => {}, speechOptions) {
     if (Ce(), Ma = t, G = { line: i, key: null, id: t, dynamicLanguage: e }, p("cameraCaption") && (p("cameraCaption").textContent = i), !Z) {
       a("unavailable");
       return;
     }
-    ue.speak(i, { language: e, soul: t, source: Kt(i, t, e), onState: (n, failure) => {
+    ue.speak(i, { language: e, soul: t, ...speechOptions, source: Kt(i, t, e), onState: (n, failure) => {
       n === "playing" && (dt.meet(t), Mn?.render()), _e(document, n === "playing" ? "talking" : n === "loading" ? "thinking" : "listening"), document.body.classList.toggle("voice-playing", n === "playing" || n === "loading"), hi({ loading: "목소리를 준비하고 있어요…", playing: e === "zh" ? "正在播放中文语音" : e === "ko" ? "한국어 목소리 재생 중" : "English voice playing", ended: "다시 듣기로 목소리를 들을 수 있어요.", blocked: "소리를 켜려면 듣기 버튼을 눌러주세요.", unavailable: "소리를 재생하지 못했어요. 다시 듣기를 눌러주세요." }[n] || (liveLimitCopy[S()][n] || "") + liveRetryAfter(S(),failure?.retryAfter)), a(n,failure);
     } });
   }
@@ -6009,9 +6009,8 @@ window.addEventListener('velo:ready',()=>{
       <button type="button" class="camera-scene-tab" data-scene-mode="map" aria-pressed="false" data-no-translate>${scene.map}</button>
     </div>`;
   }
-  function ze(i, e, t = P, a = () => {
-  }) {
-    return M?.active ? M.announce(i, e, a) : In(i, e, t, a);
+  function ze(i, e, t = P, a = () => {}, speechOptions) {
+    return M?.active ? M.announce(i, e, a) : In(i, e, t, a, speechOptions);
   }
   async function _n() {
     try {

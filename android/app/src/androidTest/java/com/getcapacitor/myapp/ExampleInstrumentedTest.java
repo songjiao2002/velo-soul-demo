@@ -31,6 +31,22 @@ public class ExampleInstrumentedTest {
         while(System.currentTimeMillis()<end){if("true".equals(js("Boolean("+expression+")")))return;Thread.sleep(200);}
         fail("Timed out: "+expression+"; startup="+js("document.querySelector('#startupError')?.textContent"));
     }
+    @Test public void allCharacterOpeningsDecodeInsideTheBundledWebView() throws Exception {
+        awaitTrue("location.protocol === 'https:' && document.readyState === 'complete'");
+        js("(async()=>{" +
+            "const manifest=await (await fetch('/native-build.json')).json();" +
+            "const clips=manifest.files.filter(file=>file.name.startsWith('audio/fast-openings/'));" +
+            "for(const soul of ['lumi','mori','bori'])for(const lang of ['en','ko','zh']){" +
+            "if(clips.filter(file=>file.name.startsWith(`audio/fast-openings/${soul}-${lang}-`)).length!==2)throw Error(soul+' '+lang);}" +
+            "const decoder=new OfflineAudioContext(1,1,24000);" +
+            "for(const clip of clips){const bytes=await (await fetch('/'+clip.name)).arrayBuffer();" +
+            "const audio=await decoder.decodeAudioData(bytes);" +
+            "if(audio.numberOfChannels!==1 || !audio.getChannelData(0).some(sample=>Math.abs(sample)>.01))throw Error(clip.name);}" +
+            "window.__openingCheck=clips.length;})().catch(error=>window.__openingCheck=String(error))");
+        awaitTrue("window.__openingCheck !== undefined");
+        assertEquals("18", js("window.__openingCheck"));
+    }
+
     private void allowCameraPermission() throws Exception {
         var automation=InstrumentationRegistry.getInstrumentation().getUiAutomation();
         var info=automation.getServiceInfo();

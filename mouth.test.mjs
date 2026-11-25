@@ -2,6 +2,33 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {analyseMouth,SpeechMouthClock} from './public/speech-mouth.mjs';
 import {CloudSpeechPlayer} from './public/cloud-speech.mjs';
+import {SpeechTempo,SPEECH_TEMPO,characterRate,setMediaTempo} from './public/speech-tempo.mjs';
+
+test('streamed speech starts on the first packet and speeds up without shifting a sustained voice',()=>{
+ const sampleRate=24000,frequency=176;
+ const input=Float32Array.from({length:sampleRate*2},(_,i)=>.3*Math.sin(2*Math.PI*frequency*i/sampleRate));
+ const tempo=new SpeechTempo(sampleRate),segments=[];
+ // Alternate uneven packet sizes. A splice can straddle any network boundary.
+ for(let i=0,size=13;i<input.length;size=size===13?1127:13){
+  const end=Math.min(input.length,i+size);
+  segments.push(tempo.push(input.subarray(i,end)));i=end;
+ }
+ segments.push(tempo.push(new Float32Array(0),true));
+ assert.deepEqual(segments[0],input.slice(0,13));
+ const combined=Float32Array.from(segments.flatMap(segment=>Array.from(segment)));
+ const whole=new SpeechTempo(sampleRate).push(input,true);
+ assert.deepEqual(combined,whole);
+ assert.equal(whole.at(-1),input.at(-1));
+ assert.ok(Math.abs(input.length/whole.length-SPEECH_TEMPO)<.015);
+ let crossings=0;
+ for(let i=1;i<whole.length;i++)if(whole[i-1]<=0&&whole[i]>0)crossings++;
+ assert.ok(Math.abs(crossings*sampleRate/whole.length-frequency)<2);
+ for(const soul of ['mori','bori','lumi']){
+  const audio={};setMediaTempo(audio,characterRate(soul));
+  assert.equal(audio.preservesPitch,true);
+  assert.equal(audio.playbackRate,characterRate(soul)*SPEECH_TEMPO);
+ }
+});
 
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const samples=new Float32Array(2400).fill(.18);
