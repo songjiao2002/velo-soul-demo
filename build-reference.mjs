@@ -8,6 +8,8 @@ const normalize=text=>text.replaceAll('\r\n','\n').replaceAll('/ride/','/').repl
 let js=await read('app.pretty.js');
 function replace(before,after){if(js.split(before).length!==2)throw Error('Reference anchor changed: '+before.slice(0,100));js=js.replace(before,after);}
 replace('  var Ao = ',(await read('live-adapter.js'))+'\n  var Ao = ');
+replace('on(this.bike, this.memory.theme, this.getLanguage() === "zh" ? "en" : this.getLanguage())','on(this.bike, this.memory.theme, this.getLanguage())');
+replace('W === "ko" ? Di.mori[0].line','W === "zh" ? "唔，骑得有点快啦。想慢一点就慢一点吧。" : W === "ko" ? Di.mori[0].line');
 replace('source: Kt(i, t, e), onState: (n) => {','source: Kt(i, t, e), onState: (n, failure) => {');
 replace('}[n]), a(n);','}[n] || (liveLimitCopy[S()][n] || "") + liveRetryAfter(S(),failure?.retryAfter)), a(n,failure);');
 replace('    ${bl()}','    ${bl()}\n    ${rideTalkPanel(language, !!M?.active, M?.state || "off", !!M?.audioIssue, Xr[language].sound)}');
@@ -20,8 +22,15 @@ const readyEvent='  window.dispatchEvent(new window.Event("velo:ready"));';
 replace(readyEvent,openInitialView+'\n'+readyEvent);
 replace('      <details class="ride-map-credits"', '      <p class="small" data-no-translate>${liveVoicePrivacy[S()]}</p>\n      <details class="ride-map-credits"');
 replace('  ko();','  ko(); syncSpeechLanguage();');
+replace('      <button class="encounter-start"','      ${conversationLanguagePicker(locale,yi())}\n      <button class="encounter-start"');
 replace('const selected = M?.language || yi();','const selected = yi();');
 replace('p("rideSettings")?.querySelector("[name=ride-language]:checked")?.value || yi()','yi()');
+replace('V.setInputLanguage(i.target.value), e ? (M.start(P, yi()), _n()) : !V.isOpen()', '!e && !V.isOpen()');
+replace('      if (M?.active) {\n        M.start(P, option.value);\n        _n();\n      }','');
+replace('fi(), M?.stop(), ae?.stop();','fi();');
+replace('W === "ko" ? Di.mori[0].line', 'W === "zh" ? "骑得有点快啦，我们慢一点吧。" : W === "ko" ? Di.mori[0].line');
+replace('playing: e === "ko" ? "한국어 목소리 재생 중" : "영어 목소리 재생 중"', 'playing: e === "zh" ? "正在播放中文语音" : e === "ko" ? "한국어 목소리 재생 중" : "English voice playing"');
+replace('playing: W === "en" ? "영어 목소리 재생 중" : "한국어 목소리 재생 중"', 'playing: W === "zh" ? "正在播放中文语音" : W === "ko" ? "한국어 목소리 재생 중" : "English voice playing"');
 replace('  p("voiceSelect").addEventListener','  p("languageSelect").addEventListener("change", () => queueMicrotask(syncSpeechLanguage));\n  p("voiceSelect").addEventListener');
 js=js.replaceAll('p("voiceSelect").value = W;','p("voiceSelect").value = yi();');
 replace('record.generatedDiary?.body ? "" : diaryTranslationMenu(originalDiaryLanguage(record))','diaryTranslationMenu(originalDiaryLanguage(record))');

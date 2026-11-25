@@ -12,7 +12,7 @@ test('device memory survives reopening, is separated by companion and never repl
  assert.equal(memory.read('lumi').visits,1);assert.equal(memory.read('lumi').exchanges.length,6);
  const next=new DeviceCompanionMemory({storage:saved,now:()=>clock+1000});
  assert.equal(next.context('lumi').exchanges.length,3);assert.equal(next.context('bori'),null);assert.equal(next.context('mori'),null);
- assert.match(next.greeting('lumi','zh').text,/Mori/);assert.equal(next.greeting('lumi','zh').language,'en');assert.equal(next.greeting('lumi','ko').language,'ko');
+ assert.match(next.greeting('lumi','zh').text,/Mori/);assert.equal(next.greeting('lumi','zh').language,'zh');assert.equal(next.greeting('lumi','ko').language,'ko');
  assert.ok(next.welcome('lumi','zh'));next.meet('lumi');next.meet('lumi');assert.equal(next.read('lumi').visits,2);
 });
 test('clearing one companion removes its prior context without erasing other companions or diaries',()=>{

@@ -49,10 +49,10 @@ test('Qwen readiness accepts official HTTPS endpoints and never exposes credenti
  for(const url of ['http://dashscope-intl.aliyuncs.com/compatible-mode/v1','https://attacker.test/compatible-mode/v1','https://dashscope-intl.aliyuncs.com.attacker.test/compatible-mode/v1','https://key@dashscope-intl.aliyuncs.com/compatible-mode/v1'])assert.equal(chatConfig({...env,QWEN_BASE_URL:url}).configured,false);
  assert.equal(JSON.stringify(createChatService({env}).status()).includes(env.DASHSCOPE_API_KEY),false);
 });
-test('client and server route Chinese input to English while preserving Korean and English',()=>{
- for(const [text,detected,output] of [['你好，我有点累','zh','en'],['오늘 좀 지쳤어','ko','ko'],['Hello, I feel tired','en','en']]){
-  assert.equal(detectInputLanguage(text),detected);assert.equal(outputLanguage(detected),output);
-  assert.equal(validateChat(input('lumi',detected)).language,output);
+test('client and server preserve all three spoken languages for every persona',()=>{
+ for(const [text,language] of [['你好，我有点累','zh'],['오늘 좀 지쳤어','ko'],['Hello, I feel tired','en']]){
+  assert.equal(detectInputLanguage(text),language);assert.equal(outputLanguage(language),language);
+  for(const soul of ['lumi','mori','bori'])assert.equal(validateChat(input(soul,language)).language,language);
  }
 });
 test('conversation validation excludes injected roles, unknown characters and oversized histories',()=>{

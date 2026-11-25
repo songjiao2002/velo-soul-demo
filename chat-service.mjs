@@ -66,7 +66,7 @@ export function validateChat(body,now=Date.now()){
   const location=validateLocationContext(body.context?.location,now);
   const image=body.image===undefined?null:validateImage(body.image);
   const weatherId=typeof body.context?.weatherId==='string'&&/^[a-f0-9-]{36}$/.test(body.context.weatherId)?body.context.weatherId:null;
-  return {voice:body.voice===true,soul:body.soul,language:body.language==='zh'&&body.soul!=='mori'?'en':body.language,messages,event,location,image,weatherId,deviceMemory:validateDeviceMemory(body.context?.deviceMemory,body.soul,now)};
+  return {voice:body.voice===true,soul:body.soul,language:body.language,messages,event,location,image,weatherId,deviceMemory:validateDeviceMemory(body.context?.deviceMemory,body.soul,now)};
 }
 
 export async function loadSoulSkills(){
@@ -108,7 +108,7 @@ export function validateAudio(body){
 
 export function validateSpeech(body){
  if(!body||!SOUL_IDS.includes(body.soul)||!['en','ko','zh'].includes(body.language)||typeof body.text!=='string'||!body.text.trim()||body.text.length>600)throw new ChatError('invalid_speech');
- return {text:body.text.trim(),soul:body.soul,language:body.language==='ko'?'Korean':body.language==='zh'&&body.soul==='mori'?'Chinese':'English'};
+ return {text:body.text.trim(),soul:body.soul,language:{ko:'Korean',en:'English',zh:'Chinese'}[body.language]};
 }
 export function speechAudioURL(value){
  let u;try{u=new URL(value);}catch{throw new ChatError('invalid_response',502);}

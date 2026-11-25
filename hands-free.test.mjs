@@ -11,9 +11,28 @@ function setup(fetchImpl,options={}){
 }
 test('spoken input sends automatically with context, replies aloud, then resumes and preserves history',async()=>{
  const a=setup();a.session.start('bori','zh');assert.equal(a.recognizers[0].lang,'zh-CN');
- a.recognizers[0].hear('你看到什么？');await flush();assert.equal(a.calls.length,1);assert.equal(a.calls[0].url,'/api/chat/scene');assert.equal(a.calls[0].body.language,'en');assert.equal(a.voices.length,1);
+ a.recognizers[0].hear('你看到什么？');await flush();assert.equal(a.calls.length,1);assert.equal(a.calls[0].url,'/api/chat/scene');assert.equal(a.calls[0].body.language,'zh');assert.equal(a.voices.length,1);
  assert.equal(a.recognizers[0].active,false);a.voices[0].callback('ended');a.run(100);assert.equal(a.recognizers.at(-1).active,true);
  a.recognizers.at(-1).hear('Tell me more');await flush();assert.equal(a.calls[1].body.messages.length,3);a.session.stop();assert.equal(a.timers.size,0);
+});
+test('changing languages in a ride cancels the old reply while preserving the companion and completed turns',async()=>{
+ let finishOld;
+ const a=setup((url,options)=>{
+  const {soul,language,messages}=JSON.parse(options.body);
+  if(messages.at(-1).content==='Wait a moment')return new Promise(resolve=>{finishOld=resolve;});
+  return Response.json({soul,reply:language==='ko'?'기억해.':'记住了。'});
+ });
+ a.session.start('bori','zh');a.recognizers.at(-1).hear('我的头盔是蓝色的');await flush();
+ a.voices[0].callback('ended');a.run(100);
+ a.session.setLanguage('en');a.recognizers.at(-1).hear('Wait a moment');await flush();
+ a.session.setLanguage('ko');assert.ok(a.calls[1].signal.aborted);
+ finishOld(Response.json({soul:'bori',reply:'An obsolete English reply.'}));await flush();
+ assert.equal(a.voices.length,1);assert.equal(a.session.state,'listening');
+ assert.equal(a.recognizers.at(-1).lang,'ko-KR');
+ a.recognizers.at(-1).hear('내 헬멧은 무슨 색이야?');await flush();
+ assert.equal(a.calls[2].body.soul,'bori');assert.equal(a.calls[2].body.language,'ko');
+ assert.deepEqual(a.calls[2].body.messages.map(m=>m.content),['我的头盔是蓝色的','记住了。','내 헬멧은 무슨 색이야?']);
+ a.session.stop();a.session.setLanguage('zh');assert.equal(a.session.active,false);
 });
 test('reply-time monitoring accepts Chinese, English and Korean interruption without forwarding the command',async()=>{
  for(const [language,command] of [['zh','等一下'],['en','stop'],['ko','잠깐']]){

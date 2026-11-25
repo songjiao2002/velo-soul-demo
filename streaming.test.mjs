@@ -235,7 +235,7 @@ test('Korean selection reaches the microphone POST, ASR language hint, reply and
  let recognizer,reply,speech;class FakeRecognition{constructor(){recognizer=this;}start(){this.onstart?.();}abort(){}}
  const session=new HandsFreeConversation({Recognition:FakeRecognition,fetchImpl:async(_,o)=>{reply=JSON.parse(o.body);return new Response(JSON.stringify({soul:'mori',reply:'응, 잘 들려!'}));},speak:(text,language)=>speech={text,language}});
  session.start('mori','ko');recognizer.onresult({results:[{0:{transcript:payload.text},isFinal:true}]});await flush();assert.equal(recognizer.inputLanguage,'ko');assert.equal(reply.language,'ko');assert.equal(speech.language,'ko');session.stop();
- assert.equal(replyLanguage('OK','ko'),'ko');assert.equal(replyLanguage('你好','ko'),'en');assert.equal(replyLanguage('안녕','auto'),'ko');assert.equal(needsCamera('How are you?'),false);assert.equal(needsCamera('저거 보여?'),true);assert.equal(needsCamera('你看到什么？'),true);
+ assert.equal(replyLanguage('OK','ko'),'ko');assert.equal(replyLanguage('你好','ko'),'ko');assert.equal(replyLanguage('안녕','auto'),'ko');assert.equal(needsCamera('How are you?'),false);assert.equal(needsCamera('저거 보여?'),true);assert.equal(needsCamera('你看到什么？'),true);
 });
 test('short acknowledgements are recognized while a brief click is still ignored',async()=>{
  const input={attach:async r=>input.r=r,detach(){},onLevel(){}};let calls=0;

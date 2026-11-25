@@ -55,3 +55,5 @@ html.native-app body {
 .ride-talk-toggle[aria-pressed="true"] svg:first-child,
 .ride-talk-toggle[aria-pressed="false"] svg:nth-child(2),
 .ride-talk-panel [hidden], .ride-talk-status:empty { display: none; }
+
+.encounter-player .encounter-language { margin: 6px 0 12px; }

@@ -15,7 +15,12 @@ import {companionQuery,currentSoulQR} from './qr-links.mjs';
 import {companionBrowserLinks as liveBrowserLinks} from './audio-browser.mjs';
 import {createSoulChat as liveSoulChat} from './soul-chat.mjs';
 import {VOICE_PRIVACY as liveVoicePrivacy} from './voice-privacy.mjs';
+import {outputLanguage as liveOutputLanguage} from './input-language.mjs';
+import {placeFallback as livePlaceFallback} from './seoul-places.mjs';
+import {weatherLine as liveWeatherLine,weatherGreeting as liveWeatherGreeting} from './weather-core.mjs';
+import {memoryLine as liveBikeMemoryLine} from './bike-memory-core.mjs';
 import {COMMUNICATION_LIMIT_COPY as liveLimitCopy,retryAfterLabel as liveRetryAfter} from './conversation-limits.mjs';
+import {conversationLanguageLabel,conversationLanguagePicker} from './encounter-screen.mjs';
 (() => {
   var ir = Object.defineProperty;
   var yt = (i, e) => () => (i && (e = i(i = 0)), e);
@@ -844,6 +849,7 @@ import {COMMUNICATION_LIMIT_COPY as liveLimitCopy,retryAfterLabel as liveRetryAf
       </div>
       <p class="encounter-greeting">${dr(returning || companion.greeting[locale])}</p>
       <p class="meeting-description">${companion.story[locale]}</p>
+      ${conversationLanguagePicker(locale,yi())}
       <button class="encounter-start" type="button" data-action="encounter">${copy.start}</button>
     </div>
   </section>`;
@@ -1585,7 +1591,7 @@ import {COMMUNICATION_LIMIT_COPY as liveLimitCopy,retryAfterLabel as liveRetryAf
       URL.revokeObjectURL(s);
     }
   }
-  var se = "20261125-mobile74";
+  var se = "20261125-mobile75";
   var Ns = null, Ni = null, Za = false;
   function ji() {
     Za = true;
@@ -1598,7 +1604,7 @@ import {COMMUNICATION_LIMIT_COPY as liveLimitCopy,retryAfterLabel as liveRetryAf
       Ni.mountCharacters();
       return;
     }
-    Ns ??= import("/character-toon.bundle.mjs?v=20261125-mobile74").catch(() => null);
+    Ns ??= import("/character-toon.bundle.mjs?v=20261125-mobile75").catch(() => null);
     Ns.then((module) => {
       if (!Za) return;
       if (module) {
@@ -2298,7 +2304,7 @@ import {COMMUNICATION_LIMIT_COPY as liveLimitCopy,retryAfterLabel as liveRetryAf
     render() {
       let e = this.copy();
       for (let t of this.document.querySelectorAll("[data-bike-memory]")) {
-        let a = t.querySelector("[data-memory-text]")?.value || "", n = t.querySelector("[data-memory-consent]")?.checked || false, s = this.owned.filter((r) => r.bike === this.bike), o = t.dataset.bikeMemory === "farewell" ? `<h2>${e.question}</h2><p>${e.hint}</p><label class="sr-only" for="bikeMemoryText">${e.question}</label><textarea id="bikeMemoryText" data-memory-text rows="3" maxlength="120" placeholder="${qe(e.placeholder)}">${qe(a)}</textarea><label class="memory-consent"><input type="checkbox" data-memory-consent ${n ? "checked" : ""}> <span>${e.consent}</span></label><button class="secondary" data-memory-share ${this.busy || this.state !== "ready" ? "disabled" : ""}>${this.busy ? e.saving : e.share}</button><p class="small memory-status" role="status">${qe(e[this.status] || (this.state === "unavailable" ? e.unavailable : ""))}</p><details><summary>${e.tag}</summary><p class="small">${e.privacy}</p></details>` : t.dataset.bikeMemory === "welcome" ? ta(this.bike, this.getLanguage()) : `<span class="eyebrow">${e.tag}</span><p class="memory-whisper">${qe(this.state === "loading" ? e.loading : this.state === "unavailable" ? e.unavailable : this.memory ? on(this.bike, this.memory.theme, this.getLanguage() === "zh" ? "en" : this.getLanguage()) : e.empty)}</p>${this.memory ? `<blockquote>“${qe(this.memory.text)}”</blockquote><small>${e.quoted}</small>` : ""}`;
+        let a = t.querySelector("[data-memory-text]")?.value || "", n = t.querySelector("[data-memory-consent]")?.checked || false, s = this.owned.filter((r) => r.bike === this.bike), o = t.dataset.bikeMemory === "farewell" ? `<h2>${e.question}</h2><p>${e.hint}</p><label class="sr-only" for="bikeMemoryText">${e.question}</label><textarea id="bikeMemoryText" data-memory-text rows="3" maxlength="120" placeholder="${qe(e.placeholder)}">${qe(a)}</textarea><label class="memory-consent"><input type="checkbox" data-memory-consent ${n ? "checked" : ""}> <span>${e.consent}</span></label><button class="secondary" data-memory-share ${this.busy || this.state !== "ready" ? "disabled" : ""}>${this.busy ? e.saving : e.share}</button><p class="small memory-status" role="status">${qe(e[this.status] || (this.state === "unavailable" ? e.unavailable : ""))}</p><details><summary>${e.tag}</summary><p class="small">${e.privacy}</p></details>` : t.dataset.bikeMemory === "welcome" ? ta(this.bike, this.getLanguage()) : `<span class="eyebrow">${e.tag}</span><p class="memory-whisper">${qe(this.state === "loading" ? e.loading : this.state === "unavailable" ? e.unavailable : this.memory ? on(this.bike, this.memory.theme, this.getLanguage()) : e.empty)}</p>${this.memory ? `<blockquote>“${qe(this.memory.text)}”</blockquote><small>${e.quoted}</small>` : ""}`;
         t.innerHTML = o + (t.dataset.bikeMemory === "welcome" && this.status ? `<p class="small" role="status">${qe(e[this.status] || "")}</p>` : "") + (s.length ? `<details class="memory-owned"><summary>${e.own} · ${s.length}</summary>${s.map((r) => `<div><p>${qe(r.text)}</p><button class="text-button" data-memory-forget="${qe(r.id)}" ${this.busy ? "disabled" : ""}>${e.forget}</button></div>`).join("")}</details>` : "");
       }
     }
@@ -4688,6 +4694,8 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
 // The imported source retains its layout, rendering, navigation and interactions.
 // Camera and microphone must use the same pending Android permission queue.
 Ft=liveDeviceMedia;
+Qt=liveOutputLanguage;ds=livePlaceFallback;on=liveBikeMemoryLine;
+la=liveWeatherLine;mn=liveWeatherGreeting;
 Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S});
 Tt=LiveSpeech;at=LiveMicrophone;ua=options=>liveRecognition({...options,standby:true});Et=LiveAudioSession;xi=LiveMemory;
 Ga=rideVoiceControlsMarkup;
@@ -4780,23 +4788,38 @@ function playLiveIntroduction(){
  In(intro.text,intro.language);
 }
 function syncSpeechLanguage(){
- W=speechLanguages.voice(S(),P);
+ const language=yi(),voice=speechLanguages.voice(S(),P);
+ const changed=W!==voice||M?.active&&M.language!==language;
+ W=voice;
  const select=p('voiceSelect');
- select.value=yi();
- p('voiceSelectLabel').textContent={ko:'음성 입력 언어',en:'Speech input',zh:'语音输入语言'}[S()];
+ select.value=language;
+ p('voiceSelectLabel').textContent=conversationLanguageLabel[S()];
+ const encounter=p('encounterVoiceLanguage');
+ if(encounter)encounter.value=language;
  const choices=[...(p('rideSettings')?.querySelectorAll('[name=ride-language]')||[])];
  const index=choices.findIndex(option=>option.value===select.value);
  if(index>=0){
   choices[index].checked=true;
   choices[index].closest('.language-options').style.setProperty('--choice-index',index);
  }
+ if(changed){
+  We();
+  ue.cancelPrefetches();
+  if(!M?.active)Ce();
+  if(ae?.active)ae.start(P,W);
+ }
+ if(M?.active)M.setLanguage(language);
+ if(V?.isOpen())V.setInputLanguage(language);
 }
 jn=function(language){
  speechLanguages.select(language);
  syncSpeechLanguage();
  La();
- if(ae?.active)ae.start(P,W);
 };
+document.addEventListener('change',event=>{
+ if(event.target.id!=='encounterVoiceLanguage')return;
+ ue.prepare();jn(event.target.value);Z=true;playLiveIntroduction();
+});
 Eo=function(soul){W=speechLanguages.voice(S(),soul);referenceTheme(soul);};
 const referenceStop=Ce;
 Ce=function(){liveIdlePurr?.activity();referenceStop();};
@@ -4857,7 +4880,7 @@ window.addEventListener('velo:ready',()=>{
     });
   }
   var xa = new va({ audio: ri, onState: (i) => {
-    He.setPlayback(xa, ["loading", "playing"].includes(i)), i === "playing" ? ue.followMedia(ri, ri.currentSrc || ri.src, Ma) : ["ended", "blocked", "timeout", "error"].includes(i) && ue.stop(), _e(document, i === "playing" ? "talking" : i === "loading" ? "thinking" : "rest"), document.body.classList.toggle("voice-playing", i === "playing"), hi({ loading: "목소리를 준비하고 있어요…", playing: W === "en" ? "영어 목소리 재생 중" : "한국어 목소리 재생 중", ended: "다시 듣기로 목소리를 들을 수 있어요.", blocked: "소리를 켜려면 듣기 버튼을 눌러주세요.", timeout: "불러오기가 지연돼요. 다시 듣기를 눌러주세요.", error: "소리를 재생하지 못했어요. 다시 듣기를 눌러주세요." }[i]);
+    He.setPlayback(xa, ["loading", "playing"].includes(i)), i === "playing" ? ue.followMedia(ri, ri.currentSrc || ri.src, Ma) : ["ended", "blocked", "timeout", "error"].includes(i) && ue.stop(), _e(document, i === "playing" ? "talking" : i === "loading" ? "thinking" : "rest"), document.body.classList.toggle("voice-playing", i === "playing"), hi({ loading: "목소리를 준비하고 있어요…", playing: W === "zh" ? "正在播放中文语音" : W === "ko" ? "한국어 목소리 재생 중" : "English voice playing", ended: "다시 듣기로 목소리를 들을 수 있어요.", blocked: "소리를 켜려면 듣기 버튼을 눌러주세요.", timeout: "불러오기가 지연돼요. 다시 듣기를 눌러주세요.", error: "소리를 재생하지 못했어요. 다시 듣기를 눌러주세요." }[i]);
   } }), He = new Et(), To = new Qi({ session: He }), ue = new Tt({ audioSession: He, onMouth: (i) => po(document, i) });
   function La(i = P) {
     let e = Ln(i, yi());
@@ -5164,7 +5187,7 @@ window.addEventListener('velo:ready',()=>{
           }
           if (!V.isOpen() && !M?.isBusy() && !Pe && !document.body.classList.contains("voice-playing") && P === "mori" && y.speed > 22 && !y.events.includes("actual-speed")) {
             y.events.push("actual-speed");
-            let s = W === "ko" ? Di.mori[0].line : "We seem to be riding quite quickly. If you would like, we can ease our pace a little.";
+            let s = W === "zh" ? "唔，骑得有点快啦。想慢一点就慢一点吧。" : W === "zh" ? "骑得有点快啦，我们慢一点吧。" : W === "ko" ? Di.mori[0].line : "We seem to be riding quite quickly. If you would like, we can ease our pace a little.";
             p("rideQuote") && (p("rideQuote").textContent = s), ze(s, W);
           }
         }
@@ -5801,10 +5824,10 @@ window.addEventListener('velo:ready',()=>{
   p("languageSelect").addEventListener("change", () => queueMicrotask(syncSpeechLanguage));
   p("voiceSelect").addEventListener("change", (i) => {
     let e = M?.active;
-    ue.prepare(), jn(i.target.value), V.setInputLanguage(i.target.value), e ? (M.start(P, yi()), _n()) : !V.isOpen() && ["welcome", "camera"].includes(D) && (Z = true, playLiveIntroduction());
+    ue.prepare(), jn(i.target.value), !e && !V.isOpen() && ["welcome", "camera"].includes(D) && (Z = true, playLiveIntroduction());
   });
   p("languageSelect").addEventListener("change", () => {
-    Ge.render(), ut.render(), pi.language(), Ue.language(), Se(), document.querySelectorAll("[data-weather-card]").forEach((e) => e.outerHTML = At(S())), fi(), M?.stop(), ae?.stop();
+    Ge.render(), ut.render(), pi.language(), Ue.language(), Se(), document.querySelectorAll("[data-weather-card]").forEach((e) => e.outerHTML = At(S())), fi();
     let i = p("visionPanel");
     i && (i.outerHTML = Ko()), p("visionToggle") && (p("visionToggle").disabled = ee !== "live"), D === "scan" && refreshScanHistory(), D === "companions" ? showCompanions(p("appSettingsDialog").open) : D === "journal" ? gi(p("appSettingsDialog").open) : D === "diary" && openedDiary && showDiary(openedDiary, p("appSettingsDialog").open);
   });
@@ -5830,10 +5853,7 @@ window.addEventListener('velo:ready',()=>{
       const group = option.closest(".language-options");
       group.style.setProperty("--choice-index", [...group.querySelectorAll("input")].indexOf(option));
       jn(option.value);
-      if (M?.active) {
-        M.start(P, option.value);
-        _n();
-      }
+
     }
   });
   $s({ onPause: Wo, onResume: Bo, onBack: () => {
@@ -5868,7 +5888,7 @@ window.addEventListener('velo:ready',()=>{
       return;
     }
     ue.speak(i, { language: e, soul: t, source: Kt(i, t, e), onState: (n, failure) => {
-      n === "playing" && (dt.meet(t), Mn?.render()), _e(document, n === "playing" ? "talking" : n === "loading" ? "thinking" : "listening"), document.body.classList.toggle("voice-playing", n === "playing" || n === "loading"), hi({ loading: "목소리를 준비하고 있어요…", playing: e === "ko" ? "한국어 목소리 재생 중" : "영어 목소리 재생 중", ended: "다시 듣기로 목소리를 들을 수 있어요.", blocked: "소리를 켜려면 듣기 버튼을 눌러주세요.", unavailable: "소리를 재생하지 못했어요. 다시 듣기를 눌러주세요." }[n] || (liveLimitCopy[S()][n] || "") + liveRetryAfter(S(),failure?.retryAfter)), a(n,failure);
+      n === "playing" && (dt.meet(t), Mn?.render()), _e(document, n === "playing" ? "talking" : n === "loading" ? "thinking" : "listening"), document.body.classList.toggle("voice-playing", n === "playing" || n === "loading"), hi({ loading: "목소리를 준비하고 있어요…", playing: e === "zh" ? "正在播放中文语音" : e === "ko" ? "한국어 목소리 재생 중" : "English voice playing", ended: "다시 듣기로 목소리를 들을 수 있어요.", blocked: "소리를 켜려면 듣기 버튼을 눌러주세요.", unavailable: "소리를 재생하지 못했어요. 다시 듣기를 눌러주세요." }[n] || (liveLimitCopy[S()][n] || "") + liveRetryAfter(S(),failure?.retryAfter)), a(n,failure);
     } });
   }
   async function yl(i) {

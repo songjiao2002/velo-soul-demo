@@ -11,7 +11,7 @@ const json=(v,status=200)=>new Response(JSON.stringify(v),{status});
 const upstream=v=>json({choices:[{message:{content:JSON.stringify(v)},finish_reason:'stop'}]});
 
 test('vision accepts only bounded inline JPEG data, never remote URLs or arbitrary bodies',()=>{
- assert.equal(validateVision(body).language,'en');
+ assert.equal(validateVision(body).language,'zh');
  for(const value of ['https://example.com/private.jpg','data:image/png;base64,aaaa','data:image/jpeg;base64,YmFk','data:image/jpeg;base64,'+'a'.repeat(650001)])assert.throws(()=>validateVision({...body,image:value}),{code:'invalid_image'});
 });
 test('vision uses Qwen VL with supplied frame and validated structured output',async()=>{

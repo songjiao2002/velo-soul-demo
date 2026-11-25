@@ -9,17 +9,26 @@ const env={DASHSCOPE_API_KEY:'test-private-key'},input={soul:'lumi',language:'en
 const flush=()=>new Promise(r=>setImmediate(r));
 test('speech validates bounded text and restricts provider audio URLs',()=>{
  for(const body of [{...input,text:''},{...input,text:'a'.repeat(601)},{...input,soul:'unknown'},{...input,language:'fr'}])assert.throws(()=>validateSpeech(body));
- assert.equal(validateSpeech({...input,language:'zh'}).language,'English');
+ assert.equal(validateSpeech({...input,language:'zh'}).language,'Chinese');
  for(const url of ['http://127.0.0.1/test.wav','https://example.com/audio.wav','https://dashscope-result-sgp.oss-ap-southeast-1.aliyuncs.com.evil.test/x','https://x@dashscope-result-sgp.oss-ap-southeast-1.aliyuncs.com/x'])assert.throws(()=>speechAudioURL(url));
  assert.match(speechAudioURL('http://dashscope-result-sgp.oss-ap-southeast-1.aliyuncs.com/x.wav'),/^https:/);
 });
-test('cloud speech returns real audio, uses persona voices and never forwards credentials to storage',async()=>{
- const voices=[];let downloads=0;const service=createChatService({env,fetchImpl:async(url,options)=>{
-  if(url.endsWith('/generation')||url.endsWith('/SpeechSynthesizer')){assert.equal(options.headers.Authorization,'Bearer test-private-key');const body=JSON.parse(options.body);voices.push(body.input.voice);assert.equal(body.model,url.endsWith('/SpeechSynthesizer')?'qwen-audio-3.1-tts-flash':'qwen3-tts-flash');return new Response(JSON.stringify({output:{audio:{url:'https://dashscope-result-sgp.oss-ap-southeast-1.aliyuncs.com/file.wav'}}}));}
+test('cloud speech preserves persona voices across three languages and keeps credentials out of storage requests',async()=>{
+ let request,downloads=0;const service=createChatService({env,fetchImpl:async(url,options)=>{
+  if(url.endsWith('/generation')||url.endsWith('/SpeechSynthesizer')){assert.equal(options.headers.Authorization,'Bearer test-private-key');request=JSON.parse(options.body);assert.equal(request.model,url.endsWith('/SpeechSynthesizer')?'qwen-audio-3.1-tts-flash':'qwen3-tts-flash');return new Response(JSON.stringify({output:{audio:{url:'https://dashscope-result-sgp.oss-ap-southeast-1.aliyuncs.com/file.wav'}}}));}
   downloads++;assert.equal(options.headers,undefined);assert.equal(options.redirect,'error');return new Response(wav);
  }});
- for(const soul of ['lumi','mori','bori'])assert.deepEqual(await service.speech({...input,soul}),wav);
- assert.deepEqual(voices,['Cherry','qwen-audio-3.1-tts-flash-soulpanda-78d14264357345dbb7c5a417bfc4d8df','Chelsie']);assert.equal(downloads,3);
+ for(const [language,spoken] of [['zh','Chinese'],['en','English'],['ko','Korean']])for(const soul of ['lumi','mori','bori']){
+  assert.deepEqual(await service.speech({...input,soul,language}),wav);
+  if(soul==='mori'){
+   assert.equal(request.input.voice,language==='en'?'qwen-audio-3.1-tts-flash-soulpanda-78d14264357345dbb7c5a417bfc4d8df':'qwen-audio-3.1-tts-flash-pandako-9a5d436c173c4bd8ac8b7f7b5a00462d');
+   assert.ok(request.input.instruction.startsWith('Speak in '+spoken+'.'));
+  }else{
+   assert.equal(request.input.voice,soul==='lumi'?'Cherry':'Chelsie');
+   assert.equal(request.input.language_type,spoken);
+  }
+ }
+ assert.equal(downloads,9);
 });
 test('speech HTTP route serves non-cacheable WAV and enforces origins and shared budget',async t=>{
  const handler=createChatHandler({env:{...env,QWEN_MAX_DAILY_REQUESTS:'1'},fetchImpl:async url=>url.endsWith('/generation')?new Response(JSON.stringify({output:{audio:{url:'https://dashscope-result-sgp.oss-ap-southeast-1.aliyuncs.com/a.wav'}}})):new Response(wav)});

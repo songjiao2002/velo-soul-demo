@@ -33,5 +33,8 @@ test('place cooldown prevents rapid chatter, and a new ride can meet a place aga
 test('preset place speech preserves persona and does not claim current shop availability',()=>{
  const lines=['lumi','mori','bori'].map(id=>placeFallback(place,id,'en'));assert.equal(new Set(lines).size,3);
  for(const line of lines)assert.match(line,/Daelim Warehouse Gallery/);
- assert.match(lines[2],/check whether it's open/);assert.match(placeFallback(place,'bori','zh'),/We seem/);
+ assert.match(lines[2],/check whether it's open/);
+ const chinese=['lumi','mori','bori'].map(id=>placeFallback(place,id,'zh'));
+ for(const line of chinese)assert.ok(line.includes(place.name.zh));
+ assert.equal(new Set(chinese).size,3);assert.match(chinese[2],/开门了没/);
 });

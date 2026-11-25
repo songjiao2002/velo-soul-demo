@@ -2,6 +2,8 @@
 // The imported source retains its layout, rendering, navigation and interactions.
 // Camera and microphone must use the same pending Android permission queue.
 Ft=liveDeviceMedia;
+Qt=liveOutputLanguage;ds=livePlaceFallback;on=liveBikeMemoryLine;
+la=liveWeatherLine;mn=liveWeatherGreeting;
 Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S});
 Tt=LiveSpeech;at=LiveMicrophone;ua=options=>liveRecognition({...options,standby:true});Et=LiveAudioSession;xi=LiveMemory;
 Ga=rideVoiceControlsMarkup;
@@ -94,23 +96,38 @@ function playLiveIntroduction(){
  In(intro.text,intro.language);
 }
 function syncSpeechLanguage(){
- W=speechLanguages.voice(S(),P);
+ const language=yi(),voice=speechLanguages.voice(S(),P);
+ const changed=W!==voice||M?.active&&M.language!==language;
+ W=voice;
  const select=p('voiceSelect');
- select.value=yi();
- p('voiceSelectLabel').textContent={ko:'음성 입력 언어',en:'Speech input',zh:'语音输入语言'}[S()];
+ select.value=language;
+ p('voiceSelectLabel').textContent=conversationLanguageLabel[S()];
+ const encounter=p('encounterVoiceLanguage');
+ if(encounter)encounter.value=language;
  const choices=[...(p('rideSettings')?.querySelectorAll('[name=ride-language]')||[])];
  const index=choices.findIndex(option=>option.value===select.value);
  if(index>=0){
   choices[index].checked=true;
   choices[index].closest('.language-options').style.setProperty('--choice-index',index);
  }
+ if(changed){
+  We();
+  ue.cancelPrefetches();
+  if(!M?.active)Ce();
+  if(ae?.active)ae.start(P,W);
+ }
+ if(M?.active)M.setLanguage(language);
+ if(V?.isOpen())V.setInputLanguage(language);
 }
 jn=function(language){
  speechLanguages.select(language);
  syncSpeechLanguage();
  La();
- if(ae?.active)ae.start(P,W);
 };
+document.addEventListener('change',event=>{
+ if(event.target.id!=='encounterVoiceLanguage')return;
+ ue.prepare();jn(event.target.value);Z=true;playLiveIntroduction();
+});
 Eo=function(soul){W=speechLanguages.voice(S(),soul);referenceTheme(soul);};
 const referenceStop=Ce;
 Ce=function(){liveIdlePurr?.activity();referenceStop();};

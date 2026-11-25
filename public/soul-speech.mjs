@@ -13,11 +13,11 @@ export class SoulSpeechPlayer {
   const start=()=>{
    if(serial!==this.serial||this.utterance)return;
    this.clearTimer(this.timer);if(this.listener)this.synth.removeEventListener?.('voiceschanged',this.listener);this.listener=null;
-   const locale=language==='ko'?'ko':'en';
-   const voices=this.synth.getVoices();const matching=voices.filter(v=>v.lang.toLowerCase().startsWith(locale));
-   const preferred=locale==='en'?(soul==='mori'?'en-gb':'en-us'):'ko-kr';
-   const voice=matching.find(v=>v.lang.toLowerCase()===preferred)||matching[0];
-   const u=new this.Utterance(text);this.utterance=u;u.lang=voice?.lang||(locale==='ko'?'ko-KR':'en-US');if(voice)u.voice=voice;
+   const preferred=language==='zh'?'zh-CN':language==='ko'?'ko-KR':soul==='mori'?'en-GB':'en-US';
+   const locale=preferred.slice(0,2),voices=this.synth.getVoices();
+   const voice=voices.find(v=>v.lang.toLowerCase()===preferred.toLowerCase())||
+    voices.find(v=>locale==='zh'?/^(?:cmn\b|zh(?:$|-(?:hans|tw)\b))/i.test(v.lang):v.lang.toLowerCase().startsWith(locale));
+   const u=new this.Utterance(text);this.utterance=u;u.lang=voice?.lang||preferred;if(voice)u.voice=voice;
    u.rate=soul==='mori'?.86:soul==='bori'?1.03:1;
    u.onstart=()=>{if(serial!==this.serial)return;this.clearTimer(this.timer);report('playing');};
    u.onend=()=>{if(serial!==this.serial)return;this.clearTimer(this.timer);this.utterance=null;report('ended');};

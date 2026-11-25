@@ -10,6 +10,7 @@ test('speech input follows the interface until a rider chooses a language, then 
  let prefs=createSpeechLanguagePreferences(()=>storage);
  assert.equal(prefs.input('en'),'en');
  assert.equal(prefs.input('ko'),'ko');
+ assert.equal(prefs.input('zh'),'zh');
  assert.equal(prefs.voice('ko','lumi'),'ko');
  assert.equal(stored.size,0);
  prefs.select('ko');
@@ -18,18 +19,18 @@ test('speech input follows the interface until a rider chooses a language, then 
  assert.equal(prefs.input('en'),'auto');
  assert.equal(prefs.voice('en','bori'),'ko');
  prefs.select('zh');
- assert.equal(prefs.voice('ko','bori'),'en');
+ assert.equal(prefs.voice('ko','bori'),'zh');
  assert.equal(prefs.input('ko'),'zh');
  assert.equal(prefs.voice('ko','mori'),'zh');
 });
-test('existing voice-only and independent language preferences survive an upgrade',()=>{
+test('legacy voice-only preferences survive and an explicit language takes precedence',()=>{
  const stored=new Map([['velo-soul-voice-language','ko']]);
  const storage={getItem:key=>stored.get(key),setItem:(key,value)=>stored.set(key,value)};
  assert.equal(createSpeechLanguagePreferences(()=>storage).input('en'),'ko');
  stored.set('velo-soul-input-language','en');
  const prefs=createSpeechLanguagePreferences(()=>storage);
  assert.equal(prefs.input('ko'),'en');
- assert.equal(prefs.voice('en','lumi'),'ko');
+ assert.equal(prefs.voice('en','lumi'),'en');
  const sessionPrefs=createSpeechLanguagePreferences(()=>{throw Error('Storage blocked');});
  sessionPrefs.select('auto');
  assert.equal(sessionPrefs.input('en'),'auto');
@@ -57,7 +58,7 @@ test('panda Chinese selection stays Chinese from opening through reply and synth
  const {encounterScreen}=await import('./public/encounter-screen.mjs');
  const {validateChat,validateSpeech,createChatService}=await import('./chat-service.mjs');
  assert.equal(replyLanguage('你好','auto','mori'),'zh');assert.equal(replyLanguage('OK','zh','mori'),'zh');
- assert.equal(replyLanguage('你好','auto','lumi'),'en');
+ assert.equal(replyLanguage('你好','auto','lumi'),'zh');
  const intro=soulIntroduction('mori','zh');assert.equal(intro.language,'zh');assert.match(intro.text,/露露/);assert.match(introductionClip(intro.text,'mori','zh'),/mori-zh\.wav/);
  const page=encounterScreen({id:'mori',language:'zh',voiceLanguage:'zh',puppet:'',reviews:''});assert.match(page,/value="zh" selected>中文/);assert.match(page,/encounterVoiceLanguage/);
  const payload={soul:'mori',language:'zh',messages:[{role:'user',content:'你好'}]};assert.equal(validateChat(payload).language,'zh');assert.equal(validateSpeech({soul:'mori',language:'zh',text:intro.text}).language,'Chinese');

@@ -5,6 +5,7 @@ import {createShutterGesture,rememberScan,readScanHistory,mobileScanner,mobileDi
 import {rideTalkPanel,paintRideTalk,rideVoiceStatus,rideTextChatLabel} from './public/ride-voice-controls.mjs';
 import {HANDS_FREE_COPY} from './public/hands-free.mjs';
 import {COMMUNICATION_LIMIT_COPY} from './public/conversation-limits.mjs';
+import {encounterScreen,conversationLanguageLabel} from './public/encounter-screen.mjs';
 test('shutter short press captures once, hold finishes once, cancellation does neither',()=>{
  let task,photo=0,finish=0;const gesture=createShutterGesture({capture:()=>photo++,finish:()=>finish++,setTimer:fn=>(task=fn,1),clearTimer:()=>task=null});
  gesture.begin();gesture.end();gesture.end();assert.equal(photo,1);assert.equal(finish,0);
@@ -34,6 +35,20 @@ test('both ride scenes use the conversation controls, including on a direct came
  assert.ok(entry.includes('Ga=rideVoiceControlsMarkup;')&&entry.includes('fs=paintRideVoiceControls;'));
  const languages=entry.indexOf('const rideLanguages ='), startup=entry.indexOf('\n  Vo();');
  assert.ok(languages>=0&&startup>languages,'all ride settings must exist before a direct camera launch');
+});
+
+test('every companion offers the same saved conversation language at the encounter and during the ride',async()=>{
+ const entry=await readFile(new URL('./public/reference-entry.generated.mjs',import.meta.url),'utf8');
+ assert.ok(entry.includes('${conversationLanguagePicker(locale,yi())}'));
+ assert.ok(entry.includes('if(M?.active)M.setLanguage(language);'));
+ for(const id of ['lumi','mori','bori'])for(const language of ['zh','ko','en','auto']){
+  const html=encounterScreen({id,language:'en',voiceLanguage:language,puppet:'',reviews:''});
+  const picker=html.match(/<label[^>]*class="language-picker encounter-language"[\s\S]*?<\/label>/)?.[0];
+  assert.ok(picker);
+  assert.ok(picker.includes(conversationLanguageLabel.en));
+  assert.deepEqual([...picker.matchAll(/<option value="([^"]+)"/g)].map(match=>match[1]),['auto','en','ko','zh']);
+  assert.equal(picker.match(/value="([^"]+)" selected>/)?.[1],language);
+ }
 });
 
 test('ride microphone status, retry and text fallback follow the live session in each language',()=>{

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {RecordedVoicePlayer,voiceFile,BASE_KEYS} from './public/recorded-voice.mjs';
 import {SOULS,SCENARIOS} from './public/soul-core.mjs';
+import {soulIntroduction,introductionClip} from './public/soul-intro.mjs';
 
 test('every English line resolves to packaged, non-silent PCM audio',async()=>{
  const paths=new Set();
@@ -19,8 +20,21 @@ test('every English line resolves to packaged, non-silent PCM audio',async()=>{
   let peak=0;for(let i=44;i<b.length;i+=2)peak=Math.max(peak,Math.abs(b.readInt16LE(i)));
   assert.ok(peak>1000&&peak<32767,path);
  }
- assert.equal(voiceFile('zh','lumi','hello'),null);
  assert.match(voiceFile('ko','lumi','hello'),/^\/audio\/characters13\/lumi-ko\.wav\?v=/);
+});
+
+test('each character opens in the selected language with its own packaged audio',async()=>{
+ for(const id of Object.keys(SOULS))for(const language of ['zh','en','ko']){
+  const intro=soulIntroduction(id,'auto',language);
+  assert.equal(intro.language,language);
+  const path=voiceFile(language,id,'hello');
+  assert.equal(path.split('?')[0],`/audio/characters13/${id}-${language}.wav`);
+  assert.equal(introductionClip(intro.text,id,language),path);
+  assert.equal(introductionClip(intro.text,id,language==='en'?'ko':'en'),null);
+  const bytes=await readFile(new URL('./public'+path,import.meta.url));
+  assert.equal(bytes.toString('ascii',0,4),'RIFF');
+  assert.ok(bytes.length>48000);
+ }
 });
 
 function fakeAudio(){return {pause(){},removeAttribute(){this.src='';},load(){},play(){return Promise.resolve();}};}
