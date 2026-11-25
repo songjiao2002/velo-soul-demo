@@ -1,1 +1,1 @@
-export const BUILD='20261125-mobile70';
+export const BUILD='20261125-mobile71';

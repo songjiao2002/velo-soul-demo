@@ -111,15 +111,61 @@ test('a broken streamed answer stops already started speech and does not save a 
 });
 
 
-test('Chinese starts at five characters before punctuation or completion, prefetches the tail and never repeats it',async()=>{
+test('Lulu starts Mandarin at a word boundary by the fifth character and keeps 看看 together',async()=>{
  let stream;const prepared=[];const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}),{prefetchSpeech:(...args)=>prepared.push(args)});
  a.session.start('mori','zh');a.recognizers[0].hear('你看到了什么');await flush();
  const emit=frame=>stream.enqueue(new TextEncoder().encode(JSON.stringify(frame)+'\n'));
  emit({type:'delta',text:'我们一起'});await flush();assert.equal(a.voices.length,0);
- emit({type:'delta',text:'看'});await flush();assert.equal(a.voices[0].text,'我们一起看');assert.equal(a.session.histories.mori.length,0);
- emit({type:'delta',text:'看河边的风景吧。'});await flush();assert.equal(a.voices.length,1);assert.equal(prepared[0][0],'看河边的风景吧。');
- emit({type:'complete',soul:'mori',reply:'我们一起看看河边的风景吧。'});await flush();a.voices[0].callback('ended');assert.equal(a.voices[1].text,'看河边的风景吧。');
+ emit({type:'delta',text:'看'});await flush();assert.equal(a.voices[0].text,'我们一起');assert.equal(a.session.histories.mori.length,0);
+ emit({type:'delta',text:'看河边的风景吧。'});await flush();assert.equal(a.voices.length,1);assert.equal(prepared[0][0],'看看河边的风景吧。');
+ emit({type:'complete',soul:'mori',reply:'我们一起看看河边的风景吧。'});await flush();a.voices[0].callback('ended');assert.equal(a.voices[1].text,'看看河边的风景吧。');
  assert.equal(a.voices.map(v=>v.text).join(''),'我们一起看看河边的风景吧。');a.session.stop();
+});
+
+test('Lulu queues complete short openings immediately in each language without guessing unfinished words',async()=>{
+ for(const [language,opening,separator,rest] of [
+  ['en','Sure',' ','let’s rest.'],['en','Mm','…',' shade sounds nice.'],
+  ['ko','응',',',' 천천히 가자.'],['zh','嗯','，','我们慢慢骑。']
+ ]){
+  let stream;const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}));
+  a.session.start('mori',language);a.recognizers[0].hear('Hello');await flush();
+  const emit=frame=>stream.enqueue(new TextEncoder().encode(JSON.stringify(frame)+'\n'));
+  emit({type:'delta',text:opening});await flush();assert.equal(a.voices.length,0);
+  emit({type:'delta',text:separator});await flush();assert.equal(a.voices[0].text,(opening+separator).trim());
+  emit({type:'delta',text:rest});emit({type:'complete',soul:'mori',reply:opening+separator+rest});await flush();
+  a.voices[0].callback('ended');assert.equal(a.voices[1].text,rest.trim());
+  a.voices[1].callback('ended');a.session.stop();
+ }
+});
+
+test('Lulu keeps the five-character Mandarin fallback on browsers without a word segmenter',async t=>{
+ const descriptor=Object.getOwnPropertyDescriptor(Intl,'Segmenter');
+ Object.defineProperty(Intl,'Segmenter',{...descriptor,value:undefined});
+ t.after(()=>Object.defineProperty(Intl,'Segmenter',descriptor));
+ let stream;const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}));
+ a.session.start('mori','zh');a.recognizers[0].hear('想去哪里');await flush();
+ const emit=frame=>stream.enqueue(new TextEncoder().encode(JSON.stringify(frame)+'\n'));
+ emit({type:'delta',text:'  我们一起'});await flush();assert.equal(a.voices.length,0);
+ emit({type:'delta',text:'去'});await flush();assert.equal(a.voices[0].text,'我们一起去');
+ emit({type:'delta',text:'河边。'});emit({type:'complete',soul:'mori',reply:'我们一起去河边。'});await flush();
+ a.voices[0].callback('ended');assert.equal(a.voices[1].text,'河边。');
+ a.voices[1].callback('ended');a.session.stop();
+});
+
+test('a short prefix cannot cut Yesterday in half, and other characters keep their speech timing',async()=>{
+ for(const soul of ['mori','lumi','bori']){
+  let stream;const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}));
+  a.session.start(soul,'en');a.recognizers[0].hear('Hello');await flush();
+  const delta=text=>stream.enqueue(new TextEncoder().encode(JSON.stringify({type:'delta',text})+'\n'));
+  if(soul==='mori'){
+   delta('Yes');await flush();assert.equal(a.voices.length,0);
+   delta('terday ');await flush();assert.equal(a.voices[0].text,'Yesterday');
+  }else{
+   delta('Sure ');await flush();assert.equal(a.voices.length,0);
+   delta('thing!');await flush();assert.equal(a.voices[0].text,'Sure thing!');
+  }
+  a.session.stop();stream.close();
+ }
 });
 
 test('short Chinese clauses start earlier, and a stopped turn cannot speak late text',async()=>{

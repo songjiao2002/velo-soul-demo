@@ -1584,7 +1584,7 @@ import {VOICE_PRIVACY as liveVoicePrivacy} from './voice-privacy.mjs';
       URL.revokeObjectURL(s);
     }
   }
-  var se = "20261125-mobile70";
+  var se = "20261125-mobile71";
   var Ns = null, Ni = null, Za = false;
   function ji() {
     Za = true;
@@ -1597,7 +1597,7 @@ import {VOICE_PRIVACY as liveVoicePrivacy} from './voice-privacy.mjs';
       Ni.mountCharacters();
       return;
     }
-    Ns ??= import("/character-toon.bundle.mjs?v=20261125-mobile70").catch(() => null);
+    Ns ??= import("/character-toon.bundle.mjs?v=20261125-mobile71").catch(() => null);
     Ns.then((module) => {
       if (!Za) return;
       if (module) {

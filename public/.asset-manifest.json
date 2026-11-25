@@ -1,45 +1,45 @@
 {
-  "version": "20261125-mobile70",
+  "version": "20261125-mobile71",
   "files": {
     "/index.html": {
       "size": 7561,
-      "sha256": "008a87b8bc955f3c9722869fdcc00ad4500dfd69e0b1e8477d9d802aff17528d",
+      "sha256": "71ae9db9b8c5fa4ba94a16f9d0de318379a9fc1710cc162ff549530036afd162",
       "br": {
         "size": 2976,
-        "sha256": "c0f87372cfc512b85b73b21bccc07ccfb150148bd75e69f802d8e230736f10a8",
+        "sha256": "ecaa4b12acdcf58fcc997b28d39c001efd8f9402d8ce8b6eddac341092065c0d",
         "suffix": ".br"
       },
       "gzip": {
         "size": 3349,
-        "sha256": "c03c5b58522eeaf3a4b4afaea115a4711da75c0000502899112f379320db5ace",
+        "sha256": "7d73f146f1022eb18b271d09fdc2e39b11b4f4338fafac9a98516848d6e844ad",
         "suffix": ".gz"
       }
     },
     "/boot.js": {
       "size": 2510,
-      "sha256": "41bf750542dc842a9f3f7b8bea41bb4f4b9865245e8fbd2c55fd6ed70153ccd2",
+      "sha256": "52250475e923e429835be93f87bd7b70d8feca2a9ca721288580a5c09aecd297",
       "br": {
         "size": 949,
-        "sha256": "39a5858b290066fe9adb3ad123094a8f0ba6657ab2413b607e079d4c9b80e74f",
+        "sha256": "093685138716a9c4e4a68fa1d2344e69056067cc6dfbcba13a914c20f8e1180b",
         "suffix": ".br"
       },
       "gzip": {
         "size": 1132,
-        "sha256": "110df3a59d4396391b2dd93cbf1e7e891adc67599d5a7b90ab5d59322a5484d8",
+        "sha256": "1ed9e5a64b5966873f38dcf6ca5819c929dc8e08535292a5760aa40fcb138464",
         "suffix": ".gz"
       }
     },
     "/app.bundle.js": {
-      "size": 608370,
-      "sha256": "6b9011bfd69eb01f0a908f494397aab30ab3b1f1003a9cfc3e03f2169a0665b0",
+      "size": 609155,
+      "sha256": "0604ca279cb19c0192f15c2390352e202e879db63030312af1465affea8c88d6",
       "br": {
-        "size": 144035,
-        "sha256": "86318b74c6aedd9fe8c9d3de86b288b4eab99e0e3fd1aed93d31d7122d7280e2",
+        "size": 144523,
+        "sha256": "b76817b46933055c7d919b483714b89ff8561b2d3dece0102db7c96ead3baa70",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 225645,
-        "sha256": "b7f76fbbd8eb1001bf0727ee46be614aeb2e122d547e936d4498cb13bf0b0e8b",
+        "size": 226027,
+        "sha256": "f60251e28f715d0c6dfb9dc6a7fbf9c61f301d75bea8433313487d18fe884c21",
         "suffix": ".gz"
       }
     },
@@ -214,12 +214,12 @@
       "sha256": "d85b5b9a65069fc409439cea770beb4e04c7311f51dfd16e158017589252f6f1"
     },
     "/audio/characters13/mori-ko.wav": {
-      "size": 318764,
-      "sha256": "6c0098db0b12b2512120370add3ffd9e0d3965f18501003080577bea7ea3b84b"
+      "size": 293804,
+      "sha256": "cdd1a8a4c4dff054e249a8d2b97f2abe6905a75b625ebdb0064cf8ca5a43d32b"
     },
     "/audio/characters13/mori-en.wav": {
-      "size": 199724,
-      "sha256": "c7b41bc30dbd496f26fd5fe004616087e43f82503ef29c4e22140c076505d524"
+      "size": 188204,
+      "sha256": "ea078d6198ce64aab37f03b63bcc25c14fc5d8e3b545b6d36e0917ca70810003"
     },
     "/audio/characters13/bori-ko.wav": {
       "size": 265004,

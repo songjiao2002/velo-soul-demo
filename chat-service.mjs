@@ -8,7 +8,7 @@ import {SEOUL_PLACES} from './public/seoul-places.mjs';
 import {VISION_SCENES} from './public/vision-core.mjs';
 import {readFile} from 'node:fs/promises';
 import {once} from 'node:events';
-import {relaySpeech} from './speech-stream.mjs';
+import {relaySpeech,trimPandaWave} from './speech-stream.mjs';
 import {describeWeather} from './weather-service.mjs';
 import {validateLocationContext,describeLocation} from './public/sensor-context.mjs';
 
@@ -158,7 +158,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
     },
     async speechStream(input,{signal,emit}={}){
       const payload=validateSpeech(input),config=chatConfig(env);if(!config.configured)throw new ChatError('not_configured',503);
-      return complete(speechRequest(payload,config),config,signal,{speech:true,stream:true,readResponse:response=>relaySpeech(response,emit)});
+      return complete(speechRequest(payload,config),config,signal,{speech:true,stream:true,readResponse:response=>relaySpeech(response,emit,{trimPandaLead:payload.soul==='mori'})});
     },
     async speech(input,{signal}={}){
       const payload=validateSpeech(input),config=chatConfig(env);if(!config.configured)throw new ChatError('not_configured',503);
@@ -170,7 +170,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
         const chunks=[];let length=0;for await(const chunk of response.body){length+=chunk.length;if(length>4000000)throw new ChatError('invalid_response',502);chunks.push(chunk);}
         const audio=Buffer.concat(chunks);
         if(audio.length<44||audio.toString('ascii',0,4)!=='RIFF'||audio.toString('ascii',8,12)!=='WAVE')throw new ChatError('invalid_response',502);
-        return audio;
+        return payload.soul==='mori'?trimPandaWave(audio):audio;
       }});
     },
     async transcribe(input,{signal}={}){

@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import {relaySpeech} from './speech-stream.mjs';
+import {relaySpeech,trimPandaWave} from './speech-stream.mjs';
 import {createChatHandler,createChatService} from './chat-service.mjs';
 import {CloudSpeechPlayer} from './public/cloud-speech.mjs';
 import {encodeWav,createMicrophoneRecognition} from './public/microphone-asr.mjs';
@@ -14,6 +14,106 @@ const wav=Buffer.from(encodeWav([new Float32Array(2400).fill(.1)],16000));wav.wr
 const sse=audio=>'data: '+JSON.stringify({output:{audio:{data:audio.toString('base64')}}})+'\n\n';
 const done='data: {"output":{"finish_reason":"stop"}}\n\n';
 const response=chunks=>new Response(chunks.join(''),{headers:{'Content-Type':'text/event-stream'}});
+function speechAfterQuiet(quietMs){
+ const quiet=Buffer.alloc(quietMs*48);
+ for(let i=0;i<quiet.length;i+=2)quiet.writeInt16LE(i%4?3:-3,i);
+ const audio=Buffer.concat([quiet,pcm,Buffer.alloc(240*48),pcm,Buffer.alloc(100)]);
+ audio.writeInt16LE(-256,quiet.length);
+ const header=Buffer.from(wav.subarray(0,44));
+ header.writeUInt32LE(audio.length+36,4);
+ header.writeUInt32LE(audio.length,40);
+ return Buffer.concat([header,audio]);
+}
+const frameAudio=frames=>Buffer.concat(frames.filter(f=>f.audio).map(f=>Buffer.from(f.audio,'base64')));
+
+test('Lulu streams the first audible sample as soon as both PCM bytes arrive and preserves all following pauses',async()=>{
+ const wave=speechAfterQuiet(300);
+ const onset=44+300*48,retained=onset-80*48;
+ let producer;const frames=[];
+ const body=new ReadableStream({start(controller){producer=controller;}});
+ const running=relaySpeech(new Response(body,{headers:{'Content-Type':'text/event-stream'}}),f=>frames.push(f),{trimPandaLead:true});
+ const send=part=>producer.enqueue(new TextEncoder().encode(sse(part)));
+ send(wave.subarray(0,9));
+ send(wave.subarray(9,onset+1));
+ await flush();
+ assert.deepEqual(frames,[],'a single low byte cannot establish an audible signed sample');
+ send(wave.subarray(onset+1,onset+2));
+ await flush();
+ assert.deepEqual(frameAudio(frames),wave.subarray(retained,onset+2),'the first sound arrives before the provider finishes generating');
+ send(wave.subarray(onset+2,onset+9));
+ send(wave.subarray(onset+9));
+ producer.enqueue(new TextEncoder().encode(done));
+ producer.close();await running;
+ assert.deepEqual(frameAudio(frames),wave.subarray(retained));
+ assert.deepEqual(frames.at(-1),{done:true});
+});
+
+test('short silence is preserved at EOF and very long silence can only lose the bounded prefix',async()=>{
+ const silent=Buffer.alloc(100*48);
+ const frames=[];
+ await relaySpeech(response([sse(silent),done]),f=>frames.push(f),{trimPandaLead:true});
+ assert.deepEqual(frameAudio(frames),silent);
+ for(const [beforeMs,removedMs] of [[50,0],[800,640]]){
+  const wave=speechAfterQuiet(beforeMs);
+  const out=[];
+  await relaySpeech(response([sse(wave),done]),f=>out.push(f),{trimPandaLead:true});
+  assert.deepEqual(frameAudio(out),wave.subarray(44+removedMs*48));
+  assert.deepEqual(trimPandaWave(wave).subarray(44),frameAudio(out));
+ }
+});
+
+test('only the Lulu voice service trims its PCM and complete WAV, with exact RIFF and data lengths',async()=>{
+ const wave=speechAfterQuiet(240),original=Buffer.from(wave);
+ const url='https://dashscope-result-sgp.oss-ap-southeast-1.aliyuncs.com/file.wav';
+ const service=createChatService({env:{DASHSCOPE_API_KEY:'fixture'},fetchImpl:async(input,{headers})=>{
+  if(input===url)return new Response(wave);
+  if(headers['X-DashScope-SSE'])return response([sse(wave),done]);
+  return Response.json({output:{audio:{url}}});
+ }});
+ for(const soul of ['lumi','mori','bori']){
+  const voice={...payload,soul},frames=[];
+  await service.speechStream(voice,{emit:f=>frames.push(f)});
+  const file=await service.speech(voice);
+  const expected=wave.subarray(44+(soul==='mori'?160*48:0));
+  assert.deepEqual(frameAudio(frames),expected,soul);
+  assert.equal(file.readUInt32LE(4),file.length-8);
+  assert.equal(file.readUInt32LE(40),expected.length);
+  assert.deepEqual(file.subarray(8,40),wave.subarray(8,40));
+  assert.deepEqual(file.subarray(44),expected,soul);
+  if(soul!=='mori')assert.deepEqual(file,wave);
+ }
+ assert.deepEqual(wave,original);
+});
+
+test('near-silence trimming leaves non-PCM, unsupported, truncated, and nonterminal WAV data untouched',()=>{
+ const valid=speechAfterQuiet(240);
+ const unchanged=(file,reason)=>{
+  const original=Buffer.from(file);
+  assert.deepEqual(trimPandaWave(file),original,reason);
+  assert.deepEqual(file,original,reason);
+ };
+ for(const [name,mutate] of [
+  ['non-RIFF signature',b=>b.write('RIFX',0)],
+  ['non-WAVE form',b=>b.write('NOPE',8)],
+  ['RIFF length',b=>b.writeUInt32LE(b.length-7,4)],
+  ['data length',b=>b.writeUInt32LE(b.length-43,40)],
+  ['non-PCM encoding',b=>b.writeUInt16LE(3,20)],
+  ['stereo',b=>b.writeUInt16LE(2,22)],
+  ['sample rate',b=>b.writeUInt32LE(48000,24)],
+  ['byte rate',b=>b.writeUInt32LE(96000,28)],
+  ['block alignment',b=>b.writeUInt16LE(4,32)],
+  ['precision',b=>b.writeUInt16LE(8,34)]
+ ]){
+  const file=Buffer.from(valid);mutate(file);
+  unchanged(file,name);
+ }
+ const odd=valid.subarray(0,-1);
+ odd.writeUInt32LE(odd.length-8,4);odd.writeUInt32LE(odd.length-44,40);
+ unchanged(odd,'incomplete sample');
+ const metadata=Buffer.concat([speechAfterQuiet(240),Buffer.from('JUNK\x00\x00\x00\x00','latin1')]);
+ metadata.writeUInt32LE(metadata.length-8,4);
+ unchanged(metadata,'post-audio chunks may contain offsets into the audio');
+});
 test('SSE relay strips split WAV headers, preserves PCM, and requires provider completion',async()=>{
  const frames=[];await relaySpeech(response([sse(wav.subarray(0,20)),sse(wav.subarray(20,40)),sse(wav.subarray(40)),done]),f=>frames.push(f));
  assert.deepEqual(Buffer.concat(frames.filter(f=>f.audio).map(f=>Buffer.from(f.audio,'base64'))),wav.subarray(44));assert.deepEqual(frames.at(-1),{done:true});

@@ -14,22 +14,46 @@ export async function readProviderChat(response,onDelta){
  return {choices:[{message:{content:text},finish_reason:reason||'stop'}]};
 }
 
+// Lulu's short answers can open with a complete acknowledgement before five letters.
+// Require an actual separator: a provider delta ending in "Yes" might continue as "Yesterday".
+const luluAcknowledgement=/^\s*(?:hm+|m{2,}|oh|ah|hi|hey|ok(?:ay)?|sure|well|yeah|yes|yep|no|nope|음+|응+|어|아|네|그래|좋아|좋지|맞아|잠깐|嗯+|哦|好|好呀|好啊|行|行呀|对|对呀)(?:[,，、.!?。！？…~～—:：;；]+|\s+)/iu;
+let chineseWords;
+function luluChineseLead(input,canSegment){
+ // Keep the last word in the buffer; the next delta may continue it (看 → 看看).
+ const text=input.trimStart(),start=input.length-text.length;
+ const finalParticle=/^\p{Script=Han}{2,4}[吧呀啦呢嘛啊哦](?:[，、…～]+|$)/u.exec(text);
+ if(finalParticle)return start+finalParticle[0].length;
+ if(!canSegment||!/^\p{Script=Han}{4}/u.test(text))return 0;
+ chineseWords??=new Intl.Segmenter('zh',{granularity:'word'});
+ let end=0;
+ for(const {index} of chineseWords.segment(text)){
+  if(index>5)break;
+  if(index>=3)end=index;
+ }
+ return end?start+end:0;
+}
+
 export async function readVoiceReply(response,{soul,onText,onSentence}){
  const reader=response.body.getReader(),decoder=new TextDecoder();let pending='',text='',spoken=0,result;
  const sentences=final=>{
   const remaining=text.slice(spoken);const pattern=/[^.!?。！？]+(?:[。！？!?]|[.](?=\s))/g;let match;
   let consumed=0;while((match=pattern.exec(remaining))){if(/[\p{L}\p{N}]/u.test(match[0]))onSentence(match[0].trim());consumed=match.index+match[0].length;}
   spoken+=consumed;
-  // Start the first audio request as soon as five spoken characters exist.
-  // CJK can split by character; Latin/Hangul words finish at a word boundary.
+  // Queue a pronounceable first phrase while the rest is still arriving.
   if(!final&&spoken===0){
+   const canSegmentMandarin=soul==='mori'&&/^\s*\p{Script=Han}/u.test(text)&&typeof globalThis.Intl?.Segmenter==='function';
+   if(soul==='mori'){
+    const end=luluAcknowledgement.exec(text)?.[0].length||luluChineseLead(text,canSegmentMandarin);
+    if(end){onSentence(text.slice(0,end).trim());spoken=end;return;}
+   }
    let letters=0,end=0;
    const chars=Array.from(text);
    for(let i=0;i<chars.length;i++){
     const ch=chars[i];end+=ch.length;if(/[\p{L}\p{N}]/u.test(ch))letters++;
     const boundary=/[\s,，;；:：.!?。！？]/u.test(ch);
     const cjk=/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(ch);
-    if((letters>=5&&(cjk||boundary))||(letters>=2&&/[,，;；:：]/u.test(ch))){
+    const canSplitCharacter=cjk&&!canSegmentMandarin;
+    if((letters>=5&&(canSplitCharacter||boundary))||(letters>=2&&/[,，;；:：]/u.test(ch))){
      const part=text.slice(0,end).trim();if(part){onSentence(part);spoken=end;}break;
     }
    }
