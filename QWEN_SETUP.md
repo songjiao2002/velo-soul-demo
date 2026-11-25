@@ -10,7 +10,9 @@ Railway → `velo-soul-demo` 服务 → **Variables**，设置以下变量并重
 | `QWEN_BASE_URL` | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` |
 | `QWEN_MODEL` | `qwen-plus`（文字对话） |
 | `QWEN_VISION_MODEL` | `qwen3-vl-plus`（图像理解） |
-| `QWEN_MAX_DAILY_REQUESTS` | `200`，可以调低 |
+| `QWEN_MAX_DAILY_REQUESTS` | `200`，所有访客共享每个服务进程的云端调用次数，按 UTC 日期重置。命中本地语音缓存时不计数。 |
+| `QWEN_MAX_REQUESTS_PER_MINUTE` | `60`，每个服务进程每分钟允许的云端调用次数 |
+| `QWEN_MAX_CONCURRENT_REQUESTS` | `8`，每个服务进程同时进行的云端调用数 |
 
 默认使用新加坡端点，密钥和模型权限必须匹配地域。如果控制台提供工作空间专用地址，可使用其以 `/compatible-mode/v1` 结尾的 OpenAI 兼容地址。本地可复制 `.env.example` 为 `.env` 填写；`.env` 被 Git 和 Docker 排除，服务启动时读取。
 
@@ -41,7 +43,7 @@ API Key 仅在服务端使用。`/api/chat` 与 `/api/vision` 共用调用限额
 
 ## 使用量与验证
 
-默认每个进程并发 3、每分钟 20 次、每 UTC 日 200 次，文字及图像合计，失败的上游调用也计数。进程重启清零，多副本不共享。**这是演示用请求数上限，不是阿里云账单硬上限。** 可用免费额度与收费以控制台模型、地域及账号资格为准；只想使用免费额度时，在支持的模型上开启阿里云「仅使用免费额度」。[官方免费额度说明](https://www.alibabacloud.com/help/en/model-studio/new-free-quota)。
+文字、图像、语音识别和每段语音合成共享上表的云端调用预算。已发起的云端请求即使失败也计一次。本地拒绝、待机识别连线及本地缓存回放均不占用此预算。每个进程独立计数，重启后清零。阿里云的可用额度与收费取决于模型、地域及账号资格。如果需要限定为免费调用，可在支持的模型上开启「仅使用免费额度」。[官方免费额度说明](https://www.alibabacloud.com/help/en/model-studio/new-free-quota)。
 
 自动测试使用明确的模拟上游，覆盖请求、角色、语言、图片校验、停止与取消、场景防重复、GPS、配额和错误处理。真实模型、手机摄像头、语音识别、室外 GPS 和动画观感需配置密钥并在实机上验证。
 

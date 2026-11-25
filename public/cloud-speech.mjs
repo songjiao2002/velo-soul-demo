@@ -2,6 +2,8 @@ import {appFetch} from './app-network.mjs';
 import {NativeSpeechPlayer} from './native-speech.mjs';
 import {SpeechMouthClock} from './speech-mouth.mjs';
 import {SpeechAudioCache} from './speech-cache.mjs';
+import {conversationServiceError,isConversationLimit} from './conversation-limits.mjs';
+import {requireSpeechResponse,speechFileBytes} from './speech-response.mjs';
 // Dynamic replies use real audio, independent of installed speechSynthesis voices.
 export function speechChunks(text,limit=540){
  const chars=Array.from(text.replace(/[\p{Extended_Pictographic}\uFE0F]/gu,'').trim()),parts=[];
@@ -18,10 +20,8 @@ export class CloudSpeechPlayer {
   entry.promise=(async()=>{
    try{
     const response=await this.fetchImpl(source||'/api/speech',{signal:controller.signal,...(source?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,language,soul})})});
-    if(!response.ok||Number(response.headers.get('content-length'))>4000000)throw Error('audio');
-    const bytes=await response.arrayBuffer();if(bytes.byteLength<44||bytes.byteLength>4000000)throw Error('audio');
-    return bytes;
-   }catch{return null;}finally{this.clearTimer(timer);}
+    return await speechFileBytes(response);
+   }catch(error){if(isConversationLimit(error.message))entry.failure=error;return null;}finally{this.clearTimer(timer);}
   })();
   this.preloads.set(key,entry);
   while(this.preloads.size>8){const oldest=this.preloads.keys().next().value;this.preloads.get(oldest).controller.abort();this.preloads.delete(oldest);}
@@ -50,7 +50,7 @@ export class CloudSpeechPlayer {
   const cleanup=()=>{if(mouthToken!==undefined)this.mouth?.stop(mouthToken);this.clearTimer(tailTimer);reader.cancel().catch(()=>{});for(const source of nodes){source.onended=null;try{source.stop();source.disconnect();}catch{}}nodes.clear();resolveTail();if(this.streamStop===cleanup)this.streamStop=null;};
   this.streamStop=cleanup;
   const frame=value=>{
-   const data=JSON.parse(value);if(data.error||done)throw new Error('invalid_audio');
+   const data=JSON.parse(value);if(data.error)throw conversationServiceError(data,response.headers,'invalid_audio');if(done)throw new Error('invalid_audio');
    if(data.done){done=true;return;}
    if(data.rate!==24000||typeof data.audio!=='string'||!data.audio||data.audio.length>6000000)throw new Error('invalid_audio');
    const binary=globalThis.atob(data.audio);bytes+=binary.length;if(bytes>4000000)throw new Error('invalid_audio');
@@ -86,7 +86,7 @@ export class CloudSpeechPlayer {
   }finally{cleanup();reader.releaseLock();}
  }
  async speak(text,{language='en',soul='lumi',source,onState=()=>{}}={}){
-  this.stop();const serial=this.serial,valid=()=>serial===this.serial,report=state=>{if(valid()){this.audioSession?.setPlayback?.(this,['loading','playing'].includes(state));onState(state);}};
+  this.stop();const serial=this.serial,valid=()=>serial===this.serial,report=(state,detail)=>{if(valid()){this.audioSession?.setPlayback?.(this,['loading','playing'].includes(state));onState(state,detail);}};
   const parts=speechChunks(text);if(!parts.length){report('ended');return;}
   report('loading');
   if(this.audioSession?.playbackMode==='media')return this.native.speak(parts,{language,soul,source,report});
@@ -103,21 +103,22 @@ export class CloudSpeechPlayer {
     if(!valid())return;
     const key=JSON.stringify([part,language,soul]);let buffer=this.cache.get(key);
     if(!buffer&&(source||this.preloads.has(key))){
-     const bytes=await (this.preloads.get(key)?.promise||this.preload(part,{language,soul,source}));if(!valid())return;
+     const pending=this.preloads.get(key)?.promise||this.preload(part,{language,soul,source}),entry=this.preloads.get(key);
+     const bytes=await pending;if(!valid())return;
+     if(entry?.failure){this.preloads.delete(key);throw entry.failure;}
      if(bytes){try{buffer=await context.decodeAudioData(bytes.slice(0));}catch{}if(!valid())return;}
      if(buffer)this.cache.set(key,buffer);
     }
     if(!buffer){
      fetchTimer=this.timer=this.setTimer(()=>controller.abort(),35000);
      const response=await this.fetchImpl('/api/speech/stream',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({text:part,language,soul})});
-     if(!response.ok)throw new Error('speech_unavailable');
+     await requireSpeechResponse(response);
      if(!valid()){response.body?.cancel().catch(()=>{});return;}
      if(response.headers.get('content-type')?.includes('application/x-ndjson')){
       const completed=await this.playStream(response,{soul,valid,report,received:()=>this.clearTimer(fetchTimer)});
       if(completed&&valid())this.cache.set(key,completed);continue;
      }
-     const bytes=await response.arrayBuffer();if(!valid())return;
-     if(bytes.byteLength>4000000)throw new Error('invalid_audio');
+     const bytes=await speechFileBytes(response);if(!valid())return;
      buffer=await context.decodeAudioData(bytes);this.clearTimer(fetchTimer);
      if(!valid())return;
      this.cache.set(key,buffer);
@@ -134,7 +135,7 @@ export class CloudSpeechPlayer {
     });
    }
    report('ended');
-  }catch(error){if(valid())report(this.context?.state!=='running'?'blocked':'unavailable');}
+  }catch(error){if(valid())report(isConversationLimit(error.message)?error.message:this.context?.state!=='running'?'blocked':'unavailable',error);}
   finally{this.clearTimer(fetchTimer);if(this.timer===fetchTimer)this.timer=null;if(this.controller===controller)this.controller=null;}
  }
  // Analyse packaged HTML audio without rerouting or delaying its playback.

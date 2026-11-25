@@ -3,6 +3,7 @@ import {ConversationAudioSession} from './audio-session.mjs';
 import {BUILD} from './build-version.mjs';
 import {prepareStandby,StreamingTranscriber} from './asr-stream.mjs';
 import {loadSpeechDetectorFactory} from './speech-detector.mjs';
+import {isConversationLimit,conversationServiceError} from './conversation-limits.mjs';
 // A 150 Hz high-pass reduces mic offsets, wind rumble and mains hum.
 function createSpeechBand(rate) {
   const angle=2*Math.PI*150/rate, cos=Math.cos(angle), a0=1+Math.sin(angle)/Math.SQRT2;
@@ -240,7 +241,15 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
             if(text.trim())this.deliver(text);
             else this.transcribe();
           },
-          onUnavailable:error=>{this.stream=null;this.backgroundPause=0;this.previewEndPause=0;streamDisabledUntil=now()+(['provider_auth','not_configured','rate_limited','provider_quota'].includes(error)?60000:5000);if(!this.active)return;if(['rate_limited','provider_quota'].includes(error))return this.fail(error);if(this.finalizing)this.transcribe();}});
+          onUnavailable:(error,retryAfter)=>{
+            this.stream=null;this.backgroundPause=0;this.previewEndPause=0;
+            if(!this.active)return;
+            // A shared limit also applies to file uploads. Let the conversation
+            // wait or stop without uploading the same recording a second time.
+            if(isConversationLimit(error))return this.fail(error,retryAfter);
+            streamDisabledUntil=now()+(['provider_auth','not_configured'].includes(error)?60000:5000);
+            if(this.finalizing)this.transcribe();
+          }});
       }
     }
     samples(data, rate) {
@@ -364,13 +373,13 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
           method:'POST',headers:{'Content-Type':'audio/wav'},signal:this.controller.signal,body:wav
         });
         const data = await response.json(); if (!this.active) return;
-        if (!response.ok) throw new Error(data.error || 'network');
+        if (!response.ok) throw conversationServiceError(data,response.headers);
         if (typeof data.text !== 'string') throw new Error('invalid_response');
         this.deliver(data.text);
-      } catch(error) { if (this.active) this.fail(error.name === 'AbortError' ? 'asr_timeout' : error.message); }
+      } catch(error) { if (this.active) this.fail(error.name === 'AbortError' ? 'asr_timeout' : error.message,error.retryAfter); }
       finally { clearTimer(this.timer); }
     }
-    fail(error) { this.abort(); this.onerror?.({error}); }
+    fail(error,retryAfter) { this.abort(); this.onerror?.({error,retryAfter}); }
     abort() { this.active = false; this.standby?.close();this.standby=null;this.stream?.close();this.stream=null;this.releaseDetector();input.detach(this);this.controller?.abort();clearTimer(this.timer);clearTimer(this.captureTimer);this.captureTimer=null;this.chunks=[];this.preroll=[]; }
   };
 }

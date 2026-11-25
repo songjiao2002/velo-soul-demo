@@ -1,10 +1,11 @@
+import {conversationServiceError} from './conversation-limits.mjs';
 // Shared bounded readers: provider SSE stays on the server; the client sees text only.
-export async function readProviderChat(response,onDelta){
+export async function readProviderChat(response,onDelta,providerError=()=>Error('invalid_stream')){
  if(!response.headers.get('content-type')?.includes('text/event-stream')||!response.body)throw Error('invalid_stream');
  const decoder=new TextDecoder();let pending='',text='',finished=false,reason;
  async function line(raw){
   if(!raw.startsWith('data:'))return;const data=raw.slice(5).trim();if(data==='[DONE]'){finished=true;return;}if(!data)return;
-  const event=JSON.parse(data);if(event.error)throw Error('invalid_stream');const choice=event.choices?.[0];
+  const event=JSON.parse(data);if(event.error||event.code)throw providerError(event);const choice=event.choices?.[0];
   const delta=choice?.delta?.content;
   if(delta!==undefined&&delta!==null){if(typeof delta!=='string'||text.length+delta.length>10000)throw Error('invalid_stream');text+=delta;if(delta)await onDelta(delta);}
   if(choice?.finish_reason){reason=choice.finish_reason;finished=true;}
@@ -93,7 +94,7 @@ export async function readVoiceReply(response,{soul,onText,onSentence}){
   if(final&&text.slice(spoken).trim()){const tail=text.slice(spoken).trim();if(/[\p{L}\p{N}]/u.test(tail))onSentence(tail);spoken=text.length;}
  };
  const line=raw=>{
-  if(!raw.trim())return;const frame=JSON.parse(raw);if(frame.error)throw Error(frame.error);if(result)throw Error('invalid_response');
+  if(!raw.trim())return;const frame=JSON.parse(raw);if(frame.error)throw conversationServiceError(frame,response.headers);if(result)throw Error('invalid_response');
   if(frame.type==='delta'&&typeof frame.text==='string'){text+=frame.text;if(text.length>10000)throw Error('invalid_response');onText(text);sentences(false);}
   else if(frame.type==='complete'&&frame.soul===soul&&typeof frame.reply==='string'&&frame.reply.trim()===text.trim()){result=frame;sentences(true);}
   else throw Error('invalid_response');

@@ -49,5 +49,5 @@ test('vision HTTP route is private to same-origin usage and shares chat budget',
  const app=http.createServer(async(req,res)=>{if(!await handler(req,res)){res.statusCode=404;res.end();}});await new Promise(r=>app.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>app.close(r)));const base='http://127.0.0.1:'+app.address().port;
  const send=origin=>fetch(base+'/api/vision',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin},body:JSON.stringify(body)});
  assert.equal((await send('https://another-site.example')).status,403);assert.equal((await send(base)).status,200);
- const r=await fetch(base+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({soul:'lumi',language:'en',messages:[{role:'user',content:'Hello'}]})});assert.equal(r.status,429);assert.equal((await r.json()).error,'rate_limited');
+ const r=await fetch(base+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({soul:'lumi',language:'en',messages:[{role:'user',content:'Hello'}]})});assert.equal(r.status,429);assert.equal((await r.json()).error,'daily_limit');
 });

@@ -4,6 +4,7 @@ import http from 'node:http';
 import {EventEmitter,once} from 'node:events';
 import WebSocket from 'ws';
 import {attachRealtimeAsr} from './asr-realtime.mjs';
+import {ChatError} from './chat-service.mjs';
 
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 async function waitFor(predicate){
@@ -55,7 +56,7 @@ async function setup(t,{reserve=()=>()=>{},automaticOpen=true}={}){
   socket.on('message',raw=>events.push(JSON.parse(raw)));
   await once(socket,'open');return {socket,events};
  }
- return {providers,start,standby,env};
+ return {providers,start,standby,env,origin};
 }
 async function complete({socket,events,provider,id},text){
  provider.event(id,'task-started');await waitFor(()=>events.some(e=>e.type==='ready'));
@@ -183,12 +184,32 @@ test('speech can claim a pending handshake without a second dial and sends queue
 });
 
 test('a denied activation closes the untouched prepared transport without a cloud task',async t=>{
- const app=await setup(t,{reserve(){throw Error('No quota');}});
+ const app=await setup(t,{reserve(){throw new ChatError('minute_limit',429,9);}});
  const {socket,events}=await app.standby(),p=app.providers[0];
  socket.send('{"type":"start"}');
  await once(socket,'close');
- assert.deepEqual(events,[{type:'error',error:'rate_limited'}]);
+ assert.deepEqual(events,[{type:'error',error:'minute_limit',retryAfter:9}]);
  assert.deepEqual(p.frames,[]);assert.equal(p.readyState,WebSocket.CLOSED);
+});
+
+test('a direct live connection receives the daily budget result before any upstream connection',async t=>{
+ const app=await setup(t,{reserve(){throw new ChatError('daily_limit',429,30);}});
+ const socket=new WebSocket(app.origin.replace('http:','ws:')+'/api/transcribe/live',{origin:app.origin});
+ const events=[];socket.on('message',raw=>events.push(JSON.parse(raw)));await once(socket,'close');
+ assert.deepEqual(events,[{type:'error',error:'daily_limit',retryAfter:30}]);
+ assert.equal(app.providers.length,0);
+});
+
+test('Qwen live speech distinguishes token throughput from exhausted free credits',async t=>{
+ const app=await setup(t);
+ for(const [code,error] of [['Throttling.AllocationQuota','provider_rate_limited'],['AllocationQuota.FreeTierOnly','provider_quota']]){
+  const {provider,socket,id,events}=await app.start();
+  const closed=once(socket,'close');
+  provider.emit('message',Buffer.from(JSON.stringify({header:{task_id:id,event:'task-failed',error_code:code}})));
+  await closed;
+  assert.equal(events.at(-1).error,error);
+  assert.equal(events.at(-1).retryAfter,error==='provider_rate_limited'?2:undefined);
+ }
 });
 
 test('when a prepared handshake fails during activation only the replacement gets PCM',async t=>{

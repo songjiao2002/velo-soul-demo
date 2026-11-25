@@ -62,6 +62,18 @@ test('preloaded introduction plays without a TTS API request and preserves cance
  const a=playerSetup(),states=[];await a.player.preload('Hello',{soul:'lumi',language:'ko',source:'/audio/intro/lumi-ko.wav'});assert.equal(a.sources.length,0);await a.player.prepare();
  const playing=a.player.speak('Hello',{soul:'lumi',language:'ko',onState:s=>states.push(s)});await flush();assert.equal(a.requests.length,1);assert.equal(a.requests[0].url,'/audio/intro/lumi-ko.wav');assert.equal(states.at(-1),'playing');a.player.stop();await playing;assert.equal(states.includes('ended'),false);a.player.dispose();
 });
+
+test('Web Audio passes through quota reasons and consumes a failed preload without immediately regenerating it',async()=>{
+ for(const prefetch of [false,true]){
+  for(const streamed of [false,true]){
+   const reason=streamed?'provider_rate_limited':'daily_limit',a=playerSetup(async()=>streamed?new Response(JSON.stringify({error:reason,retryAfter:4})+'\n',{headers:{'Content-Type':'application/x-ndjson'}}):new Response(JSON.stringify({error:reason}),{status:429})),events=[];
+   await a.player.prepare();if(prefetch)await a.player.preload('Clip');
+   await a.player.speak('Clip',{onState:(s,e)=>events.push([s,e?.retryAfter])});
+   assert.deepEqual(events,[['loading',undefined],[reason,streamed?4:undefined]]);
+   assert.equal(a.requests.length,1);assert.equal(a.timers.size,0);a.player.dispose();
+  }
+ }
+});
 test('failed packaged audio falls back to streamed TTS and weather prefetch is cancelled on exit',async()=>{
  let calls=0;const a=playerSetup(async()=>++calls===1?new Response('',{status:404}):new Response(wav));await a.player.prepare();
  await a.player.preload('Hello',{source:'/missing.wav'});const play=a.player.speak('Hello');await flush();assert.equal(a.requests.at(-1).url,'/api/speech/stream');a.sources.at(-1).onended();await play;

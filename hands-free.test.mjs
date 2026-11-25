@@ -5,7 +5,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
 function setup(fetchImpl,options={}){
  const recognizers=[],calls=[],voices=[],states=[],timers=new Map();let timerId=0,stops=0;
  class Recognition{constructor(){recognizers.push(this);}start(){this.active=true;this.onstart?.();}abort(){this.active=false;}stop(){this.active=false;this.onend?.();}hear(text){this.onspeechstart?.();this.onresult?.({results:[{0:{transcript:text},isFinal:true}]});}}
- const session=new HandsFreeConversation({Recognition,fetchImpl:async(url,options)=>{calls.push({url,body:JSON.parse(options.body),signal:options.signal});return fetchImpl?fetchImpl(url,options):new Response(JSON.stringify({soul:'bori',reply:'A little cafe break sounds lovely.'}));},getContext:()=>({context:{location:{placeId:'daelim-changgo'}},image:'synthetic-image-for-client-unit-test'}),speak:(text,lang,soul,callback)=>{assert.equal(recognizers.some(r=>r.active),false);voices.push({text,lang,callback});},stopSpeech:()=>stops++,onState:s=>states.push(s),setTimer:(fn,ms)=>{timers.set(++timerId,{fn,ms});return timerId;},clearTimer:id=>timers.delete(id),...options});
+ const session=new HandsFreeConversation({Recognition,fetchImpl:async(url,options)=>{calls.push({url,body:JSON.parse(options.body),signal:options.signal});return fetchImpl?fetchImpl(url,options):new Response(JSON.stringify({soul:'bori',reply:'A little cafe break sounds lovely.'}));},getContext:()=>({context:{location:{placeId:'daelim-changgo'}},image:'synthetic-image-for-client-unit-test'}),speak:(text,lang,soul,callback)=>{assert.equal(recognizers.some(r=>r.active&&r!==session.interruptRecognizer),false);voices.push({text,lang,callback});},stopSpeech:()=>stops++,onState:s=>states.push(s),setTimer:(fn,ms)=>{timers.set(++timerId,{fn,ms});return timerId;},clearTimer:id=>timers.delete(id),...options});
  const run=ms=>{const entry=[...timers.entries()].find(([,t])=>t.ms===ms);assert.ok(entry,'timer '+ms);timers.delete(entry[0]);entry[1].fn();};
  return {session,recognizers,calls,voices,states,timers,run,get stops(){return stops;}};
 }
@@ -75,6 +75,86 @@ test('microphone capture failures reacquire input with bounded retries, permissi
  a.session.start('bori','en');a.recognizers.at(-1).onerror({error:'not-allowed'});assert.equal(a.session.state,'denied');assert.equal(a.timers.size,0);
 });
 
+test('a meaningful interim yields the floor in three languages while revisable words stay on the same microphone',async()=>{
+ for(const [language,partial,final] of [
+  ['en','Stop at the','Stop at the café for a minute.'],['ko','어디로 가면','어디로 가면 한강이 나와요?'],['zh','我想去','我想去前面的公园。']
+ ]){
+  const captions=[],a=setup(null,{getOpening:()=>({language,text:'It is a bright afternoon.'}),onTranscript:(text,confirmed)=>captions.push({text,confirmed})});
+  a.session.start('mori',language);const old=a.voices[0];old.callback('playing');a.run(150);
+  const mic=a.recognizers.at(-1),before=a.stops,preview=text=>mic.onresult({results:[{0:{transcript:text},isFinal:false}]});
+  for(const sound of ['mmm','thank you','bright afternoon'])preview(sound);
+  assert.equal(a.stops,before);assert.equal(a.calls.length,0);
+  preview(partial);assert.equal(a.stops,before+1);assert.equal(a.session.state,'hearing');assert.equal(mic.active,true);
+  old.callback('ended');assert.equal(a.calls.length,0);
+  mic.hear(final);await flush();assert.equal(a.calls.length,1);assert.equal(a.calls[0].body.messages.at(-1).content,final);
+  assert.deepEqual(captions.at(-1),{text:final,confirmed:true});a.session.stop();
+ }
+});
+
+test('a rider speaking across two audio segments retains the entire utterance through final-only recognition',async()=>{
+ let stream;const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}));
+ a.session.start('bori','en');a.recognizers[0].hear('Hello');await flush();
+ const frame=value=>stream.enqueue(new TextEncoder().encode(JSON.stringify(value)+'\n'));
+ frame({type:'delta',text:'Look at that tree! '});frame({type:'delta',text:'Lovely shade!'});
+ frame({type:'complete',soul:'bori',reply:'Look at that tree! Lovely shade!'});await flush();
+ a.voices[0].callback('playing');a.run(150);const mic=a.recognizers.at(-1);
+ mic.onspeechstart();a.voices[0].callback('ended');a.voices[1].callback('playing');
+ assert.equal(a.session.interruptRecognizer,mic);const before=a.stops;
+ mic.onresult({results:[{0:{transcript:'that tree lovely shade'},isFinal:false}]});
+ assert.equal(a.stops,before);a.voices[1].callback('ended');assert.equal(mic.active,true);assert.equal(a.calls.length,1);
+ mic.hear('Where does this path end?');await flush();
+ assert.equal(a.calls.length,2);assert.equal(a.calls[1].body.messages.at(-1).content,'Where does this path end?');a.session.stop();stream.close();
+});
+
+test('temporary chat limits retry the same utterance once, respect delays and cancel cleanly',async()=>{
+ for(const [code,seconds] of [['service_busy',1],['provider_rate_limited',9],['minute_limit',27],['rate_limited',3]]){
+  let contexts=0;const a=setup(()=>new Response(JSON.stringify({error:code}),{status:429,headers:code==='service_busy'?{}:{'Retry-After':String(seconds)}}),{getContext:()=>({context:{capture:++contexts}})});
+  a.session.start('lumi','ko');a.recognizers[0].hear('다시 물어봐도 돼?');await flush();
+  assert.equal(a.session.state,code);assert.equal(a.session.active,true);assert.equal(a.session.announce('A café','en'),false);
+  a.run(seconds*1000);await flush();assert.equal(a.calls.length,2);assert.deepEqual(a.calls[0].body,a.calls[1].body);assert.equal(contexts,1);
+  a.run(seconds*1000);assert.equal(a.session.state,'listening');assert.equal(a.calls.length,2);a.session.stop();
+ }
+ const b=setup(()=>new Response(JSON.stringify({error:'service_busy'}),{status:429}));
+ b.session.start('mori','en');b.recognizers[0].hear('Hello');await flush();const stale=[...b.timers.values()].find(x=>x.ms===1000).fn;
+ b.session.stop();stale();await flush();assert.equal(b.calls.length,1);assert.equal(b.timers.size,0);
+});
+
+test('a rate limit after the first reply fragment never repeats the rider request',async()=>{
+ const frames=[{type:'delta',text:'Sure! '},{error:'provider_rate_limited',retryAfter:8}].map(x=>JSON.stringify(x)).join('\n')+'\n';
+ const a=setup(()=>new Response(frames,{headers:{'Content-Type':'application/x-ndjson'}}));
+ a.session.start('mori','en');a.recognizers[0].hear('Are you there?');await flush();assert.equal(a.voices.length,1);assert.equal(a.session.state,'provider_rate_limited');
+ a.voices[0].callback('ended');a.run(8000);assert.equal(a.session.state,'listening');assert.equal(a.calls.length,1);a.session.stop();
+});
+
+test('recognition respects retry timing and both voice paths expose the exact exhausted allowance',async()=>{
+ const b=setup();b.session.start('mori','ko');b.recognizers[0].onerror({error:'minute_limit',retryAfter:12});
+ assert.equal(b.session.state,'minute_limit');b.run(12000);assert.equal(b.session.state,'listening');b.session.stop();
+ for(const code of ['daily_limit','provider_quota']){
+  const a=setup(()=>new Response(JSON.stringify({error:code}),{status:429}));a.session.start('mori','en');a.recognizers[0].hear('Hi');await flush();
+  assert.equal(a.session.state,code);assert.equal(a.session.active,false);assert.equal(a.timers.size,0);
+  a.session.start('bori','en');a.recognizers.at(-1).onerror({error:code});assert.equal(a.session.state,code);assert.equal(a.timers.size,0);
+ }
+});
+
+test('speech throttling retries a silent clip once, keeps generated text and never replays audible words',async()=>{
+ for(const audible of [false,true]){
+  const a=setup();a.session.start('bori','en');a.recognizers[0].hear('Any cafés?');await flush();
+  const clip=a.voices[0];if(audible)clip.callback('playing');
+  clip.callback('provider_rate_limited',{retryAfter:4});clip.callback('ended');
+  assert.equal(a.session.active,true);assert.equal(a.session.state,'provider_rate_limited');assert.equal(a.session.histories.bori.length,2);
+  a.run(4000);assert.equal(a.calls.length,1);
+  if(audible){a.run(100);assert.equal(a.voices.length,1);}
+  else{
+   assert.equal(a.voices.length,2);assert.equal(a.voices[1].text,clip.text);
+   a.voices[1].callback('service_busy');a.run(1000);a.run(100);assert.equal(a.voices.length,2);
+  }
+  assert.equal(a.session.state,'listening');a.session.stop();
+ }
+ const b=setup();b.session.start('bori','en');b.recognizers[0].hear('Hello');await flush();b.voices[0].callback('provider_quota');assert.equal(b.session.state,'provider_quota');assert.equal(b.session.active,false);
+ const c=setup();c.session.start('bori','en');c.recognizers[0].hear('Hello');await flush();c.voices[0].callback('minute_limit',{retryAfter:5});const late=[...c.timers.values()].find(x=>x.ms===5000).fn;
+ c.session.stop();late();assert.equal(c.voices.length,1);assert.equal(c.timers.size,0);
+});
+
 test('permission startup honors the recorder deadline and still cancels late callbacks',()=>{
  let r;class SlowPermission{constructor(){r=this;this.startTimeoutMs=50000;}start(){}abort(){}}
  const a=setup(null,{Recognition:SlowPermission});a.session.start('bori','en');assert.ok([...a.timers.values()].some(t=>t.ms===50000));assert.ok(![...a.timers.values()].some(t=>t.ms===12000));
@@ -103,6 +183,21 @@ test('English and Korean first clauses start TTS before the rest arrives without
   emit({type:'complete',soul:'mori',reply:first+rest});await flush();assert.equal(a.voices.length,2);
   a.voices[1].callback('ended');a.session.stop();
  }
+});
+
+test('a talkative character preloads just the next clip and groups the remaining sentences',async()=>{
+ const prepared=[];
+ const reply='Look here! Over by the bridge! The birds are back. Two of them!';
+ const frames=[{type:'delta',text:reply},{type:'complete',soul:'bori',reply}];
+ const a=setup(()=>new Response(frames.map(frame=>JSON.stringify(frame)+'\n').join(''),{headers:{'Content-Type':'application/x-ndjson'}}),{prefetchSpeech:text=>prepared.push(text)});
+ a.session.start('bori','en');a.recognizers[0].hear('What do you see?');await flush();
+ assert.deepEqual(prepared,['Over by the bridge!']);
+ assert.equal(a.voices[0].text,'Look here!');
+ a.voices[0].callback('ended');
+ assert.deepEqual(prepared,['Over by the bridge!','The birds are back. Two of them!']);
+ a.voices[1].callback('ended');
+ assert.equal(a.voices.map(voice=>voice.text).join(' '),reply);
+ a.voices[2].callback('ended');a.session.stop();
 });
 
 test('a broken streamed answer stops already started speech and does not save a partial turn',async()=>{

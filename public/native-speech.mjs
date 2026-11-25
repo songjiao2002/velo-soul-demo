@@ -1,4 +1,6 @@
 import {appFetch} from './app-network.mjs';
+import {isConversationLimit} from './conversation-limits.mjs';
+import {speechFileBytes} from './speech-response.mjs';
 // Optional media-element playback for browsers whose Web Audio route is wrong.
 // It uses complete WAV responses, trading first-audio latency for a different
 // playback path. It cannot select Bluetooth when the host app forbids it.
@@ -29,7 +31,7 @@ export class NativeSpeechPlayer {
  preload(text,{language='en',soul='lumi',source}={}){
   const key=JSON.stringify([source||'',text,language,soul]);if(this.cache.has(key))return Promise.resolve(this.cache.get(key));if(this.preloads.has(key))return this.preloads.get(key).promise;
   const controller=new AbortController(),entry={controller,dynamic:!source},timer=this.setTimer(()=>controller.abort(),source?3000:8000);
-  entry.promise=(async()=>{try{const response=await this.fetchImpl(source||'/api/speech',{signal:controller.signal,...(source?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,language,soul})})});if(!response.ok||Number(response.headers.get('content-length'))>4000000)throw Error('audio');const bytes=await response.arrayBuffer();if(bytes.byteLength<44||bytes.byteLength>4000000||controller.signal.aborted)throw Error('audio');this.remember(key,bytes);return bytes;}catch{return null;}finally{this.clearTimer(timer);if(this.preloads.get(key)===entry)this.preloads.delete(key);}})();
+  entry.promise=(async()=>{try{const response=await this.fetchImpl(source||'/api/speech',{signal:controller.signal,...(source?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,language,soul})})});const bytes=await speechFileBytes(response);if(controller.signal.aborted)return null;this.remember(key,bytes);return bytes;}catch(error){if(isConversationLimit(error.message))entry.failure=error;return null;}finally{this.clearTimer(timer);if(!entry.failure&&this.preloads.get(key)===entry)this.preloads.delete(key);}})();
   this.preloads.set(key,entry);while(this.preloads.size>8){const first=this.preloads.keys().next().value;this.preloads.get(first).controller.abort();this.preloads.delete(first);}return entry.promise;
  }
  cancelPrefetches(){for(const [key,entry]of this.preloads)if(entry.dynamic){entry.controller.abort();this.preloads.delete(key);}}
@@ -40,18 +42,20 @@ export class NativeSpeechPlayer {
    for(const part of parts){
     if(!valid())return;if(!allowed()){report('blocked');return;}
     const key=JSON.stringify([source||'',part,language,soul]);let bytes=this.cache.get(key);
-    if(!bytes&&this.preloads.has(key))bytes=await this.preloads.get(key).promise;if(!valid())return;
+    if(!bytes&&this.preloads.has(key)){
+     const entry=this.preloads.get(key);bytes=await entry.promise;if(!valid())return;
+     if(entry.failure){this.preloads.delete(key);throw entry.failure;}
+    }
     if(!bytes){this.fetchTimer=this.setTimer(()=>controller.abort(),35000);
      const response=await this.fetchImpl(source||'/api/speech',{signal:controller.signal,...(source?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:part,language,soul})})});
-     if(!response.ok||Number(response.headers.get('content-length'))>4000000)throw Error('audio');
-     bytes=await response.arrayBuffer();this.clearTimer(this.fetchTimer);this.fetchTimer=null;
+     bytes=await speechFileBytes(response);this.clearTimer(this.fetchTimer);this.fetchTimer=null;
      if(!valid())return;if(bytes.byteLength<44||bytes.byteLength>4000000)throw Error('audio');this.remember(key,bytes);
     }
     if(!valid())return;if(!allowed()){report('blocked');return;}
     await this.playBytes(bytes,{soul,serial,report,mime:/\.mp3(?:\?|$)/i.test(source||'')?'audio/mpeg':'audio/wav'});
    }
    if(valid())report('ended');
-  }catch(error){if(valid())report(error.name==='NotAllowedError'?'blocked':'unavailable');}
+  }catch(error){if(valid())report(isConversationLimit(error.message)?error.message:error.name==='NotAllowedError'?'blocked':'unavailable',error);}
   finally{if(valid()){this.clearTimer(this.fetchTimer);this.fetchTimer=null;this.controller=null;this.playing=false;this.clearSource();}}
  }
  playBytes(bytes,{soul,serial,report,mime='audio/wav'}){

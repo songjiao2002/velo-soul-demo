@@ -4,6 +4,8 @@
 Ft=liveDeviceMedia;
 Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S});
 Tt=LiveSpeech;at=LiveMicrophone;ua=options=>liveRecognition({...options,standby:true});Et=LiveAudioSession;xi=LiveMemory;
+Ga=rideVoiceControlsMarkup;
+fs=paintRideVoiceControls;
 const referenceVoiceState=kl;
 function syncRideTalk(state=M?.state||'off'){
  paintRideTalk(document.querySelector('.ride-talk-panel'),S(),!!M?.active,state,!!M?.audioIssue);

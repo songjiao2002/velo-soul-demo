@@ -53,14 +53,14 @@ export function trimPandaWave(wave){
 
 // Provider SSE stays on the server. Only bounded PCM and an explicit completion
 // marker reach the browser; credentials, provider URLs and errors never do.
-export async function relaySpeech(response,emit,{trimPandaLead=false}={}){
+export async function relaySpeech(response,emit,{trimPandaLead=false,providerError=()=>new Error('provider_stream_error')}={}){
  if(!response.body||!response.headers.get('content-type')?.includes('text/event-stream'))throw new Error('invalid_stream');
  const lead=trimPandaLead?pandaStreamLead():null;
  const decoder=new TextDecoder();let pending='',header=Buffer.alloc(0),ready=false,done=false,total=0;
  async function line(value){
   if(!value.startsWith('data:'))return;
   const raw=value.slice(5).trim();if(!raw||raw==='[DONE]')return;
-  const data=JSON.parse(raw);if(data.code||data.error)throw new Error('provider_stream_error');
+  const data=JSON.parse(raw);if(data.code||data.error)throw providerError(data);
   const encoded=data.output?.audio?.data;
   if(encoded){
    if(done||typeof encoded!=='string'||encoded.length>6000000||!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded))throw new Error('invalid_audio');

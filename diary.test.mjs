@@ -46,7 +46,7 @@ test('diary rejects external images, oversized context and malformed or truncate
 });
 test('diary shares the existing demo budget and cancellation and does not leak upstream errors',async()=>{
  const service=createChatService({env:{...env,QWEN_MAX_DAILY_REQUESTS:'1'},fetchImpl:async()=>answer()});await service.diary({...input('lumi','en'),photos:[],conversation:[],observations:[],sourceDiary:{title:'Original',body:'Original words.'}});
- await assert.rejects(service.reply({soul:'lumi',language:'en',messages:[{role:'user',content:'Hello'}]}),{code:'rate_limited'});
+ await assert.rejects(service.reply({soul:'lumi',language:'en',messages:[{role:'user',content:'Hello'}]}),{code:'daily_limit'});
  await assert.rejects(createChatService({env,fetchImpl:async()=>new Response('diary-test-secret',{status:401})}).diary(input()),e=>e.code==='provider_auth'&&!e.message.includes('diary-test-secret'));
  const aborted=new AbortController();aborted.abort();await assert.rejects(createChatService({env,fetchImpl:async(_,options)=>{options.signal.throwIfAborted();}}).diary(input(),{signal:aborted.signal}),{code:'cancelled'});
 });
@@ -114,7 +114,7 @@ test('format failure gets one bounded rewrite using original evidence and an exp
  assert.match(calls[1].messages.at(-1).content,/has 2 counted units/);assert.match(calls[1].messages.at(-1).content,/NOT additional ride evidence/);
  assert.equal(calls[0].messages[1].content,calls[1].messages[1].content);assert.deepEqual(JSON.parse(calls[1].messages[2].content),{title:'A little sea',body:'Too short.'});
  let attempts=0;await assert.rejects(createChatService({env,fetchImpl:async(_,options)=>{if(JSON.parse(options.body).messages[0].content.startsWith('PHOTO_EVIDENCE'))return photoAnswer();attempts++;return answer('en','Too short.');}}).diary(payload),{code:'invalid_diary_format'});assert.equal(attempts,2);
- let budgetCalls=0;await assert.rejects(createChatService({env:{...env,QWEN_MAX_DAILY_REQUESTS:'2'},fetchImpl:async(_,options)=>{budgetCalls++;return JSON.parse(options.body).messages[0].content.startsWith('PHOTO_EVIDENCE')?photoAnswer():answer('en','Too short.');}}).diary(payload),{code:'rate_limited'});assert.equal(budgetCalls,2);
+ let budgetCalls=0;await assert.rejects(createChatService({env:{...env,QWEN_MAX_DAILY_REQUESTS:'2'},fetchImpl:async(_,options)=>{budgetCalls++;return JSON.parse(options.body).messages[0].content.startsWith('PHOTO_EVIDENCE')?photoAnswer():answer('en','Too short.');}}).diary(payload),{code:'daily_limit'});assert.equal(budgetCalls,2);
  const controller=new AbortController();let cancelledCalls=0;
  await assert.rejects(createChatService({env,fetchImpl:async(_,options)=>{cancelledCalls++;if(cancelledCalls===1)controller.abort();options.signal.throwIfAborted();return answer('en','Too short.');}}).diary(payload,{signal:controller.signal}),{code:'cancelled'});assert.equal(cancelledCalls,1);
 });

@@ -23,6 +23,19 @@ test('saved media test loads only the introduction and does not call the speech 
 test('native speech shares a pending weather preload instead of generating the same greeting twice',async()=>{
  const a=setup();let finish;a.setFetch(()=>new Promise(r=>finish=r));const preloaded=a.player.preload('weather',a.options),spoken=a.player.speak(['weather'],a.options);assert.equal(a.requests.length,1);finish(new Response(new Uint8Array(100)));await preloaded;await spoken;assert.deepEqual(a.states,['playing','ended']);assert.equal(a.requests.length,1);a.player.dispose();a.devices.dispose();
 });
+
+test('native WAV requests and completed prefetches preserve HTTP and streamed quota failures without another paid call',async()=>{
+ for(const prefetch of [false,true]){
+  for(const streamed of [false,true]){
+   const a=setup(),reason=streamed?'provider_quota':'minute_limit',reports=[];
+   a.setFetch(()=>streamed?new Response(JSON.stringify({error:reason})+'\n',{headers:{'Content-Type':'application/x-ndjson'}}):new Response(JSON.stringify({error:reason}),{status:429,headers:{'Retry-After':'7'}}));
+   if(prefetch)await a.player.preload('hello',a.options);
+   await a.player.speak(['hello'],{...a.options,report:(state,detail)=>reports.push([state,detail?.retryAfter])});
+   assert.deepEqual(reports,[[reason,streamed?undefined:7]]);assert.equal(a.requests.length,1);assert.equal(a.urls.size,0);
+   a.player.dispose();a.devices.dispose();
+  }
+ }
+});
 test('stopping a pending native fetch prevents late playback and releases resources',async()=>{
  const a=setup();let finish;a.setFetch(()=>new Promise(r=>finish=r));const pending=a.player.speak(['hello'],a.options);a.player.stop();finish(new Response(new Uint8Array(100)));await pending;assert.deepEqual(a.states,[]);assert.equal(a.urls.size,0);a.player.dispose();a.devices.dispose();
 });

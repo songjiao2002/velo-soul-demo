@@ -15,7 +15,23 @@ import {validateLocationContext,describeLocation} from './public/sensor-context.
 const SOUL_IDS=['lumi','mori','bori'];
 const LANGUAGES={ko:'Korean',en:'English',zh:'Simplified Chinese'};
 export class ChatError extends Error {
-  constructor(code,status=400){super(code);this.code=code;this.status=status;}
+  constructor(code,status=400,retryAfter){super(code);this.code=code;this.status=status;this.retryAfter=retryAfter;}
+}
+
+// DashScope uses insufficient_quota for token throughput as well as reporting
+// exhausted free allocations. Only the latter needs an account change.
+export function qwenFailure(failure={},status=0,retryHeader=null,now=Date.now()){
+  const detail=failure?.error||failure;
+  const code=String(detail?.code||'');
+  if(code==='AccessDenied.Unpurchased')return new ChatError('provider_not_activated',503);
+  if(/^(AllocationQuota\.FreeTierOnly|Arrearage)$/i.test(code)||/free allocated quota exceeded/i.test(String(detail?.message||'')))return new ChatError('provider_quota',429);
+  if(status===401||status===403||/auth|api.?key|access.?denied/i.test(code))return new ChatError('provider_auth',503);
+  if(status===429||/throttl|rate.?limit|limit[_ ]?(requests|burst)|insufficient_quota|resource.?exhausted|too many requests/i.test(code)){
+    const raw=typeof retryHeader==='string'?retryHeader.trim():'';
+    const seconds=/^\d+$/.test(raw)?Number(raw):(Date.parse(raw)-now)/1000;
+    return new ChatError('provider_rate_limited',429,Number.isFinite(seconds)?Math.max(1,Math.ceil(seconds)):2);
+  }
+  return new ChatError('provider_unavailable',502);
 }
 
 export function chatConfig(env=process.env){
@@ -128,8 +144,8 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
     const clip=speechClips.get(key);
     if(!clip)return null;
     if(now()>=clip.expires){speechClips.delete(key);return null;}
-    // The hot path consumes the same shared visitor budget as a cold request.
-    reserve();
+    if(signal?.aborted)throw new ChatError('cancelled',499);
+    const release=reserve(true);
     try{
       if(signal?.aborted)throw new ChatError('cancelled',499);
       if(!emit)return Buffer.from(clip.bytes);
@@ -137,19 +153,32 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
       if(signal?.aborted)throw new ChatError('cancelled',499);
       await emit({done:true});
       return true;
-    }finally{active--;}
+    }finally{release();}
   }
   // A shared demo budget deliberately covers all visitors and cannot be bypassed with new cookies.
-  const maxDaily=Number(env.QWEN_MAX_DAILY_REQUESTS)||200;
-  let minute=0,day=0,minuteCount=0,dayCount=0,active=0;
-  function reserve(){
-    const m=Math.floor(now()/60000),d=Math.floor(now()/86400000);
-    if(m!==minute){minute=m;minuteCount=0;}if(d!==day){day=d;dayCount=0;}
-    if(active>=3||minuteCount>=20||dayCount>=maxDaily)throw new ChatError('rate_limited',429);
-    minuteCount++;dayCount++;active++;
+  function limit(value,fallback){
+    const parsed=Number(value);
+    return value!=null&&String(value).trim()!==''&&Number.isSafeInteger(parsed)&&parsed>=0?parsed:fallback;
+  }
+  const maxDaily=limit(env.QWEN_MAX_DAILY_REQUESTS,200);
+  const cloud={active:0,count:0,maxActive:limit(env.QWEN_MAX_CONCURRENT_REQUESTS,8),maxMinute:limit(env.QWEN_MAX_REQUESTS_PER_MINUTE,60)};
+  const cached={active:0,count:0,maxActive:12,maxMinute:120};
+  let minute=0,day=0,dayCount=0;
+  function reserve(localClip=false){
+    const time=now(),m=Math.floor(time/60000),d=Math.floor(time/86400000),pool=localClip?cached:cloud;
+    if(m!==minute){minute=m;cloud.count=0;cached.count=0;}
+    if(d!==day){day=d;dayCount=0;}
+    if(!localClip&&dayCount>=maxDaily)throw new ChatError('daily_limit',429,Math.ceil(((d+1)*86400000-time)/1000));
+    if(pool.count>=pool.maxMinute)throw new ChatError('minute_limit',429,Math.ceil(((m+1)*60000-time)/1000));
+    if(pool.active>=pool.maxActive)throw new ChatError('service_busy',429,1);
+    pool.active++;pool.count++;
+    if(!localClip)dayCount++;
+    let released=false;
+    return ()=>{if(!released){released=true;pool.active--;}};
   }
   async function complete(requestBody,config,signal,{speech=false,stream=false,readResult=async data=>data,readResponse}={}){
-      reserve();
+      if(signal?.aborted)throw new ChatError('cancelled',499);
+      const release=reserve();
       const controller=new AbortController();
       const abort=()=>controller.abort();
       if(signal?.aborted)abort();else signal?.addEventListener('abort',abort,{once:true});
@@ -162,22 +191,18 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
         });
         if(!response.ok){
           // Never forward provider response bodies, request headers, or credentials to the browser.
-          let code;try{const failure=await response.json();code=failure?.error?.code||failure?.code;}catch{}
-          if(code==='AccessDenied.Unpurchased')throw new ChatError('provider_not_activated',503);
-          if(code==='AllocationQuota.FreeTierOnly')throw new ChatError('provider_quota',429);
-          if(response.status===401||response.status===403)throw new ChatError('provider_auth',503);
-          if(response.status===429)throw new ChatError('provider_quota',429);
-          throw new ChatError('provider_unavailable',502);
+          let failure;try{failure=await response.json();}catch{}
+          throw qwenFailure(failure,response.status,response.headers.get('retry-after'),now());
         }
         return readResponse?await readResponse(response,controller.signal):await readResult(await response.json(),controller.signal);
       }catch(error){
         if(error instanceof ChatError)throw error;
         if(controller.signal.aborted)throw new ChatError(signal?.aborted?'cancelled':'timeout',signal?.aborted?499:504);
         throw new ChatError('provider_unavailable',502);
-      }finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);active--;}
+      }finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);release();}
   }
   return {
-    reserveRealtime(){reserve();let released=false;return ()=>{if(!released){released=true;active--;}};},
+    reserveRealtime(){return reserve();},
     status(){
       const c=chatConfig(env),live=env.QWEN_REALTIME_ASR!=='off';
       const scribe=c.scribeApiKey?'scribe_v3_live':null;
@@ -199,7 +224,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
           if(size+bytes.length>maxClipBytes){recording=null;return;}
           bytes.copy(recording,size);size+=bytes.length;
         };
-        await relaySpeech(response,key?capture:emit,{trimPandaLead:payload.soul==='mori'});
+        await relaySpeech(response,key?capture:emit,{trimPandaLead:payload.soul==='mori',providerError:qwenFailure});
         requestSignal.throwIfAborted();
         if(recording&&size%2===0)rememberClip(key,recording.subarray(0,size));
       }});
@@ -312,7 +337,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
           requestBody.messages[0].content=priorities+'\n\n'+requestBody.messages[0].content;
         }
         if(onDelta&&!vision)requestBody.stream=true;
-        const data=await complete(requestBody,config,signal,onDelta&&!vision?{readResponse:response=>readProviderChat(response,onDelta)}:{}),choice=data?.choices?.[0],reply=choice?.message?.content;
+        const data=await complete(requestBody,config,signal,onDelta&&!vision?{readResponse:response=>readProviderChat(response,onDelta,qwenFailure)}:{}),choice=data?.choices?.[0],reply=choice?.message?.content;
         if(typeof reply!=='string'||!reply.trim()||reply.length>10000)throw new ChatError('invalid_response',502);
         if(vision)return parseObservation(reply,payload.soul,model);
         return {reply:reply.trim().slice(0,2000),soul:payload.soul,provider:'Qwen',model,truncated:choice.finish_reason==='length'||reply.trim().length>2000};
@@ -362,7 +387,14 @@ export function createChatHandler(options={}){
       else if(speech){const audio=await service.speech(payload,{signal:controller.signal});if(!res.destroyed){res.writeHead(200,{'Content-Type':'audio/wav','Content-Length':audio.length,'Cache-Control':'no-store'});res.end(audio);}}
       else if(pathname==='/api/diary')send(200,await service.diary(payload,{signal:controller.signal}));
       else send(200,await (asr?service.transcribe(payload,{signal:controller.signal}):service.reply(payload,{signal:controller.signal,vision})));}
-    catch(e){const failure={error:e instanceof ChatError?e.code:'server_error'};if(res.headersSent){if(!res.destroyed)res.end(JSON.stringify(failure)+'\n');}else send(e instanceof ChatError?e.status:500,failure);}
+    catch(e){
+      const failure={error:e instanceof ChatError?e.code:'server_error'};
+      if(e instanceof ChatError&&e.retryAfter!==undefined){
+        failure.retryAfter=e.retryAfter;
+        if(!res.headersSent&&!res.destroyed)res.setHeader('Retry-After',String(e.retryAfter));
+      }
+      if(res.headersSent){if(!res.destroyed)res.end(JSON.stringify(failure)+'\n');}else send(e instanceof ChatError?e.status:500,failure);
+    }
     finally{res.off('close',onClose);}
     return true;
   };

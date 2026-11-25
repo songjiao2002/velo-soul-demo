@@ -62,9 +62,9 @@ test('short speech cache keys respect exact inputs, voice configuration and fixe
  now+=5*60000;await say('Okay.');assert.equal(calls,10);
 });
 
-test('a hot short clip still consumes shared quota and an incomplete or cancelled stream cannot warm it',async()=>{
+test('cached clips retain a delivery limit without consuming the shared daily cloud budget',async()=>{
  let calls=0,broken=true;
- const service=createChatService({env:{DASHSCOPE_API_KEY:'fixture',QWEN_MAX_DAILY_REQUESTS:'4'},fetchImpl:async()=>{
+ const service=createChatService({env:{DASHSCOPE_API_KEY:'fixture',QWEN_MAX_DAILY_REQUESTS:'3'},now:()=>0,fetchImpl:async()=>{
   calls++;return response(broken?[sse(pcm)]:[sse(pcm),done]);
  }});
  const input={soul:'mori',language:'en',text:'Mm,'};
@@ -74,8 +74,28 @@ test('a hot short clip still consumes shared quota and an incomplete or cancelle
  await assert.rejects(cancelled,{code:'cancelled'});
  assert.equal(calls,2);
  await service.speechStream(input,{emit:()=>{}});assert.equal(calls,3);
- await service.speechStream(input,{emit:()=>{}});assert.equal(calls,3);
- await assert.rejects(service.speechStream(input,{emit:()=>{}}),{code:'rate_limited'});assert.equal(calls,3);
+ for(let n=0;n<120;n++)await service.speechStream(input,{emit:()=>{}});
+ await assert.rejects(service.speechStream(input,{emit:()=>{}}),{code:'minute_limit',retryAfter:60});
+ await assert.rejects(service.speechStream({...input,text:'private phrase'},{emit:()=>{}}),{code:'daily_limit'});
+ assert.equal(calls,3);
+});
+
+test('a 15-minute ride can exchange 45 spoken turns within the unchanged 200-call daily allowance',async()=>{
+ let now=0,providerCalls=0;
+ const service=createChatService({env:{DASHSCOPE_API_KEY:'fixture'},now:()=>now,fetchImpl:async(url)=>{
+  providerCalls++;
+  return url.endsWith('/chat/completions')?Response.json({choices:[{message:{content:'Let’s ride.'}}]}):response([sse(pcm),done]);
+ }});
+ for(let turn=0;turn<45;turn++){
+  now=turn*20000;
+  const soul=['lumi','mori','bori'][turn%3],language=['en','ko','zh'][turn%3];
+  const releaseAsr=service.reserveRealtime();releaseAsr();
+  await service.reply({soul,language,voice:true,messages:[{role:'user',content:'Ready?'}]});
+  await Promise.all(['First phrase.','Next phrase.'].map(text=>service.speechStream({soul,language,text},{emit:()=>{}})));
+ }
+ assert.equal(providerCalls,135);
+ for(let spare=0;spare<20;spare++)service.reserveRealtime()();
+ assert.throws(()=>service.reserveRealtime(),{code:'daily_limit'});
 });
 
 test('Lulu streams the first audible sample as soon as both PCM bytes arrive and preserves all following pauses',async()=>{
@@ -197,6 +217,15 @@ test('browser starts PCM before stream ends and resumes only after the last sche
 });
 test('interrupt stops all queued PCM; a truncated stream cannot report success',async()=>{
  for(const cancel of [true,false]){const a=player(),states=[];await a.p.prepare();const speaking=a.p.speak('Hello',{onState:s=>states.push(s)});await flush();a.send({audio:pcm.toString('base64'),rate:24000});a.send({audio:pcm.toString('base64'),rate:24000});await flush();const queued=a.sources.slice(1);if(cancel)a.p.stop();else a.close();await speaking;assert.ok(queued.every(s=>s.stopped));assert.ok(!states.includes('ended'));if(!cancel)assert.equal(states.at(-1),'unavailable');assert.equal(a.timers.size,0);a.p.dispose();}
+});
+test('a quota error after real PCM is scheduled preserves the limit and never caches the truncated phrase',async()=>{
+ const a=player(),events=[];await a.p.prepare();
+ const speaking=a.p.speak('Hello',{onState:(s,e)=>events.push([s,e?.retryAfter])});await flush();
+ a.send({audio:pcm.toString('base64'),rate:24000});await flush();
+ a.send({error:'provider_rate_limited',retryAfter:9});await speaking;
+ assert.deepEqual(events,[['loading',undefined],['playing',undefined],['provider_rate_limited',9]]);
+ assert.equal(a.sources.at(-1).stopped,true);assert.equal(a.p.cache.has(JSON.stringify(['Hello','en','lumi'])),false);
+ assert.equal(a.timers.size,0);a.p.dispose();
 });
 test('Korean selection reaches the microphone POST, ASR language hint, reply and TTS locale',async()=>{
  const input={attach:async r=>input.r=r,detach(){},onLevel(){}};let post;

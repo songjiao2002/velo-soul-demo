@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createShutterGesture,rememberScan,readScanHistory,mobileScanner,mobileDiaryEntry} from './public/mobile-flow.mjs';
-import {rideTalkPanel,paintRideTalk,rideTextChatLabel} from './public/ride-voice-controls.mjs';
+import {rideTalkPanel,paintRideTalk,rideVoiceStatus,rideTextChatLabel} from './public/ride-voice-controls.mjs';
 import {HANDS_FREE_COPY} from './public/hands-free.mjs';
+import {COMMUNICATION_LIMIT_COPY} from './public/conversation-limits.mjs';
 test('shutter short press captures once, hold finishes once, cancellation does neither',()=>{
  let task,photo=0,finish=0;const gesture=createShutterGesture({capture:()=>photo++,finish:()=>finish++,setTimer:fn=>(task=fn,1),clearTimer:()=>task=null});
  gesture.begin();gesture.end();gesture.end();assert.equal(photo,1);assert.equal(finish,0);
@@ -30,6 +31,7 @@ test('both ride scenes use the conversation controls, including on a direct came
  for(const mode of ['camera','map'])assert.ok(view.includes(`data-scene-mode="${mode}"`));
  assert.match(entry,/case "ride-voice-toggle":\s*ct = false; Sl\(\)/);
  assert.match(entry,/case "ride-text-chat":\s*openRideTextChat\(\)/);
+ assert.ok(entry.includes('Ga=rideVoiceControlsMarkup;')&&entry.includes('fs=paintRideVoiceControls;'));
  const languages=entry.indexOf('const rideLanguages ='), startup=entry.indexOf('\n  Vo();');
  assert.ok(languages>=0&&startup>languages,'all ride settings must exist before a direct camera launch');
 });
@@ -48,6 +50,12 @@ test('ride microphone status, retry and text fallback follow the live session in
   paintRideTalk(panel,language,true,'listening',false);
   assert.equal(toggle['aria-pressed'],'true');assert.equal(buttonLabel.textContent,labels.stop);assert.equal(fallback.hidden,true);assert.ok(caption.textContent);
   paintRideTalk(panel,language,true,'audio_retry',true);assert.equal(replay.hidden,false);
+  const limits=COMMUNICATION_LIMIT_COPY[language];
+  assert.equal(new Set(Object.values(limits)).size,Object.keys(limits).length);
+  for(const [code,message] of Object.entries(limits)){
+   paintRideTalk(panel,language,!['daily_limit','provider_quota'].includes(code),code,false);
+   assert.equal(caption.textContent,message);assert.equal(rideVoiceStatus(language,code),message);
+  }
   paintRideTalk(panel,language,false,'off',true);
   assert.equal(toggle['aria-pressed'],'false');assert.equal(replay.hidden,true);assert.equal(caption.textContent,'');
  }

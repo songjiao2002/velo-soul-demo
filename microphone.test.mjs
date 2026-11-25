@@ -34,7 +34,7 @@ test('ASR auto-detects language, keeps authorization on server and shares chat q
   return success(['你好，你听得到吗？','오늘 날씨가 좋아','Hello there',''][calls-1]);
  }});
  for(const expected of ['你好，你听得到吗？','오늘 날씨가 좋아','Hello there','']){const result=await service.transcribe({audio:audio()});assert.equal(result.text,expected);assert.ok(!JSON.stringify(result).includes(env.DASHSCOPE_API_KEY));}
- await assert.rejects(service.reply({soul:'lumi',language:'en',messages:[{role:'user',content:'Hi'}]}),{code:'rate_limited'});
+ await assert.rejects(service.reply({soul:'lumi',language:'en',messages:[{role:'user',content:'Hi'}]}),{code:'daily_limit'});
  assert.equal(calls,4);
 });
 
@@ -173,6 +173,14 @@ test('cycling rumble and a click stay local at common sample rates, while a quie
 test('a provider result without confirmed speech cannot become a user message',async()=>{
  const a=recorder(),r=new a.Recognition(),results=[],errors=[];r.onresult=e=>results.push(e);r.onerror=e=>errors.push(e.error);
  r.start();await flush();a.feed(0,500);r.deliver('Thank you.');assert.deepEqual(results,[]);assert.deepEqual(errors,['no-speech']);
+});
+
+test('file transcription exposes the server retry interval even when it is only in a header',async()=>{
+ const a=recorder(async()=>Response.json({error:'minute_limit'},{status:429,headers:{'Retry-After':'12'}}));
+ const r=new a.Recognition(),errors=[];
+ r.onerror=event=>errors.push(event);
+ r.start();await flush();a.feed(.08,700);a.feed(0,1100);await flush();
+ assert.deepEqual(errors,[{error:'minute_limit',retryAfter:12}]);
 });
 
 test('wind and steady low motor noise stay local while faint syllables above the rumble form one complete turn',async()=>{

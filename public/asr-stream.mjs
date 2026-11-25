@@ -42,7 +42,7 @@ export class StreamingTranscriber {
    if(message.type==='ready'){this.clearTimer(this.timer);if(this.finishing)this.timer=this.setTimer(()=>this.fail(),10000);}
    else if(message.type==='partial'&&typeof message.text==='string')this.onPartial(message.text.slice(0,1000));
    else if(message.type==='final'&&typeof message.text==='string'){this.close();this.onFinal(message.text.slice(0,1000));}
-   else if(message.type==='error')this.fail(typeof message.error==='string'?message.error:'network');
+   else if(message.type==='error')this.fail(typeof message.error==='string'?message.error:'network',message.retryAfter);
    else this.fail();
   };
   const attach=socket=>{
@@ -87,6 +87,6 @@ export class StreamingTranscriber {
   if(this.socket?.readyState===1)this.sendAudio(bytes);else{this.queue.push(bytes);this.queuedBytes+=bytes.length;if(this.queuedBytes>192000)this.fail();}
  }
  finish(){if(this.closed||this.finishing)return;this.finishing=true;this.clearTimer(this.timer);this.timer=this.setTimer(()=>this.fail(),10000);if(this.socket?.readyState===1)this.send(JSON.stringify({type:'finish'}));}
- fail(error='network'){if(this.closed)return;this.close();this.onUnavailable(error);}
+ fail(error='network',retryAfter){if(this.closed)return;this.close();this.onUnavailable(error,retryAfter);}
  close(){this.closed=true;this.clearTimer(this.timer);this.queue=[];this.queuedBytes=0;const socket=this.socket;if(socket){socket.onopen=socket.onmessage=socket.onclose=null;socket.onerror=socket.readyState===0?()=>{}:null;try{socket.close();}catch{}}}
 }

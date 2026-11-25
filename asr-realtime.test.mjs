@@ -133,7 +133,7 @@ test('realtime rejects cross-origin requests before spending quota and enforces 
 
 test('realtime cancellation releases upstream and shares the existing daily budget',async t=>{
  const a=await relay(t),ws=new WebSocket(a.url,{origin:a.origin});t.after(()=>ws.terminate());await once(ws,'open');await wait(()=>a.upstream);ws.close();await wait(()=>a.active===0);assert.equal(a.upstream.readyState,3);
- const service=createChatService({env:{DASHSCOPE_API_KEY:'test',QWEN_MAX_DAILY_REQUESTS:'1'}});const release=service.reserveRealtime();release();release();assert.throws(()=>service.reserveRealtime(),{code:'rate_limited'});
+ const service=createChatService({env:{DASHSCOPE_API_KEY:'test',QWEN_MAX_DAILY_REQUESTS:'1'}});const release=service.reserveRealtime();release();release();assert.throws(()=>service.reserveRealtime(),{code:'daily_limit'});
 });
 
 test('malformed JSON frames close only the affected connection and release quota',async t=>{
@@ -306,4 +306,15 @@ test('temporary streaming failure retries after five seconds instead of blocking
  let time=0;const a=client(()=>time),r=new a.Recognition();r.start();await tick();a.feed(.1,300);a.sockets[0].open();a.sockets[0].onerror();r.abort();
  time=4000;const waiting=new a.Recognition();waiting.start();await tick();a.feed(.1,300);assert.equal(a.sockets.length,1);waiting.abort();
  time=5001;const retry=new a.Recognition();retry.start();await tick();a.feed(.1,300);assert.equal(a.sockets.length,2);retry.abort();
+});
+
+test('streaming ASR carries quota and backoff details without uploading the same audio again',async()=>{
+ for(const error of ['service_busy','minute_limit','provider_rate_limited','daily_limit','provider_quota','rate_limited']){
+  const a=client(),recognition=new a.Recognition(),errors=[];
+  recognition.onerror=event=>errors.push(event);
+  recognition.start();await tick();a.feed(.1,300);
+  const socket=a.sockets[0];socket.open();socket.event({type:'error',error,retryAfter:7});
+  a.feed(0,700);await tick();
+  assert.deepEqual(errors,[{error,retryAfter:7}]);assert.equal(a.uploads.length,0);
+ }
 });

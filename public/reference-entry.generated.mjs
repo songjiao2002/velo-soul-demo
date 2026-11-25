@@ -3,7 +3,7 @@ import {generateRideDiary as liveDiary,DIARY_GENERATION_COPY as liveDiaryCopy} f
 import {rideDiary as liveRideDiary,DIARY_COPY as liveDiaryLabels} from './journey-diary.mjs';
 import {CloudSpeechPlayer as LiveSpeech} from './cloud-speech.mjs';
 import {HandsFreeConversation as LiveConversation} from './hands-free.mjs';
-import {rideTalkPanel,paintRideTalk,rideTextChatLabel} from './ride-voice-controls.mjs';
+import {rideTalkPanel,paintRideTalk,rideTextChatLabel,rideVoiceControlsMarkup,paintRideVoiceControls} from './ride-voice-controls.mjs';
 import {MicrophoneInput as LiveMicrophone,createMicrophoneRecognition as liveRecognition} from './microphone-asr.mjs';
 import {ConversationAudioSession as LiveAudioSession} from './audio-session.mjs';
 import {DeviceCompanionMemory as LiveMemory} from './device-memory.mjs';
@@ -15,6 +15,7 @@ import {companionQuery,currentSoulQR} from './qr-links.mjs';
 import {companionBrowserLinks as liveBrowserLinks} from './audio-browser.mjs';
 import {createSoulChat as liveSoulChat} from './soul-chat.mjs';
 import {VOICE_PRIVACY as liveVoicePrivacy} from './voice-privacy.mjs';
+import {COMMUNICATION_LIMIT_COPY as liveLimitCopy,retryAfterLabel as liveRetryAfter} from './conversation-limits.mjs';
 (() => {
   var ir = Object.defineProperty;
   var yt = (i, e) => () => (i && (e = i(i = 0)), e);
@@ -1584,7 +1585,7 @@ import {VOICE_PRIVACY as liveVoicePrivacy} from './voice-privacy.mjs';
       URL.revokeObjectURL(s);
     }
   }
-  var se = "20261125-mobile73";
+  var se = "20261125-mobile74";
   var Ns = null, Ni = null, Za = false;
   function ji() {
     Za = true;
@@ -1597,7 +1598,7 @@ import {VOICE_PRIVACY as liveVoicePrivacy} from './voice-privacy.mjs';
       Ni.mountCharacters();
       return;
     }
-    Ns ??= import("/character-toon.bundle.mjs?v=20261125-mobile73").catch(() => null);
+    Ns ??= import("/character-toon.bundle.mjs?v=20261125-mobile74").catch(() => null);
     Ns.then((module) => {
       if (!Za) return;
       if (module) {
@@ -4689,6 +4690,8 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
 Ft=liveDeviceMedia;
 Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S});
 Tt=LiveSpeech;at=LiveMicrophone;ua=options=>liveRecognition({...options,standby:true});Et=LiveAudioSession;xi=LiveMemory;
+Ga=rideVoiceControlsMarkup;
+fs=paintRideVoiceControls;
 const referenceVoiceState=kl;
 function syncRideTalk(state=M?.state||'off'){
  paintRideTalk(document.querySelector('.ride-talk-panel'),S(),!!M?.active,state,!!M?.audioIssue);
@@ -5864,8 +5867,8 @@ window.addEventListener('velo:ready',()=>{
       a("unavailable");
       return;
     }
-    ue.speak(i, { language: e, soul: t, source: Kt(i, t, e), onState: (n) => {
-      n === "playing" && (dt.meet(t), Mn?.render()), _e(document, n === "playing" ? "talking" : n === "loading" ? "thinking" : "listening"), document.body.classList.toggle("voice-playing", n === "playing" || n === "loading"), hi({ loading: "목소리를 준비하고 있어요…", playing: e === "ko" ? "한국어 목소리 재생 중" : "영어 목소리 재생 중", ended: "다시 듣기로 목소리를 들을 수 있어요.", blocked: "소리를 켜려면 듣기 버튼을 눌러주세요.", unavailable: "소리를 재생하지 못했어요. 다시 듣기를 눌러주세요." }[n]), a(n);
+    ue.speak(i, { language: e, soul: t, source: Kt(i, t, e), onState: (n, failure) => {
+      n === "playing" && (dt.meet(t), Mn?.render()), _e(document, n === "playing" ? "talking" : n === "loading" ? "thinking" : "listening"), document.body.classList.toggle("voice-playing", n === "playing" || n === "loading"), hi({ loading: "목소리를 준비하고 있어요…", playing: e === "ko" ? "한국어 목소리 재생 중" : "영어 목소리 재생 중", ended: "다시 듣기로 목소리를 들을 수 있어요.", blocked: "소리를 켜려면 듣기 버튼을 눌러주세요.", unavailable: "소리를 재생하지 못했어요. 다시 듣기를 눌러주세요." }[n] || (liveLimitCopy[S()][n] || "") + liveRetryAfter(S(),failure?.retryAfter)), a(n,failure);
     } });
   }
   async function yl(i) {

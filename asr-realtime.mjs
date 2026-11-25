@@ -1,7 +1,7 @@
 import {allowedRequestOrigin} from './native-origin.mjs';
 import WebSocket,{WebSocketServer} from 'ws';
 import {randomUUID} from 'node:crypto';
-import {chatConfig} from './chat-service.mjs';
+import {chatConfig,ChatError,qwenFailure} from './chat-service.mjs';
 import {relayScribeRealtime} from './scribe-realtime.mjs';
 
 function terminateUpstream(socket){
@@ -77,11 +77,19 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
    if(useScribe)relayScribeRealtime(client,{language,apiKey:config.scribeApiKey,connect,release});
    else relay(client,language,config,route,release);
   }
-  function reserveTask(){release=reserve();socket.once('close',release);}
-  if(!standby){try{reserveTask();}catch{return reject(429);}}
+  function reserveTask(client){
+   try{release=reserve();socket.once('close',release);return true;}
+   catch(error){
+    // A browser cannot read the 429 body during a rejected WebSocket upgrade.
+    client.once('error',()=>client.terminate());
+    const failure=error instanceof ChatError?error:new ChatError('rate_limited',429);
+    client.send(JSON.stringify({type:'error',error:failure.code,retryAfter:failure.retryAfter}));
+    client.close(1013,'Recognition unavailable');return false;
+   }
+  }
   try{
    sockets.handleUpgrade(req,socket,head,client=>{
-    if(!standby){startProvider(client);return;}
+    if(!standby){if(reserveTask(client))startProvider(client);return;}
     // The duplex endpoint accepts an authenticated WebSocket before run-task.
     // Other protocols can start sessions on upgrade and must remain on demand.
     waitingClients++;
@@ -104,11 +112,7 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
      if(binary||raw.length>64||raw.toString()!=='{"type":"start"}'){
       client.close(1008,'Invalid standby request');return;
      }
-     try{reserveTask();}catch{
-      leave();
-      client.on('error',onError);client.send(JSON.stringify({type:'error',error:'rate_limited'}));
-      client.close(1013,'Recognition unavailable');return;
-     }
+     if(!reserveTask(client)){leave();return;}
      try{startProvider(client);}finally{leave();}
     };
     client.once('message',activate);client.once('close',leave);client.on('error',onError);
@@ -124,7 +128,7 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
   const vocabulary={en:{Mori:2,Popo:2,Lulu:2},ko:{모리:2,포포:2,루루:2},zh:{莫里:2,波波:2,露露:2}}[language];
   const send=event=>{if(client.readyState!==WebSocket.OPEN)return;if(client.bufferedAmount>131072){client.terminate();return;}client.send(JSON.stringify(event));};
   const cleanup=()=>{if(closed)return;closed=true;clearTimeout(readyTimer);clearTimeout(lifeTimer);queued=[];release();terminateUpstream(detachUpstream());};
-  const fail=error=>{if(closed)return;send({type:'error',error});client.close(1011,'Recognition unavailable');cleanup();};
+  const fail=(error,retryAfter)=>{if(closed)return;send({type:'error',error,retryAfter});client.close(1011,'Recognition unavailable');cleanup();};
   const transmit=data=>{
    if(closed||upstream.readyState!==WebSocket.OPEN)return;
    if(upstream.bufferedAmount>131072)return fail('network');
@@ -175,6 +179,7 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
    upstream=existing?.socket??dialQwen(endpoint,config.apiKey);
    upstream.on('error',onTransportFailure);
    upstream.on('close',onTransportFailure);
+   upstream.on('unexpected-response',onHandshakeFailure);
    upstream.on('message',onMessage);
    if(existing&&upstream.readyState===WebSocket.OPEN)beginTask();
    else upstream.once('open',beginTask);
@@ -186,9 +191,15 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
     socket.off('open',beginTask);
     socket.off('error',onTransportFailure);
     socket.off('close',onTransportFailure);
+    socket.off('unexpected-response',onHandshakeFailure);
     socket.off('message',onMessage);
    }
    return socket;
+  }
+  function onHandshakeFailure(request,response){
+   // End a rejected handshake explicitly once ws hands ownership to us.
+   const failure=qwenFailure({},response.statusCode,response.headers?.['retry-after']);
+   response.resume();fail(failure.code,failure.retryAfter);
   }
   function onTransportFailure(){
    if(closed)return;
@@ -250,8 +261,9 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
     if(duplex&&client.readyState===WebSocket.OPEN)keepIdle(detachUpstream(),endpoint,config.apiKey,taskId,15000);
     client.close(1000,'Utterance complete');cleanup();
    }else if(type==='error'||type==='task-failed'||type==='conversation.item.input_audio_transcription.failed'){
-    const code=event.header?.error_code||event.error?.code||event.code||'';
-    fail(/quota|rate|limit/i.test(code)?'provider_quota':/auth|key/i.test(code)?'provider_auth':'provider_unavailable');
+    const detail=event.header?.error_code?{code:event.header.error_code,message:event.header.error_message}:event;
+    const failure=qwenFailure(detail);
+    fail(failure.code,failure.retryAfter);
    }
   }
  }

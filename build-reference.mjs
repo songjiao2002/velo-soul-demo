@@ -8,6 +8,8 @@ const normalize=text=>text.replaceAll('\r\n','\n').replaceAll('/ride/','/').repl
 let js=await read('app.pretty.js');
 function replace(before,after){if(js.split(before).length!==2)throw Error('Reference anchor changed: '+before.slice(0,100));js=js.replace(before,after);}
 replace('  var Ao = ',(await read('live-adapter.js'))+'\n  var Ao = ');
+replace('source: Kt(i, t, e), onState: (n) => {','source: Kt(i, t, e), onState: (n, failure) => {');
+replace('}[n]), a(n);','}[n] || (liveLimitCopy[S()][n] || "") + liveRetryAfter(S(),failure?.retryAfter)), a(n,failure);');
 replace('    ${bl()}','    ${bl()}\n    ${rideTalkPanel(language, !!M?.active, M?.state || "off", !!M?.audioIssue, Xr[language].sound)}');
 replace('      <fieldset class="ride-language"','      <button type="button" data-action="ride-text-chat" data-no-translate>${rideTextChatLabel[S()]}</button>\n      <fieldset class="ride-language"');
 replace('        case "voice-start":','        case "ride-voice-toggle":\n          ct = false; Sl(); break;\n        case "ride-text-chat":\n          openRideTextChat(); break;\n        case "voice-start":');
