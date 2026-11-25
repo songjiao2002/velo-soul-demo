@@ -106,8 +106,8 @@ public class ExampleInstrumentedTest {
         awaitTrue("document.querySelector('[data-action=ride-voice-toggle]')?.getBoundingClientRect().height > 0 && document.querySelector('[data-action=finish]')?.getBoundingClientRect().height > 0");
         js("document.querySelector('[data-action=finish]').click()");
         awaitTrue("document.querySelector('#finishRideDialog')?.open");
-        js("document.querySelector('[data-action=ride-finish-cancel]').click();document.querySelector('[data-scene-mode=map]').click()");
-        awaitTrue("document.querySelector('[data-scene-mode=map]')?.getAttribute('aria-pressed') === 'true' && !document.querySelector('#finishRideDialog')?.open");
+        js("document.querySelector('[data-action=ride-finish-cancel]').click();document.querySelector('button[data-scene-mode=map]').click()");
+        awaitTrue("!!document.querySelector('.camera-fullscreen[data-scene-mode=map]') && document.querySelector('button[data-scene-mode=map]')?.getAttribute('aria-pressed') === 'true' && !document.querySelector('#finishRideDialog')?.open");
         js("document.querySelector('[data-action=finish]').click();document.querySelector('[data-action=ride-finish-confirm]').click()");
         awaitTrue("document.body.dataset.screen === 'finish' && !!document.querySelector('#rideNote')");
     }
