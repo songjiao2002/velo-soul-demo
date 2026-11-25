@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import {randomUUID} from 'node:crypto';
 import {FirstSpeechStreams} from './first-speech.mjs';
-import {relaySpeech,trimPandaWave} from './speech-stream.mjs';
+import {relaySpeech,trimSpeechWave} from './speech-stream.mjs';
 import {createChatHandler,createChatService} from './chat-service.mjs';
 import {CloudSpeechPlayer} from './public/cloud-speech.mjs';
 import {encodeWav,createMicrophoneRecognition} from './public/microphone-asr.mjs';
@@ -251,7 +251,7 @@ test('Lulu streams the first audible sample as soon as both PCM bytes arrive and
  const onset=44+300*48,retained=onset-80*48;
  let producer;const frames=[];
  const body=new ReadableStream({start(controller){producer=controller;}});
- const running=relaySpeech(new Response(body,{headers:{'Content-Type':'text/event-stream'}}),f=>frames.push(f),{trimPandaLead:true});
+ const running=relaySpeech(new Response(body,{headers:{'Content-Type':'text/event-stream'}}),f=>frames.push(f),{trimPadding:true});
  const send=part=>producer.enqueue(new TextEncoder().encode(sse(part)));
  send(wave.subarray(0,9));
  send(wave.subarray(9,onset+1));
@@ -271,18 +271,18 @@ test('Lulu streams the first audible sample as soon as both PCM bytes arrive and
 test('short silence is preserved at EOF and very long silence can only lose the bounded prefix',async()=>{
  const silent=Buffer.alloc(100*48);
  const frames=[];
- await relaySpeech(response([sse(silent),done]),f=>frames.push(f),{trimPandaLead:true});
+ await relaySpeech(response([sse(silent),done]),f=>frames.push(f),{trimPadding:true});
  assert.deepEqual(frameAudio(frames),silent);
  for(const [beforeMs,removedMs] of [[50,0],[800,640]]){
   const wave=speechAfterQuiet(beforeMs);
   const out=[];
-  await relaySpeech(response([sse(wave),done]),f=>out.push(f),{trimPandaLead:true});
+  await relaySpeech(response([sse(wave),done]),f=>out.push(f),{trimPadding:true});
   assert.deepEqual(frameAudio(out),wave.subarray(44+removedMs*48));
-  assert.deepEqual(trimPandaWave(wave).subarray(44),frameAudio(out));
+  assert.deepEqual(trimSpeechWave(wave).subarray(44),frameAudio(out));
  }
 });
 
-test('only the Lulu voice service trims its PCM and complete WAV, with exact RIFF and data lengths',async()=>{
+test('all three characters trim outside padding in PCM and whole WAV with exact RIFF and data lengths',async()=>{
  const wave=speechAfterQuiet(240),original=Buffer.from(wave);
  const url='https://dashscope-result-sgp.oss-ap-southeast-1.aliyuncs.com/file.wav';
  const service=createChatService({env:{DASHSCOPE_API_KEY:'fixture'},fetchImpl:async(input,{headers})=>{
@@ -294,13 +294,12 @@ test('only the Lulu voice service trims its PCM and complete WAV, with exact RIF
   const voice={...payload,soul},frames=[];
   await service.speechStream(voice,{emit:f=>frames.push(f)});
   const file=await service.speech(voice);
-  const expected=wave.subarray(44+(soul==='mori'?160*48:0));
+  const expected=wave.subarray(44+160*48);
   assert.deepEqual(frameAudio(frames),expected,soul);
   assert.equal(file.readUInt32LE(4),file.length-8);
   assert.equal(file.readUInt32LE(40),expected.length);
   assert.deepEqual(file.subarray(8,40),wave.subarray(8,40));
   assert.deepEqual(file.subarray(44),expected,soul);
-  if(soul!=='mori')assert.deepEqual(file,wave);
  }
  assert.deepEqual(wave,original);
 });
@@ -309,7 +308,7 @@ test('near-silence trimming leaves non-PCM, unsupported, truncated, and nontermi
  const valid=speechAfterQuiet(240);
  const unchanged=(file,reason)=>{
   const original=Buffer.from(file);
-  assert.deepEqual(trimPandaWave(file),original,reason);
+  assert.deepEqual(trimSpeechWave(file),original,reason);
   assert.deepEqual(file,original,reason);
  };
  for(const [name,mutate] of [
@@ -333,6 +332,60 @@ test('near-silence trimming leaves non-PCM, unsupported, truncated, and nontermi
  const metadata=Buffer.concat([speechAfterQuiet(240),Buffer.from('JUNK\x00\x00\x00\x00','latin1')]);
  metadata.writeUInt32LE(metadata.length-8,4);
  unchanged(metadata,'post-audio chunks may contain offsets into the audio');
+});
+
+test('Qwen download length sentinels match only the known pair and a terminal even-sized PCM body',()=>{
+ const fixed=speechAfterQuiet(310),provider=Buffer.from(fixed);
+ provider.writeUInt32LE(0x7fffffbf,4);provider.writeUInt32LE(0x7fffff9b,40);
+ assert.deepEqual(trimSpeechWave(provider),trimSpeechWave(fixed));
+ for(const [offset,value] of [[4,0xffffffff],[40,0xffffffff],[4,fixed.length-8],[40,fixed.length-44],[32,1]]){
+  const malformed=Buffer.from(provider);
+  if(offset===32)malformed.writeUInt16LE(value,offset);else malformed.writeUInt32LE(value,offset);
+  assert.equal(trimSpeechWave(malformed),malformed);
+ }
+ const odd=provider.subarray(0,-1);
+ assert.equal(trimSpeechWave(odd),odd);
+ const metadata=Buffer.concat([provider,Buffer.from('JUNK\x04\0\0\0test','latin1')]);
+ assert.equal(trimSpeechWave(metadata),metadata);
+});
+
+test('split chunks immediately deliver faint breaths and preserve a long interior pause byte-for-byte',async()=>{
+ const padding=ms=>Buffer.alloc(ms*48,0);
+ const breath=Buffer.from([16,0,239,255]); // 16, -17: both below the previous onset threshold
+ const start=padding(450),between=padding(1950),end=padding(410);
+ // Keep quantization noise in the preserved margins and the interior.
+ for(const part of [start,between,end])for(let i=0;i<part.length;i+=2)part.writeInt16LE((i/2)%13-6,i);
+ const wave=Buffer.concat([wav.subarray(0,44),start,breath,between,breath,end]);
+ wave.writeUInt32LE(wave.length-8,4);wave.writeUInt32LE(wave.length-44,40);
+ const expected=wave.subarray(44+(450-80)*48,wave.length-(410-150)*48);
+ assert.deepEqual(trimSpeechWave(wave).subarray(44),expected);
+ let producer;const frames=[];
+ const body=new ReadableStream({start(c){producer=c;}});
+ const run=relaySpeech(new Response(body,{headers:{'Content-Type':'text/event-stream'}}),f=>frames.push(f),{trimPadding:true});
+ const send=data=>producer.enqueue(Buffer.from(sse(data)));
+ send(wave.subarray(0,44+start.length+1));await flush();assert.equal(frames.length,0);
+ send(wave.subarray(44+start.length+1,44+start.length+2));await flush();
+ assert.deepEqual(frameAudio(frames),Buffer.concat([start.subarray(-80*48),breath.subarray(0,2)]));
+ let pos=44+start.length+2;
+ while(pos<wave.length){const stop=Math.min(pos+1001,wave.length);send(wave.subarray(pos,stop));pos=stop;}
+ producer.enqueue(Buffer.from(done));producer.close();await run;
+ assert.deepEqual(frameAudio(frames),expected);
+ assert.deepEqual(frames.at(-1),{done:true});
+ const unfinished=wave.subarray(0,-1);
+ await assert.rejects(relaySpeech(response([sse(unfinished),done]),()=>{},{trimPadding:true}),/invalid_audio/);
+});
+
+test('streaming and WAV preserve natural short tails and bound trimming on extended final silence',async()=>{
+ for(const trailingMs of [50,150,410,900,1750]){
+  const sample=Buffer.concat([pcm,Buffer.alloc(trailingMs*48)]);
+  const wave=Buffer.concat([wav.subarray(0,44),sample]);
+  wave.writeUInt32LE(wave.length-8,4);wave.writeUInt32LE(sample.length,40);
+  const expected=sample.subarray(0,sample.length-Math.min(720,Math.max(0,trailingMs-150))*48);
+  assert.deepEqual(trimSpeechWave(wave).subarray(44),expected);
+  const frames=[];
+  await relaySpeech(response([sse(wave.subarray(0,13001)),sse(wave.subarray(13001)),done]),f=>frames.push(f),{trimPadding:true});
+  assert.deepEqual(frameAudio(frames),expected);
+ }
 });
 test('SSE relay strips split WAV headers, preserves PCM, and requires provider completion',async()=>{
  const frames=[];await relaySpeech(response([sse(wav.subarray(0,20)),sse(wav.subarray(20,40)),sse(wav.subarray(40)),done]),f=>frames.push(f));

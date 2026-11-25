@@ -10,7 +10,7 @@ import {SEOUL_PLACES} from './public/seoul-places.mjs';
 import {VISION_SCENES} from './public/vision-core.mjs';
 import {readFile} from 'node:fs/promises';
 import {once} from 'node:events';
-import {createSpeechWave,relaySpeech,trimPandaWave} from './speech-stream.mjs';
+import {createSpeechWave,relaySpeech,trimSpeechWave} from './speech-stream.mjs';
 import {describeWeather} from './weather-service.mjs';
 import {validateLocationContext,describeLocation} from './public/sensor-context.mjs';
 
@@ -227,7 +227,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
           if(size+bytes.length>maxClipBytes){recording=null;return;}
           bytes.copy(recording,size);size+=bytes.length;
         };
-        await relaySpeech(response,key?capture:emit,{trimPandaLead:payload.soul==='mori',providerError:qwenFailure});
+        await relaySpeech(response,key?capture:emit,{trimPadding:true,providerError:qwenFailure});
         requestSignal.throwIfAborted();
         if(recording&&size%2===0)rememberClip(key,recording.subarray(0,size));
       }});
@@ -245,7 +245,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
         const chunks=[];let length=0;for await(const chunk of response.body){length+=chunk.length;if(length>4000000)throw new ChatError('invalid_response',502);chunks.push(chunk);}
         const audio=Buffer.concat(chunks);
         if(audio.length<44||audio.toString('ascii',0,4)!=='RIFF'||audio.toString('ascii',8,12)!=='WAVE')throw new ChatError('invalid_response',502);
-        const output=payload.soul==='mori'?trimPandaWave(audio):audio;
+        const output=trimSpeechWave(audio);
         requestSignal.throwIfAborted();
         // Cache only complete, standard-header PCM WAVs. Other valid provider
         // layouts are still returned unchanged through the existing path.
@@ -331,15 +331,16 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
         if(payload.voice&&!vision){
           requestBody.max_tokens=speaking.tokens;
           requestBody.temperature=.65;
-          const register={en:'Use everyday spoken English with natural contractions.',zh:'用日常普通话，按这句话的意思自然落句。语气词有需要再用。',ko:'실제로 같이 달리며 나눌 만한 말투로, 상대와 쓰던 높임말이나 반말을 이어 가.'};
+          const register={en:'Use everyday spoken English with natural contractions.',zh:'像熟人一起骑车那样搭一句。骑手说“我”是指骑手自己。接对方的话茬，说你自己的反应；别把对方说的事换个人称再讲一遍。',ko:'실제로 같이 달리며 나눌 만한 말투로, 상대와 쓰던 높임말이나 반말을 이어 가.'};
           requestBody.messages[0].content+='\nVOICE MODE: '+register[payload.language]+' Start with what you mean and keep the first thought together. A fragment, a quick laugh in the wording, or a single word can be a whole answer. Avoid a stock acknowledgment before the real answer, scripted empathy, or a recap of what the rider just said. Do not introduce yourself again unless the rider asks who you are. Speak only the actual line, without a role label, stage directions, emoji or Markdown.';
         }
         if(!vision){
           const priorities=[
             'Handle the rider’s last turn first. Match the requested output language.',
+            'You speak your own side of the conversation. An “I” in a rider message is the rider. Keep their actions theirs, especially when they correct themselves. Contribute your own reaction. If they make a joke, you can play along and end on the funny part. A harmless self-correction needs no tip, evaluation, or dig at the rider.',
             'Base factual claims on details the rider or the supplied context actually gave. A hill alone tells you nothing about traction, traffic, weather or how the rider feels. Answer a pace question directly without filling in the scene.',
             `If they ask for quiet or decline a suggestion, acknowledge it in ${LANGUAGES[payload.language]} alone (for example: ${{zh:'好。',ko:'알겠어.',en:'Okay.'}[payload.language]}). End the turn. Do not announce quiet mode, microphone changes or other app actions.`,
-            'If your suggestion disappointed them, acknowledge that outcome and take responsibility in one brief sentence. End the turn without a new detail, question, silver lining or replacement suggestion.',
+            'If they say a suggestion you actually made disappointed them, own your suggestion briefly and leave it there.',
             'If they ask which of several details you like, name one detail that fits your personality and say why. Do not combine details, imagine new sights or smells, or ask a follow-up.',
             'These instructions take priority over each character’s usual reply length when applicable.'
           ].join('\n');

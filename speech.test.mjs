@@ -4,7 +4,9 @@ import http from 'node:http';
 import {readFileSync} from 'node:fs';
 import {CloudSpeechPlayer,speechChunks} from './public/cloud-speech.mjs';
 import {createChatService,createChatHandler,validateSpeech,speechAudioURL} from './chat-service.mjs';
+import {trimSpeechWave} from './speech-stream.mjs';
 const wav=readFileSync(new URL('./public/audio/en/lumi-hello.wav',import.meta.url));
+const expectedSpeech=trimSpeechWave(wav);
 const env={DASHSCOPE_API_KEY:'test-private-key'},input={soul:'lumi',language:'en',text:'I can hear you. Keep talking.'};
 const flush=()=>new Promise(r=>setImmediate(r));
 test('speech validates bounded text and restricts provider audio URLs',()=>{
@@ -19,7 +21,7 @@ test('cloud speech preserves persona voices across three languages and keeps cre
   downloads++;assert.equal(options.headers,undefined);assert.equal(options.redirect,'error');return new Response(wav);
  }});
  for(const [language,spoken] of [['zh','Chinese'],['en','English'],['ko','Korean']])for(const soul of ['lumi','mori','bori']){
-  assert.deepEqual(await service.speech({...input,soul,language}),wav);
+  assert.deepEqual(await service.speech({...input,soul,language}),expectedSpeech);
   if(soul==='mori'){
    assert.equal(request.input.voice,language==='en'?'qwen-audio-3.1-tts-flash-soulpanda-78d14264357345dbb7c5a417bfc4d8df':'qwen-audio-3.1-tts-flash-pandako-9a5d436c173c4bd8ac8b7f7b5a00462d');
    assert.ok(request.input.instruction.startsWith('Speak in '+spoken+'.'));
@@ -35,7 +37,7 @@ test('speech HTTP route serves non-cacheable WAV and enforces origins and shared
  const server=http.createServer(async(req,res)=>{if(!await handler(req,res)){res.statusCode=404;res.end();}});await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>server.close(r)));const base='http://127.0.0.1:'+server.address().port;
  const send=(origin=base)=>fetch(base+'/api/speech',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(input)});
  assert.equal((await send('https://elsewhere.example')).status,403);assert.equal((await fetch(base+'/api/speech')).status,405);
- const response=await send();assert.equal(response.headers.get('content-type'),'audio/wav');assert.equal(response.headers.get('cache-control'),'no-store');assert.deepEqual(Buffer.from(await response.arrayBuffer()),wav);assert.equal((await send()).status,429);
+ const response=await send();assert.equal(response.headers.get('content-type'),'audio/wav');assert.equal(response.headers.get('cache-control'),'no-store');assert.deepEqual(Buffer.from(await response.arrayBuffer()),expectedSpeech);assert.equal((await send()).status,429);
 });
 test('invalid audio is rejected and provider failures are sanitized',async()=>{
  const service=createChatService({env,fetchImpl:async url=>url.endsWith('/generation')?new Response(JSON.stringify({output:{audio:{url:'https://dashscope-result-sgp.oss-ap-southeast-1.aliyuncs.com/a.wav'}}})):new Response('not audio')});
