@@ -71,7 +71,7 @@ test('a hot short clip still consumes shared quota and an incomplete or cancelle
  await assert.rejects(service.speechStream(input,{emit:()=>{}}));
  broken=false;const controller=new AbortController();
  const cancelled=service.speechStream(input,{signal:controller.signal,emit:f=>{if(f.audio)controller.abort();}});
- await cancelled.catch(e=>assert.equal(e.code,'cancelled'));
+ await assert.rejects(cancelled,{code:'cancelled'});
  assert.equal(calls,2);
  await service.speechStream(input,{emit:()=>{}});assert.equal(calls,3);
  await service.speechStream(input,{emit:()=>{}});assert.equal(calls,3);

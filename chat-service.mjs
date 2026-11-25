@@ -192,6 +192,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
       return complete(request,config,signal,{speech:true,stream:true,readResponse:async(response,requestSignal)=>{
         let recording=key?Buffer.allocUnsafe(maxClipBytes):null,size=0;
         const capture=async frame=>{
+          requestSignal.throwIfAborted();
           await emit(frame);
           if(!recording||!frame.audio)return;
           const bytes=Buffer.from(frame.audio,'base64');
@@ -199,7 +200,8 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
           bytes.copy(recording,size);size+=bytes.length;
         };
         await relaySpeech(response,key?capture:emit,{trimPandaLead:payload.soul==='mori'});
-        if(recording&&size%2===0&&!requestSignal.aborted)rememberClip(key,recording.subarray(0,size));
+        requestSignal.throwIfAborted();
+        if(recording&&size%2===0)rememberClip(key,recording.subarray(0,size));
       }});
     },
     async speech(input,{signal}={}){
@@ -216,9 +218,10 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
         const audio=Buffer.concat(chunks);
         if(audio.length<44||audio.toString('ascii',0,4)!=='RIFF'||audio.toString('ascii',8,12)!=='WAVE')throw new ChatError('invalid_response',502);
         const output=payload.soul==='mori'?trimPandaWave(audio):audio;
+        requestSignal.throwIfAborted();
         // Cache only complete, standard-header PCM WAVs. Other valid provider
         // layouts are still returned unchanged through the existing path.
-        if(key&&!requestSignal.aborted&&output.readUInt32LE(4)===output.length-8&&
+        if(key&&output.readUInt32LE(4)===output.length-8&&
           output.toString('ascii',12,16)==='fmt '&&output.readUInt32LE(16)===16&&output.readUInt16LE(20)===1&&
           output.toString('ascii',36,40)==='data'&&output.readUInt32LE(40)===output.length-44&&
           output.length>44&&output.readUInt16LE(32)>0&&(output.length-44)%output.readUInt16LE(32)===0)rememberClip(key,output);
