@@ -47,6 +47,25 @@ test('a late model analyzes bounded pre-roll; sample rate changes and repeated a
   r.abort();r.abort();assert.equal(destroyed,2);
 });
 
+test('a low motor starting abruptly after silence does not open a conversation',()=>{
+  const rate=48000,frequencies=[83,168,315,381,479];
+  const Recognition=createMicrophoneRecognition({input:input(),createDetector,...timers});
+  const r=new Recognition();let starts=0,seed=257,lp=0,lp2=0;
+  r.onspeechstart=()=>starts++;r.start();
+  for(let i=0;i<rate*2;i+=1024){
+    const frame=Float32Array.from({length:1024},(_,j)=>{
+      const t=(i+j)/rate-.17;
+      if(t<0)return 0;
+      seed=(Math.imul(seed,1664525)+1013904223)>>>0;
+      lp=.92*lp+.08*(seed/4294967296*2-1);lp2=.9*lp2+.1*lp;
+      const harmonics=frequencies.reduce((sum,h,k)=>sum+.024/(1+k*.32)*Math.sin(2*Math.PI*h*t+.15*Math.sin(t*(3+k))),0);
+      return (.8+.2*Math.sin(t*19))*(harmonics+.04*lp2);
+    });
+    r.samples(frame,rate);
+  }
+  assert.equal(starts,0);assert.ok(r.detector);r.abort();
+});
+
 test('an unavailable or failing local model falls back without retrying on every audio frame',()=>{
   for(const allocationFailure of [false,true]){
     let allocations=0,destroyed=0;
