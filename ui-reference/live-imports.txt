@@ -1,4 +1,4 @@
-import {appFetch as liveFetch} from './app-network.mjs';
+import {appFetch as liveFetch,getDeviceMedia as liveDeviceMedia} from './app-network.mjs';
 import {generateRideDiary as liveDiary,DIARY_GENERATION_COPY as liveDiaryCopy} from './diary-generation.mjs';
 import {rideDiary as liveRideDiary,DIARY_COPY as liveDiaryLabels} from './journey-diary.mjs';
 import {CloudSpeechPlayer as LiveSpeech} from './cloud-speech.mjs';

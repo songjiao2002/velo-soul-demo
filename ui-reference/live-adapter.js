@@ -1,5 +1,7 @@
 // These bindings reconnect the published UI to the maintained production services.
 // The imported source retains its layout, rendering, navigation and interactions.
+// Camera and microphone must use the same pending Android permission queue.
+Ft=liveDeviceMedia;
 Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S});
 Tt=LiveSpeech;at=LiveMicrophone;ua=options=>liveRecognition({...options,standby:true});Et=LiveAudioSession;xi=LiveMemory;
 const referenceVoiceState=kl;

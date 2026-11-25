@@ -1,4 +1,4 @@
-import {appFetch as liveFetch} from './app-network.mjs';
+import {appFetch as liveFetch,getDeviceMedia as liveDeviceMedia} from './app-network.mjs';
 import {generateRideDiary as liveDiary,DIARY_GENERATION_COPY as liveDiaryCopy} from './diary-generation.mjs';
 import {rideDiary as liveRideDiary,DIARY_COPY as liveDiaryLabels} from './journey-diary.mjs';
 import {CloudSpeechPlayer as LiveSpeech} from './cloud-speech.mjs';
@@ -1584,7 +1584,7 @@ import {VOICE_PRIVACY as liveVoicePrivacy} from './voice-privacy.mjs';
       URL.revokeObjectURL(s);
     }
   }
-  var se = "20261125-mobile69";
+  var se = "20261125-mobile70";
   var Ns = null, Ni = null, Za = false;
   function ji() {
     Za = true;
@@ -1597,7 +1597,7 @@ import {VOICE_PRIVACY as liveVoicePrivacy} from './voice-privacy.mjs';
       Ni.mountCharacters();
       return;
     }
-    Ns ??= import("/character-toon.bundle.mjs?v=20261125-mobile69").catch(() => null);
+    Ns ??= import("/character-toon.bundle.mjs?v=20261125-mobile70").catch(() => null);
     Ns.then((module) => {
       if (!Za) return;
       if (module) {
@@ -4685,6 +4685,8 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
   };
 // These bindings reconnect the published UI to the maintained production services.
 // The imported source retains its layout, rendering, navigation and interactions.
+// Camera and microphone must use the same pending Android permission queue.
+Ft=liveDeviceMedia;
 Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S});
 Tt=LiveSpeech;at=LiveMicrophone;ua=options=>liveRecognition({...options,standby:true});Et=LiveAudioSession;xi=LiveMemory;
 const referenceVoiceState=kl;
