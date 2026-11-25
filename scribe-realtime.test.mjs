@@ -126,7 +126,7 @@ test('a Scribe quota failure uses one Qwen HTTP fallback for the retained uttera
   }
   const Recognition=createMicrophoneRecognition({
     input,Socket:BrowserSocket,location:new URL('https://localhost/'),
-    fetchImpl:async(path,options)=>{uploads.push({path,body:JSON.parse(options.body)});return Response.json({text:'Wait here.'});}
+    fetchImpl:async(path,options)=>{uploads.push({path,body:options.body});return Response.json({text:'Wait here.'});}
   });
   const instance=new Recognition();
   instance.inputLanguage='en';
@@ -142,9 +142,8 @@ test('a Scribe quota failure uses one Qwen HTTP fallback for the retained uttera
     instance.samples(voice,16000);
     await instance.stop();
     assert.equal(uploads.length,1);
-    assert.equal(uploads[0].path,'/api/transcribe');
-    assert.ok(uploads[0].body.audio.length>1000);
-    assert.equal(uploads[0].body.language,'en');
+    assert.equal(uploads[0].path,'/api/transcribe?language=en');
+    assert.ok(uploads[0].body.length>1000);
     assert.deepEqual(results,['Wait here.']);
   } finally { instance.abort(); }
 });

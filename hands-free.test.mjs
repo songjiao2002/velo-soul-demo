@@ -138,7 +138,7 @@ test('Lulu queues complete short openings immediately in each language without g
  }
 });
 
-test('Lulu keeps the five-character Mandarin fallback on browsers without a word segmenter',async t=>{
+test('without a word segmenter, an early Mandarin pause ends the first phrase cleanly',async t=>{
  const descriptor=Object.getOwnPropertyDescriptor(Intl,'Segmenter');
  Object.defineProperty(Intl,'Segmenter',{...descriptor,value:undefined});
  t.after(()=>Object.defineProperty(Intl,'Segmenter',descriptor));
@@ -146,10 +146,30 @@ test('Lulu keeps the five-character Mandarin fallback on browsers without a word
  a.session.start('mori','zh');a.recognizers[0].hear('想去哪里');await flush();
  const emit=frame=>stream.enqueue(new TextEncoder().encode(JSON.stringify(frame)+'\n'));
  emit({type:'delta',text:'  我们一起'});await flush();assert.equal(a.voices.length,0);
- emit({type:'delta',text:'去'});await flush();assert.equal(a.voices[0].text,'我们一起去');
- emit({type:'delta',text:'河边。'});emit({type:'complete',soul:'mori',reply:'我们一起去河边。'});await flush();
- a.voices[0].callback('ended');assert.equal(a.voices[1].text,'河边。');
+ emit({type:'delta',text:'看'});await flush();assert.equal(a.voices.length,0);
+ emit({type:'delta',text:'看，'});await flush();assert.equal(a.voices[0].text,'我们一起看看，');
+ emit({type:'delta',text:'河边很美。'});emit({type:'complete',soul:'mori',reply:'我们一起看看，河边很美。'});await flush();
+ a.voices[0].callback('ended');assert.equal(a.voices[1].text,'河边很美。');
  a.voices[1].callback('ended');a.session.stop();
+});
+
+test('older WebViews begin Mandarin by six Han characters without cutting a repeated verb or a surrogate pair',async t=>{
+ const descriptor=Object.getOwnPropertyDescriptor(Intl,'Segmenter');
+ Object.defineProperty(Intl,'Segmenter',{...descriptor,value:undefined});
+ t.after(()=>Object.defineProperty(Intl,'Segmenter',descriptor));
+ for(const [prefix,more,rest,first,second] of [
+  ['我们一起去','河','边。','我们一起去','河边。'],
+  ['我们一起看','看','河边。','我们一起','看看河边。'],
+  ['𠮷田一起看','看','河边。','𠮷田一起','看看河边。']
+ ]){
+  let stream;const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}));
+  a.session.start('mori','zh');a.recognizers[0].hear('出发吗');await flush();
+  const emit=frame=>stream.enqueue(new TextEncoder().encode(JSON.stringify(frame)+'\n'));
+  emit({type:'delta',text:prefix});await flush();assert.equal(a.voices.length,0);
+  emit({type:'delta',text:more});await flush();assert.deepEqual(a.voices.map(v=>v.text),[first]);
+  emit({type:'delta',text:rest});emit({type:'complete',soul:'mori',reply:prefix+more+rest});await flush();
+  a.voices[0].callback('ended');assert.equal(a.voices[1].text,second);a.session.stop();
+ }
 });
 
 test('a short prefix cannot cut Yesterday in half, and other characters keep their speech timing',async()=>{
@@ -181,4 +201,52 @@ test('punctuation after an exact five-character reply does not create an empty s
  const emit=frame=>stream.enqueue(new TextEncoder().encode(JSON.stringify(frame)+'\n'));
  emit({type:'delta',text:'我们出发吧'});await flush();assert.equal(a.voices.length,1);
  emit({type:'delta',text:'。'});emit({type:'complete',soul:'mori',reply:'我们出发吧。'});await flush();a.voices[0].callback('ended');assert.equal(a.voices.length,1);assert.equal(a.session.state,'listening');a.session.stop();
+});
+
+test('all companions request real speech for a complete short phrase in the first delta, before more text arrives',async()=>{
+ for(const soul of ['lumi','mori','bori']){
+  for(const [language,word,boundary,tail] of [
+   ['en','On it',' ','I can see the river.'],
+   ['en','Go','.',' Then take a break.'],
+   ['ko','가요',',',' 강이 보여요.']
+  ]){
+   let stream;
+   const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}));
+   const frame=value=>stream.enqueue(new TextEncoder().encode(JSON.stringify(value)+'\n'));
+   a.session.start(soul,language);a.recognizers[0].hear(language==='ko'?'들려요?':'Are you there?');await flush();
+   frame({type:'delta',text:word});await flush();assert.equal(a.voices.length,0,'incomplete words are held');
+   frame({type:'delta',text:boundary});await flush();
+   assert.deepEqual(a.voices.map(v=>v.text),[(word+boundary).trim()],soul);
+   assert.equal(a.session.histories[soul].length,0);
+   frame({type:'delta',text:tail});frame({type:'complete',soul,reply:word+boundary+tail});await flush();
+   a.voices[0].callback('ended');assert.equal(a.voices[1].text,tail.trim());
+   a.voices[1].callback('ended');a.session.stop();
+  }
+ }
+});
+
+test('streamed initials, abbreviations and decimal points stay in the spoken text even across deltas',async()=>{
+ for(const [start,tail] of [
+  ['Dr. ','Lee rides here!'],['U.S. ','routes are long!'],['e.g. ','an elm!'],['3.','50 km ahead!']
+ ]){
+  let stream;
+  const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}));
+  const frame=value=>stream.enqueue(new TextEncoder().encode(JSON.stringify(value)+'\n'));
+  a.session.start('bori','en');a.recognizers[0].hear('What is that?');await flush();
+  frame({type:'delta',text:start});await flush();assert.equal(a.voices.length,0,start);
+  frame({type:'delta',text:tail});await flush();assert.deepEqual(a.voices.map(v=>v.text),[start+tail]);
+  frame({type:'complete',soul:'bori',reply:start+tail});await flush();
+  a.voices[0].callback('ended');assert.equal(a.voices.length,1);a.session.stop();
+ }
+});
+
+test('the first spoken English phrase keeps an article with its noun',async()=>{
+ let stream;
+ const a=setup(()=>new Response(new ReadableStream({start(c){stream=c;}}),{headers:{'Content-Type':'application/x-ndjson'}}));
+ const frame=value=>stream.enqueue(new TextEncoder().encode(JSON.stringify(value)+'\n'));
+ a.session.start('bori','en');a.recognizers[0].hear('How long?');await flush();
+ frame({type:'delta',text:'Half an '});await flush();assert.equal(a.voices.length,0);
+ frame({type:'delta',text:'hour '});await flush();assert.equal(a.voices[0].text,'Half an hour');
+ frame({type:'delta',text:'sounds good.'});frame({type:'complete',soul:'bori',reply:'Half an hour sounds good.'});await flush();
+ a.voices[0].callback('ended');assert.equal(a.voices[1].text,'sounds good.');a.session.stop();
 });

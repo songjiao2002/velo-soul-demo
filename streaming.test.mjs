@@ -26,6 +26,58 @@ function speechAfterQuiet(quietMs){
 }
 const frameAudio=frames=>Buffer.concat(frames.filter(f=>f.audio).map(f=>Buffer.from(f.audio,'base64')));
 
+test('an exact public acknowledgement replays complete identical audio without another synthesis',async()=>{
+ const clip=speechAfterQuiet(220),url='https://dashscope-result-sgp.oss-ap-southeast-1.aliyuncs.com/ack.wav';
+ let synthesis=0,downloads=0;
+ const service=createChatService({env:{DASHSCOPE_API_KEY:'fixture'},fetchImpl:async(path,options)=>{
+  if(path===url){downloads++;return new Response(clip);}
+  synthesis++;
+  return options.headers['X-DashScope-SSE']?response([sse(clip.subarray(0,153)),sse(clip.subarray(153)),done]):Response.json({output:{audio:{url}}});
+ }});
+ for(const [soul,text,language] of [['lumi','Oh,','en'],['mori','嗯，','zh'],['bori','응,','ko']]){
+  const input={soul,text,language},before=synthesis;
+  const cold=[],hot=[];
+  await service.speechStream(input,{emit:f=>cold.push(f)});
+  await service.speechStream(input,{emit:f=>hot.push(f)});
+  assert.equal(synthesis,before+1);assert.deepEqual(frameAudio(cold),frameAudio(hot));
+  assert.deepEqual(hot.at(-1),{done:true});
+  const wavCold=await service.speech(input),waveSnapshot=Buffer.from(wavCold);
+  wavCold.fill(0);
+  const wavHot=await service.speech(input);
+  assert.equal(synthesis,before+2);assert.deepEqual(wavHot,waveSnapshot);assert.deepEqual(wavHot.subarray(44),frameAudio(hot));
+ }
+ assert.equal(downloads,3);
+});
+
+test('short speech cache keys respect exact inputs, voice configuration and fixed TTL; arbitrary text is never stored',async()=>{
+ let calls=0,now=0;
+ const env={DASHSCOPE_API_KEY:'fixture'};
+ const service=createChatService({env,now:()=>now,fetchImpl:async()=>{calls++;return response([sse(pcm),done]);}});
+ const say=(text,soul='lumi',language='en')=>service.speechStream({text,soul,language},{emit:()=>{}});
+ await say('Okay.');await say('Okay.');assert.equal(calls,1);
+ await say('Okay,');await say('Okay.','bori');await say('Okay.','lumi','zh');assert.equal(calls,4);
+ env.QWEN_TTS_MODEL='another-voice-model';await say('Okay.');assert.equal(calls,5);
+ await say('home address 32');await say('home address 32');
+ await say(' Okay.');await say(' Okay.');assert.equal(calls,9);
+ now+=5*60000;await say('Okay.');assert.equal(calls,10);
+});
+
+test('a hot short clip still consumes shared quota and an incomplete or cancelled stream cannot warm it',async()=>{
+ let calls=0,broken=true;
+ const service=createChatService({env:{DASHSCOPE_API_KEY:'fixture',QWEN_MAX_DAILY_REQUESTS:'4'},fetchImpl:async()=>{
+  calls++;return response(broken?[sse(pcm)]:[sse(pcm),done]);
+ }});
+ const input={soul:'mori',language:'en',text:'Mm,'};
+ await assert.rejects(service.speechStream(input,{emit:()=>{}}));
+ broken=false;const controller=new AbortController();
+ const cancelled=service.speechStream(input,{signal:controller.signal,emit:f=>{if(f.audio)controller.abort();}});
+ await cancelled.catch(e=>assert.equal(e.code,'cancelled'));
+ assert.equal(calls,2);
+ await service.speechStream(input,{emit:()=>{}});assert.equal(calls,3);
+ await service.speechStream(input,{emit:()=>{}});assert.equal(calls,3);
+ await assert.rejects(service.speechStream(input,{emit:()=>{}}),{code:'rate_limited'});assert.equal(calls,3);
+});
+
 test('Lulu streams the first audible sample as soon as both PCM bytes arrive and preserves all following pauses',async()=>{
  const wave=speechAfterQuiet(300);
  const onset=44+300*48,retained=onset-80*48;
@@ -148,7 +200,7 @@ test('interrupt stops all queued PCM; a truncated stream cannot report success',
 });
 test('Korean selection reaches the microphone POST, ASR language hint, reply and TTS locale',async()=>{
  const input={attach:async r=>input.r=r,detach(){},onLevel(){}};let post;
- const Recognition=createMicrophoneRecognition({input,fetchImpl:async(_,options)=>{post=JSON.parse(options.body);return new Response(JSON.stringify({text:payload.text}));}});
+ const Recognition=createMicrophoneRecognition({input,fetchImpl:async(url,options)=>{post={language:new URL(url,'https://localhost').searchParams.get('language'),audio:Buffer.from(options.body)};return new Response(JSON.stringify({text:payload.text}));}});
  const r=new Recognition();r.lang='ko-KR';r.start();await flush();for(let i=0;i<7;i++)r.samples(Float32Array.from({length:1600},(_,i)=>.1*Math.sin(2*Math.PI*230*i/16000)),16000);for(let i=0;i<7;i++)r.samples(new Float32Array(1600),16000);await flush();assert.equal(post.language,'ko');
  let options;const service=createChatService({env:{DASHSCOPE_API_KEY:'private'},fetchImpl:async(_,o)=>{options=JSON.parse(o.body);return new Response(JSON.stringify({choices:[{message:{content:payload.text}}]}));}});await service.transcribe(post);assert.equal(options.asr_options.language,'ko');await assert.rejects(service.transcribe({...post,language:'invalid'}),{code:'invalid_request'});
  let recognizer,reply,speech;class FakeRecognition{constructor(){recognizer=this;}start(){this.onstart?.();}abort(){}}

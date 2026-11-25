@@ -168,8 +168,20 @@ export class MicrophoneInput {
   }
 }
 
+// An interim can shorten the pause only after local speech has already been detected.
+// An unfinished phrase retains the longer interval for a rider to take a breath.
+function previewPause(text){
+  if(/(?:\.{2,}|[…,:;，、：；—-])\s*$/u.test(text))return 0;
+  if(/[.!?。！？]["'”’」』)]*$/u.test(text))return 320;
+  if(/^(?:yes|yeah|no|okay|ok|thanks|thank you|stop|응|네|아니|고마워|그래|좋아|好|好的|谢谢|不用|对)$/iu.test(text))return 280;
+  if(/(?:습니다|습니까|니다|해요|어요|아요|예요|세요|할게|갈게|할래|있어|없어|[었았였했됐졌뒀겠]다|한다|된다|있다|없다|[吗吧呢呀啦])[~～]?$/u.test(text))return 360;
+  if(/\b(?:a|an|the|to|of|for|and|or|but|if|because|with|at|in|on|my|your|is|are|can|could|would|should)$/iu.test(text))return 0;
+  // English previews often arrive without punctuation until the provider commits.
+  return /^[a-z][\w'’-]*(?:\s+[a-z][\w'’-]*){2,}$/iu.test(text)?460:0;
+}
+
 export function createMicrophoneRecognition({input = new MicrophoneInput(), createDetector, Socket, standby=false, location = globalThis.location, fetchImpl = appFetch,
-  toBase64 = s => globalThis.btoa(s), now=Date.now, setTimer = (...args) => globalThis.setTimeout(...args), clearTimer = (...args) => globalThis.clearTimeout(...args)} = {}) {
+  now=Date.now, setTimer = (...args) => globalThis.setTimeout(...args), clearTimer = (...args) => globalThis.clearTimeout(...args)} = {}) {
   let streamDisabledUntil=0;
   return class MicrophoneRecognition {
     constructor() { this.active = false; this.chunks = []; this.preroll = []; this.noise = .002; this.total = this.quiet = this.voiced = 0; this.resetCandidate(); this.startTimeoutMs=isNative()?100000:50000; }
@@ -197,6 +209,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
       if(!this.active||this.finalizing)return;
       this.standby?.close();this.standby=null;
       this.stream?.close();this.stream=null;this.chunks=[];this.preroll=[];this.total=this.quiet=this.voiced=0;this.filter=null;this.rate=null;
+      this.previewEndPause=0;this.backgroundPause=0;
       this.resetCandidate();
       this.releaseDetector();this.detectorFailed=false;
       this.speech=false;this.started=false;this.quietReported=false;this.noise=.002;this.onaudiorecovering?.();
@@ -215,14 +228,19 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
         const url=speechSocketURL(location);url.searchParams.set('language',this.language());
         const preparedSocket=this.standby?.take();this.standby=null;
         this.stream=new StreamingTranscriber({Socket,url:url.href,preparedSocket,setTimer,clearTimer,
-          onPartial:text=>{if(this.active&&this.speech&&text.trim())this.onresult?.({results:[{0:{transcript:text},isFinal:false}]});},
+          onPartial:text=>{
+            if(!this.active||!this.speech||!text.trim())return;
+            this.previewEndPause=previewPause(text.trim());
+            this.previewVoiced=this.voiced;
+            this.onresult?.({results:[{0:{transcript:text},isFinal:false}]});
+          },
           onFinal:text=>{
             this.stream=null;
             if(!this.active||!this.finalizing)return;
             if(text.trim())this.deliver(text);
             else this.transcribe();
           },
-          onUnavailable:error=>{this.stream=null;streamDisabledUntil=now()+(['provider_auth','not_configured','rate_limited','provider_quota'].includes(error)?60000:5000);if(!this.active)return;if(['rate_limited','provider_quota'].includes(error))return this.fail(error);if(this.finalizing)this.transcribe();}});
+          onUnavailable:error=>{this.stream=null;this.backgroundPause=0;this.previewEndPause=0;streamDisabledUntil=now()+(['provider_auth','not_configured','rate_limited','provider_quota'].includes(error)?60000:5000);if(!this.active)return;if(['rate_limited','provider_quota'].includes(error))return this.fail(error);if(this.finalizing)this.transcribe();}});
       }
     }
     samples(data, rate) {
@@ -296,6 +314,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
         if(voiceOnset&&this.candidate>=40)this.prepareConnection();
         if (voiceOnset && (localVoice || this.candidate >= 120)) {
           this.speech = true; this.chunks = this.preroll; this.preroll = []; this.quiet = 0; this.voiced = this.candidate;
+          this.backgroundPause=0;this.clearVoiceMs=0;this.lastClearVoice=0;
           if(localVoice)this.voiced=Math.max(40,Math.min(120,this.voiced));
           this.total = this.chunks.reduce((n, c) => n + c.length, 0) / rate * 1000; this.onspeechstart?.();
           if(this.active)this.openStream();
@@ -304,11 +323,23 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
         return;
       }
       this.chunks.push(audio); this.total += ms; this.stream?.write(audio,rate);
+      if(continuing&&this.quiet>=80)this.previewEndPause=0;
       this.quiet = continuing ? 0 : this.quiet + ms;
-      if (continuing) this.voiced += ms;
-      // Give longer turns room for a natural pause. Very short calls can finish sooner.
+      if(continuing){
+        this.voiced+=ms;
+        if(rms>=Math.max(.009,this.noise*3)&&midRms>=Math.max(.0012,this.midNoise*3)){
+          this.clearVoiceMs+=ms;this.lastClearVoice=this.voiced;
+        }
+      }
+      const audioOnly=!this.stream||this.stream.closed;
+      const nearBackground=audioOnly ? rms<=.0008&&midRms<=.00035
+        : rms<=Math.max(.0015,this.noise*1.4)&&midRms<=Math.max(.00045,this.midNoise*1.4);
+      this.backgroundPause=!continuing&&nearBackground?this.backgroundPause+ms:0;
+      // Stale words, a soft trailing syllable, or elevated street noise cannot shorten the pause.
+      const clearEnding=this.previewEndPause>0&&this.voiced-this.previewVoiced<=160&&this.backgroundPause>=this.previewEndPause;
+      const clearAudioEnd=audioOnly&&this.clearVoiceMs>=360&&this.voiced-this.lastClearVoice<=80&&this.backgroundPause>=460;
       const endPause = this.voiced <= 220 ? 360 : 540;
-      if (this.quiet >= endPause || this.total >= 15000) this.stop();
+      if (clearEnding || clearAudioEnd || this.quiet >= endPause || this.total >= 15000) this.stop();
     }
     async stop() {
       if (!this.active || this.finalizing) return;
@@ -327,11 +358,11 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
     async transcribe(){
       if(!this.active||this.uploading)return;this.uploading=true;
       const wav = encodeWav(this.chunks, this.rate); this.chunks = []; this.preroll = [];
-      let binary = ''; for (let i = 0; i < wav.length; i += 8192) binary += String.fromCharCode(...wav.subarray(i, i + 8192));
       this.controller = new AbortController(); this.timer = setTimer(() => this.controller?.abort(), 25000);
       try {
-        const response = await fetchImpl('/api/transcribe', {method:'POST',headers:{'Content-Type':'application/json'},signal:this.controller.signal,
-          body:JSON.stringify({audio:'data:audio/wav;base64,' + toBase64(binary),language:this.language()})});
+        const response = await fetchImpl('/api/transcribe?language='+encodeURIComponent(this.language()), {
+          method:'POST',headers:{'Content-Type':'audio/wav'},signal:this.controller.signal,body:wav
+        });
         const data = await response.json(); if (!this.active) return;
         if (!response.ok) throw new Error(data.error || 'network');
         if (typeof data.text !== 'string') throw new Error('invalid_response');

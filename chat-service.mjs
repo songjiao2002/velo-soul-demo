@@ -83,11 +83,11 @@ function parseObservation(text,soul,model){
 
 export function validateAudio(body){
  const audio=body?.audio;
- if(typeof audio!=='string'||audio.length>660000||!/^data:audio\/wav;base64,[A-Za-z0-9+/]+={0,2}$/.test(audio))throw new ChatError('invalid_audio');
- const b=Buffer.from(audio.slice(22),'base64');
+ if(!Buffer.isBuffer(audio)&&(typeof audio!=='string'||audio.length>660000||!/^data:audio\/wav;base64,[A-Za-z0-9+/]+={0,2}$/.test(audio)))throw new ChatError('invalid_audio');
+ const b=Buffer.isBuffer(audio)?audio:Buffer.from(audio.slice(22),'base64');
  // Accept only the bounded mono 16-bit PCM WAV format emitted by our recorder.
  if(b.length<3244||b.length>490000||b.toString('ascii',0,4)!=='RIFF'||b.toString('ascii',8,16)!=='WAVEfmt '||b.readUInt32LE(4)!==b.length-8||b.readUInt32LE(16)!==16||b.readUInt16LE(20)!==1||b.readUInt16LE(22)!==1||b.readUInt32LE(24)!==16000||b.readUInt32LE(28)!==32000||b.readUInt16LE(32)!==2||b.readUInt16LE(34)!==16||b.toString('ascii',36,40)!=='data'||b.readUInt32LE(40)!==b.length-44||(b.length-44)%2)throw new ChatError('invalid_audio');
- return audio;
+ return typeof audio==='string'?audio:'data:audio/wav;base64,'+b.toString('base64');
 }
 
 export function validateSpeech(body){
@@ -108,8 +108,37 @@ function speechRequest(payload,config){
   return {model:config.ttsModel,input:{text:payload.text,voice:{lumi:'Cherry',bori:'Chelsie'}[payload.soul],language_type:payload.language}};
 }
 
+// Only these exact, public utterances can be retained in this process.
+const commonSpeech=new Set(['Mm,','Oh,','Okay,','Okay.','Sure.','Yes.','Yeah,','On it.','I see.','Got it.','음,','응,','네,','좋아요.','그래,','嗯，','好，','好呀，','好。','可以。']);
+const maxClipBytes=128*1024;
+function commonSpeechKey(input,request,config,format){
+  return commonSpeech.has(input.text)?JSON.stringify([format,input.soul,input.language,config.baseURL,request]):null;
+}
+
 export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,timeoutMs=30000,getWeather=()=>null,getBikeMemory=()=>null}={}){
   const skills=loadSoulSkills(),diarySkills=loadDiarySkills();
+  const speechClips=new Map();
+  function rememberClip(key,bytes){
+    if(!key||!bytes.length||bytes.length>maxClipBytes)return;
+    speechClips.delete(key);
+    if(speechClips.size>=32)speechClips.delete(speechClips.keys().next().value);
+    speechClips.set(key,{bytes:Buffer.from(bytes),expires:now()+5*60000});
+  }
+  async function replayClip(key,signal,emit){
+    const clip=speechClips.get(key);
+    if(!clip)return null;
+    if(now()>=clip.expires){speechClips.delete(key);return null;}
+    // The hot path consumes the same shared visitor budget as a cold request.
+    reserve();
+    try{
+      if(signal?.aborted)throw new ChatError('cancelled',499);
+      if(!emit)return Buffer.from(clip.bytes);
+      await emit({audio:clip.bytes.toString('base64'),rate:24000});
+      if(signal?.aborted)throw new ChatError('cancelled',499);
+      await emit({done:true});
+      return true;
+    }finally{active--;}
+  }
   // A shared demo budget deliberately covers all visitors and cannot be bypassed with new cookies.
   const maxDaily=Number(env.QWEN_MAX_DAILY_REQUESTS)||200;
   let minute=0,day=0,minuteCount=0,dayCount=0,active=0;
@@ -158,11 +187,27 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
     },
     async speechStream(input,{signal,emit}={}){
       const payload=validateSpeech(input),config=chatConfig(env);if(!config.configured)throw new ChatError('not_configured',503);
-      return complete(speechRequest(payload,config),config,signal,{speech:true,stream:true,readResponse:response=>relaySpeech(response,emit,{trimPandaLead:payload.soul==='mori'})});
+      const request=speechRequest(payload,config),key=commonSpeechKey(input,request,config,'pcm');
+      if(key&&await replayClip(key,signal,emit))return;
+      return complete(request,config,signal,{speech:true,stream:true,readResponse:async(response,requestSignal)=>{
+        let recording=key?Buffer.allocUnsafe(maxClipBytes):null,size=0;
+        const capture=async frame=>{
+          await emit(frame);
+          if(!recording||!frame.audio)return;
+          const bytes=Buffer.from(frame.audio,'base64');
+          if(size+bytes.length>maxClipBytes){recording=null;return;}
+          bytes.copy(recording,size);size+=bytes.length;
+        };
+        await relaySpeech(response,key?capture:emit,{trimPandaLead:payload.soul==='mori'});
+        if(recording&&size%2===0&&!requestSignal.aborted)rememberClip(key,recording.subarray(0,size));
+      }});
     },
     async speech(input,{signal}={}){
       const payload=validateSpeech(input),config=chatConfig(env);if(!config.configured)throw new ChatError('not_configured',503);
-      return complete(speechRequest(payload,config),config,signal,{speech:true,readResult:async(data,requestSignal)=>{
+      const request=speechRequest(payload,config),key=commonSpeechKey(input,request,config,'wav');
+      const cached=key&&await replayClip(key,signal);
+      if(cached)return cached;
+      return complete(request,config,signal,{speech:true,readResult:async(data,requestSignal)=>{
         const url=speechAudioURL(data?.output?.audio?.url);
         // Fetch only the provider's audio object; authorization is never forwarded to OSS.
         const response=await fetchImpl(url,{signal:requestSignal,redirect:'error'});
@@ -170,7 +215,14 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
         const chunks=[];let length=0;for await(const chunk of response.body){length+=chunk.length;if(length>4000000)throw new ChatError('invalid_response',502);chunks.push(chunk);}
         const audio=Buffer.concat(chunks);
         if(audio.length<44||audio.toString('ascii',0,4)!=='RIFF'||audio.toString('ascii',8,12)!=='WAVE')throw new ChatError('invalid_response',502);
-        return payload.soul==='mori'?trimPandaWave(audio):audio;
+        const output=payload.soul==='mori'?trimPandaWave(audio):audio;
+        // Cache only complete, standard-header PCM WAVs. Other valid provider
+        // layouts are still returned unchanged through the existing path.
+        if(key&&!requestSignal.aborted&&output.readUInt32LE(4)===output.length-8&&
+          output.toString('ascii',12,16)==='fmt '&&output.readUInt32LE(16)===16&&output.readUInt16LE(20)===1&&
+          output.toString('ascii',36,40)==='data'&&output.readUInt32LE(40)===output.length-44&&
+          output.length>44&&output.readUInt16LE(32)>0&&(output.length-44)%output.readUInt16LE(32)===0)rememberClip(key,output);
+        return output;
       }});
     },
     async transcribe(input,{signal}={}){
@@ -266,28 +318,33 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
   };
 }
 
-export async function readChatBody(req,limit=32768){
-  if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type']||''))throw new ChatError('invalid_content_type',415);
+async function readBytes(req,limit){
   if(Number(req.headers['content-length'])>limit)throw new ChatError('message_too_long',413);
   const chunks=[];let size=0;
   for await (const chunk of req){size+=chunk.length;if(size>limit)throw new ChatError('message_too_long',413);chunks.push(chunk);}
-  try{return JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw new ChatError('invalid_request');}
+  return Buffer.concat(chunks,size);
+}
+export async function readChatBody(req,limit=32768){
+  if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type']||''))throw new ChatError('invalid_content_type',415);
+  const bytes=await readBytes(req,limit);
+  try{return JSON.parse(bytes.toString('utf8'));}catch{throw new ChatError('invalid_request');}
 }
 
 export function createChatHandler(options={}){
   const service=createChatService(options);
   const handler=async (req,res)=>{
-    const pathname=new URL(req.url,'http://localhost').pathname;
+    const url=new URL(req.url,'http://localhost'),pathname=url.pathname;
     if(!['/api/diary','/api/chat','/api/chat/scene','/api/chat/status','/api/vision','/api/transcribe','/api/speech','/api/speech/stream'].includes(pathname))return false;
     const send=(status,body)=>{if(res.destroyed)return;res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(req.method==='HEAD'?undefined:JSON.stringify(body));};
     if(pathname==='/api/chat/status'&&['GET','HEAD'].includes(req.method)){send(200,service.status());return true;}
     if(!['/api/diary','/api/chat','/api/chat/scene','/api/vision','/api/transcribe','/api/speech','/api/speech/stream'].includes(pathname)||req.method!=='POST'){res.setHeader('Allow',pathname.endsWith('/status')?'GET, HEAD':'POST');send(405,{error:'method_not_allowed'});return true;}
-    // JSON POST and same-origin requests keep another website from silently spending this demo's quota.
-    const origin=req.headers.origin;
     if(!allowedRequestOrigin(req)){send(403,{error:'origin_not_allowed'});return true;}
     const controller=new AbortController(),onClose=()=>{if(!res.writableEnded)controller.abort();};
     res.on('close',onClose);
-    try{const vision=pathname==='/api/vision',asr=pathname==='/api/transcribe',speech=pathname==='/api/speech';const payload=await readChatBody(req,pathname==='/api/diary'?2000000:asr||vision||pathname==='/api/chat/scene'?700000:32768);
+    try{const vision=pathname==='/api/vision',asr=pathname==='/api/transcribe',speech=pathname==='/api/speech';
+      const waveUpload=asr&&/^audio\/wav(?:\s*;|$)/i.test(req.headers['content-type']||'');
+      const payload=waveUpload?{audio:await readBytes(req,490000),language:url.searchParams.get('language')??'auto'}:
+        await readChatBody(req,pathname==='/api/diary'?2000000:asr||vision||pathname==='/api/chat/scene'?700000:32768);
       if(pathname==='/api/speech/stream'){
         await service.speechStream(payload,{signal:controller.signal,emit:async frame=>{
           if(res.destroyed)throw new ChatError('cancelled',499);

@@ -229,7 +229,7 @@ test('browser sends PCM before silence, displays interim revisions, then sends o
 });
 
 test('disconnect retains the whole utterance for one fallback and ignores stale partial/final events',async()=>{
- const a=client(),r=new a.Recognition(),events=[];r.inputLanguage='zh';r.onresult=e=>events.push(e.results[0]);r.start();await tick();a.feed(.1,300);const ws=a.sockets[0];ws.open();const late=ws.onmessage;ws.event({type:'partial',text:'你好'});ws.onerror();a.feed(.1,300);a.feed(0,700);await tick();assert.equal(a.uploads.length,1);assert.equal(JSON.parse(a.uploads[0].options.body).language,'zh');assert.equal(events.at(-1).isFinal,true);assert.equal(events.at(-1)[0].transcript,'Fallback complete sentence');const length=events.length;late({data:JSON.stringify({type:'final',text:'stale'})});assert.equal(events.length,length);
+ const a=client(),r=new a.Recognition(),events=[];r.inputLanguage='zh';r.onresult=e=>events.push(e.results[0]);r.start();await tick();a.feed(.1,300);const ws=a.sockets[0];ws.open();const late=ws.onmessage;ws.event({type:'partial',text:'你好'});ws.onerror();a.feed(.1,300);a.feed(0,700);await tick();assert.equal(a.uploads.length,1);assert.equal(a.uploads[0].url,'/api/transcribe?language=zh');assert.equal(events.at(-1).isFinal,true);assert.equal(events.at(-1)[0].transcript,'Fallback complete sentence');const length=events.length;late({data:JSON.stringify({type:'final',text:'stale'})});assert.equal(events.length,length);
 });
 
 test('an empty streaming result retries the retained short utterance once',async()=>{

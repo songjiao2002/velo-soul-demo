@@ -50,6 +50,24 @@ test('ASR HTTP endpoint enforces same origin, body bounds and sanitized upstream
  const result=await post({audio:audio()});assert.equal(result.status,503);assert.equal(result.headers.get('cache-control'),'no-store');assert.deepEqual(await result.json(),{error:'provider_not_activated'});
 });
 
+test('binary and legacy microphone uploads deliver the same samples and language to ASR',async t=>{
+ const requests=[];
+ const handler=createChatHandler({env,fetchImpl:async(_,options)=>{requests.push(JSON.parse(options.body));return success('안녕하세요.');}});
+ const app=http.createServer(handler);
+ await new Promise(resolve=>app.listen(0,'127.0.0.1',resolve));
+ t.after(()=>new Promise(resolve=>app.close(resolve)));
+ const url='http://127.0.0.1:'+app.address().port+'/api/transcribe';
+ const legacy=audio(),wav=Buffer.from(legacy.slice(22),'base64');
+ const sendWave=(body,language='ko')=>fetch(url+'?language='+language,{method:'POST',headers:{'Content-Type':'audio/wav'},body});
+ assert.equal((await sendWave(wav)).status,200);
+ assert.equal((await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audio:legacy,language:'ko'})})).status,200);
+ assert.deepEqual(requests[0],requests[1]);
+ assert.equal((await sendWave(wav,'invalid')).status,400);
+ assert.equal((await sendWave(wav.subarray(0,100))).status,400);
+ assert.equal((await sendWave(Buffer.alloc(490001))).status,413);
+ assert.equal(requests.length,2);
+});
+
 test('ASR cancellation and timeout abort requests without forwarding provider details',async()=>{
  const pending=(_,options)=>new Promise((_,reject)=>{if(options.signal.aborted)reject(Error());else options.signal.addEventListener('abort',()=>reject(Error()));});
  await assert.rejects(createChatService({env,timeoutMs:5,fetchImpl:pending}).transcribe({audio:audio()}),{code:'timeout'});
@@ -59,7 +77,7 @@ test('ASR cancellation and timeout abort requests without forwarding provider de
 function recorder(fetchImpl=async()=>new Response(JSON.stringify({text:'你好'}))){
  const levels=[],calls=[];
  const input={onLevel:v=>levels.push(v),attach:async r=>{input.receiver=r;},detach:r=>{if(input.receiver===r)input.receiver=null;},release(){this.receiver=null;}};
- const Recognition=createMicrophoneRecognition({input,fetchImpl:(url,options)=>{calls.push({url,...options});return fetchImpl(url,options);},toBase64:s=>Buffer.from(s,'binary').toString('base64')});
+ const Recognition=createMicrophoneRecognition({input,fetchImpl:(url,options)=>{calls.push({url,...options});return fetchImpl(url,options);}});
  const feed=(value,ms)=>{
   for(let n=0;n<ms/100;n++)input.receiver?.samples(Float32Array.from({length:1600},(_,i)=>value*Math.sin(2*Math.PI*230*i/16000)),16000);
  };
@@ -69,11 +87,11 @@ test('actual PCM triggers listening, level meter, one transcription after silenc
  const a=recorder(),r=new a.Recognition(),states=[],transcripts=[];r.onstart=()=>states.push('started');r.onquiet=()=>states.push('quiet');r.onspeechstart=()=>states.push('speech');r.ontranscribing=()=>states.push('transcribing');r.onresult=e=>transcripts.push(e.results[0][0].transcript);
  r.start();await flush();assert.deepEqual(states,[]);a.feed(0,9000);assert.deepEqual(states,['started','quiet']);assert.equal(a.calls.length,0);
  a.feed(.08,600);assert.ok(a.levels.at(-1)>.5);a.feed(0,1100);await flush();assert.equal(a.calls.length,1);assert.deepEqual(transcripts,['你好']);assert.ok(states.includes('transcribing'));
- assert.equal(a.calls[0].url,'/api/transcribe');validateAudio(JSON.parse(a.calls[0].body));assert.equal(r.active,false);
+ assert.equal(a.calls[0].url,'/api/transcribe?language=auto');assert.equal(a.calls[0].headers['Content-Type'],'audio/wav');validateAudio({audio:Buffer.from(a.calls[0].body)});assert.equal(r.active,false);
 });
 test('a short click is not uploaded; continuous audio is capped; stopping ignores late recognition',async()=>{
  let resolve;const a=recorder(()=>new Promise(r=>resolve=r)),r=new a.Recognition();let results=0;r.onresult=()=>results++;r.start();await flush();a.feed(.1,100);a.feed(0,1200);assert.equal(a.calls.length,0);
- a.feed(.1,16000);assert.equal(a.calls.length,1);const b=Buffer.from(JSON.parse(a.calls[0].body).audio.slice(22),'base64');assert.ok(b.length<=490000);
+ a.feed(.1,16000);assert.equal(a.calls.length,1);assert.ok(a.calls[0].body.length<=490000);
  r.abort();assert.equal(a.calls[0].signal.aborted,true);resolve(new Response(JSON.stringify({text:'late'})));await flush();assert.equal(results,0);
 });
 test('cloud recognition completes the hands-free loop without browser SpeechRecognition',async()=>{
@@ -190,7 +208,7 @@ test('a faint initial fragment is buffered through hesitation and included in th
  assert.equal(a.calls.length,0);
  feed(18,.06,250);feed(40,0,0);await flush();
  assert.equal(a.calls.length,1);
- const wav=Buffer.from(JSON.parse(a.calls[0].body).audio.split(',')[1],'base64');
+ const wav=Buffer.from(a.calls[0].body);
  const fragment=Array.from({length:size},(_,i)=>Math.abs(wav.readInt16LE(44+2*(rate*.1+i))));
  assert.ok(Math.max(...fragment)>45,'quiet prefix is present before the main voice');
 });
@@ -231,6 +249,61 @@ test('cloud interruption uses recognized stop commands and aborts late monitor r
 
 test('end of speech submits in about half a second while shorter pauses remain in the same turn',async()=>{
  const a=recorder(),r=new a.Recognition();r.start();await flush();a.feed(.08,700);a.feed(0,300);assert.equal(a.calls.length,0);a.feed(.08,300);a.feed(0,300);assert.equal(a.calls.length,0);a.feed(0,300);assert.equal(a.calls.length,1);r.abort();
+});
+
+test('batch ASR can finish clean, strong speech sooner while keeping a 400 ms pause and weak Korean tail',()=>{
+ const rate=16000;
+ function capture(){
+  let ended=0;
+  const input={attach:async()=>{},detach(){},onLevel(){}};
+  const R=createMicrophoneRecognition({input,Socket:null,setTimer:()=>1,clearTimer(){},fetchImpl:async()=>Response.json({text:'네'})});
+  const r=new R();r.onspeechend=()=>ended++;r.start();
+  return {feed(ms,amp=0){for(let n=0;n<ms;n+=20)r.samples(Float32Array.from({length:320},(_,i)=>amp*Math.sin(2*Math.PI*200*i/rate)),rate);},ended:()=>ended,stop:()=>r.abort()};
+ }
+ const clean=capture();clean.feed(640,.06);clean.feed(400);assert.equal(clean.ended(),0);
+ clean.feed(240,.06);clean.feed(440);assert.equal(clean.ended(),0);clean.feed(40);assert.equal(clean.ended(),1);clean.stop();
+ const faint=capture();faint.feed(640,.06);faint.feed(200,.006);faint.feed(480);
+ assert.equal(faint.ended(),0);faint.feed(80);assert.equal(faint.ended(),1);faint.stop();
+ const low=capture();low.feed(680,.012);low.feed(480);
+ assert.equal(low.ended(),0);low.feed(80);assert.equal(low.ended(),1);low.stop();
+ const noisy=capture();noisy.feed(640,.06);noisy.feed(480,.002);
+ assert.equal(noisy.ended(),0);noisy.feed(80);assert.equal(noisy.ended(),1);noisy.stop();
+});
+
+test('streaming previews shorten a clear endpoint only after acoustic silence, across input languages',()=>{
+ const rate=16000,frame=320;
+ function capture(){
+  let socket,finished=0;
+  class Socket{
+   constructor(){socket=this;this.readyState=1;this.bufferedAmount=0;}
+   close(){this.readyState=3;}
+   send(message){if(typeof message==='string'&&JSON.parse(message).type==='finish')finished++;}
+  }
+  const R=createMicrophoneRecognition({input:{attach:async()=>{},detach(){},onLevel(){}},Socket,location:new URL('https://ride.test'),setTimer:()=>1,clearTimer(){}});
+  const r=new R();r.start();
+  return {
+   feed(ms,amplitude=0){
+    for(let elapsed=0;elapsed<ms;elapsed+=20)r.samples(Float32Array.from({length:frame},(_,i)=>amplitude*Math.sin(2*Math.PI*200*i/rate)),rate);
+   },
+   preview:text=>socket.onmessage({data:JSON.stringify({type:'partial',text})}),
+   finished:()=>finished,stop:()=>r.abort()
+  };
+ }
+ for(const [text,target] of [['Should we stop?',320],['We can stop here',460],['이제 같이 갈게',360],['我们停一下吧',360],['yes',280]]){
+  const a=capture();a.feed(400,.04);a.preview(text);
+  a.feed(target-20);assert.equal(a.finished(),0,text);
+  a.feed(40);assert.equal(a.finished(),1,text);a.stop();
+ }
+ const unfinished=capture();unfinished.feed(420,.04);unfinished.preview('I am looking for');
+ unfinished.feed(480);assert.equal(unfinished.finished(),0);
+ unfinished.feed(160,.035);unfinished.preview('I am looking for shade.');
+ unfinished.feed(340);assert.equal(unfinished.finished(),1);unfinished.stop();
+ const resumed=capture();resumed.feed(400,.04);resumed.preview('갈게');
+ resumed.feed(220);resumed.feed(160,.008);resumed.feed(480);assert.equal(resumed.finished(),0,'a quiet Korean continuation invalidates the old ending');
+ resumed.feed(80);assert.equal(resumed.finished(),1);resumed.stop();
+ const noise=capture();noise.feed(400,.04);noise.preview('All done.');
+ noise.feed(400,.0027);assert.equal(noise.finished(),0,'audio above the local floor prevents the accelerated close');
+ noise.stop();
 });
 
 test('silent PCM stays listening, but a stalled capture graph fails and releases its watchdog',async()=>{
