@@ -12,10 +12,22 @@ function terminateUpstream(socket){
  }
 }
 
+function qwenRoute(config,language){
+ const model=language==='en'?config.realtimeAsrModelEn:config.realtimeAsrModel;
+ const messageModel=model==='qwen-audio-3.1-asr-flash-message';
+ const duplex=messageModel||/^qwen-audio-3\.[01]-asr-flash-streaming$/.test(model);
+ const endpoint=new URL(config.baseURL);
+ endpoint.protocol='wss:';
+ endpoint.pathname=duplex?'/api-ws/v1/inference':'/api-ws/v1/realtime';
+ if(!duplex)endpoint.searchParams.set('model',model);
+ return {model,messageModel,duplex,endpoint:endpoint.href};
+}
+
 export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,options)=>new WebSocket(url,options)}={}){
  const sockets=new WebSocketServer({noServer:true,maxPayload:32768,perMessageDeflate:false});
- let waitingClients=0;
- let idleQwen=null,stopping=false;
+ let waitingClients=0,waitingForDuplex=0;
+ let idleQwen=null,stopping=false,nextPreparation=0;
+ const dialQwen=(endpoint,apiKey)=>connect(endpoint,{headers:{Authorization:'Bearer '+apiKey},handshakeTimeout:8000,maxPayload:131072,perMessageDeflate:false});
  function removeIdle(){
   const entry=idleQwen;
   if(!entry)return null;
@@ -29,16 +41,22 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
  function discardIdle(){
   terminateUpstream(removeIdle()?.socket);
  }
- function keepCompleted(socket,endpoint,apiKey,taskId){
-  if(stopping||socket.readyState!==WebSocket.OPEN){terminateUpstream(socket);return;}
+ function keepIdle(socket,endpoint,apiKey,taskId,lifetime){
+  if(stopping||socket.readyState>WebSocket.OPEN){terminateUpstream(socket);return;}
   discardIdle();
-  // Only a finished duplex task reaches here. Never send audio, heartbeats or
-  // a new run-task to an idle provider connection.
-  idleQwen={socket,endpoint,apiKey,taskId,timer:setTimeout(discardIdle,15000)};
+  // A fresh handshake or a finished duplex task. No audio or protocol messages
+  // may be sent until an active rider has exclusively claimed the transport.
+  idleQwen={socket,endpoint,apiKey,taskId,timer:setTimeout(discardIdle,lifetime)};
   idleQwen.timer.unref();
   socket.once('close',discardIdle);
   socket.once('error',discardIdle);
   socket.once('message',discardIdle);
+ }
+ function prepareDuplex(endpoint,apiKey){
+  if(stopping||idleQwen||Date.now()<nextPreparation)return;
+  // Limit speculative handshakes even if listeners repeatedly open and cancel.
+  nextPreparation=Date.now()+5000;
+  try{keepIdle(dialQwen(endpoint,apiKey),endpoint,apiKey,null,35000);}catch{/* Speech can still open a fresh connection. */}
  }
  server.on('upgrade',(req,socket,head)=>{
   const reject=status=>{socket.end(`HTTP/1.1 ${status} Rejected\r\nConnection: close\r\n\r\n`);};
@@ -52,50 +70,57 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
   const config=chatConfig(env);
   const useScribe=config.scribeApiKey&&(language==='en'||language==='ko');
   if(env.QWEN_REALTIME_ASR==='off'||(!useScribe&&!config.configured))return reject(503);
+  const route=useScribe?null:qwenRoute(config,language);
   if(standby&&waitingClients>=32)return reject(429);
   let release;
   function startProvider(client){
    if(useScribe)relayScribeRealtime(client,{language,apiKey:config.scribeApiKey,connect,release});
-   else relay(client,language,config,release);
+   else relay(client,language,config,route,release);
   }
   function reserveTask(){release=reserve();socket.once('close',release);}
   if(!standby){try{reserveTask();}catch{return reject(429);}}
   try{
    sockets.handleUpgrade(req,socket,head,client=>{
     if(!standby){startProvider(client);return;}
-    // Only the rider-to-app connection is ready. Reserve a model task when
-    // the microphone has actually detected speech and is about to send PCM.
+    // The duplex endpoint accepts an authenticated WebSocket before run-task.
+    // Other protocols can start sessions on upgrade and must remain on demand.
     waitingClients++;
+    if(route?.duplex){waitingForDuplex++;prepareDuplex(route.endpoint,config.apiKey);}
+    let waiting=true;
     const timeout=setTimeout(()=>client.terminate(),45000);
     timeout.unref();
     const leave=()=>{
+     if(!waiting)return;
+     waiting=false;
      clearTimeout(timeout);waitingClients--;
      client.off('message',activate);client.off('close',leave);client.off('error',onError);
+     if(route?.duplex){
+      waitingForDuplex--;
+      if(waitingForDuplex===0&&idleQwen&&!idleQwen.taskId)discardIdle();
+     }
     };
     const onError=()=>client.terminate();
     const activate=(raw,binary)=>{
      if(binary||raw.length>64||raw.toString()!=='{"type":"start"}'){
       client.close(1008,'Invalid standby request');return;
      }
-     leave();
      try{reserveTask();}catch{
+      leave();
       client.on('error',onError);client.send(JSON.stringify({type:'error',error:'rate_limited'}));
       client.close(1013,'Recognition unavailable');return;
      }
-     startProvider(client);
+     try{startProvider(client);}finally{leave();}
     };
     client.once('message',activate);client.once('close',leave);client.on('error',onError);
    });
   }catch{release?.();socket.destroy();}
  });
  server.on('close',()=>{stopping=true;discardIdle();for(const client of sockets.clients)client.terminate();sockets.close();});
- function relay(client,language,config,release){
+ function relay(client,language,config,route,release){
   let upstream,ready=false,closed=false,finishing=false,finishSent=false,total=0,queued=[],readyTimer,lifeTimer;
   const segments=new Map();
-  const model=language==='en'?config.realtimeAsrModelEn:config.realtimeAsrModel;
-  const messageModel=model==='qwen-audio-3.1-asr-flash-message';
-  const duplex=messageModel||/^qwen-audio-3\.[01]-asr-flash-streaming$/.test(model);
-  let taskId=randomUUID(),previousTaskId=null,endpointURL;
+  const {model,messageModel,duplex,endpoint}=route;
+  let taskId=randomUUID(),previousTaskId=null,retryPrepared=false;
   const vocabulary={en:{Mori:2,Popo:2,Lulu:2},ko:{모리:2,포포:2,루루:2},zh:{莫里:2,波波:2,露露:2}}[language];
   const send=event=>{if(client.readyState!==WebSocket.OPEN)return;if(client.bufferedAmount>131072){client.terminate();return;}client.send(JSON.stringify(event));};
   const cleanup=()=>{if(closed)return;closed=true;clearTimeout(readyTimer);clearTimeout(lifeTimer);queued=[];release();terminateUpstream(detachUpstream());};
@@ -115,11 +140,11 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
   };
   const result=()=>[...segments.values()].map(s=>s.final??s.partial??'').filter(Boolean).join(' ').trim().slice(0,1000);
   const unsettledInitial=language==='en' ? /^[\p{Script=Han}\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}]$/u
-    : language==='ko' ? /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Latin}]$/u : null;
+    : language==='ko' ? /^(?:\p{Script=Han}{1,3}|[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Latin}])$/u : null;
   let previousPreview='';
   function sendPreview(provisional){
    const text=result();
-   // The first live hypothesis can be a single glyph in a different script.
+   // Briefly withheld first guesses include short all-Han prefixes heard on Korean input.
    // A revised phrase or a confirmed word remains eligible in any language.
    if(text===previousPreview||(!previousPreview&&provisional&&unsettledInitial?.test(text)))return;
    previousPreview=text;send({type:'partial',text});
@@ -137,25 +162,21 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
   });
   readyTimer=setTimeout(()=>fail('asr_timeout'),8000);lifeTimer=setTimeout(()=>fail('asr_timeout'),50000);
   try{
-   const endpoint=new URL(config.baseURL);
-   endpoint.protocol='wss:';
-   endpoint.pathname=duplex?'/api-ws/v1/inference':'/api-ws/v1/realtime';
-   if(!duplex)endpoint.searchParams.set('model',model);
-   endpointURL=endpoint.href;
    let existing=null;
    if(duplex&&idleQwen){
-    if(idleQwen.endpoint===endpointURL&&idleQwen.apiKey===config.apiKey&&idleQwen.socket.readyState===WebSocket.OPEN)existing=removeIdle();
+    if(idleQwen.endpoint===endpoint&&idleQwen.apiKey===config.apiKey&&idleQwen.socket.readyState<=WebSocket.OPEN)existing=removeIdle();
     else discardIdle();
    }
    attachUpstream(existing);
   }catch{return fail('network');}
   function attachUpstream(existing){
    previousTaskId=existing?.taskId??null;
-   upstream=existing?.socket??connect(endpointURL,{headers:{Authorization:'Bearer '+config.apiKey},handshakeTimeout:8000,maxPayload:131072,perMessageDeflate:false});
+   retryPrepared=Boolean(existing);
+   upstream=existing?.socket??dialQwen(endpoint,config.apiKey);
    upstream.on('error',onTransportFailure);
    upstream.on('close',onTransportFailure);
    upstream.on('message',onMessage);
-   if(existing)beginTask();
+   if(existing&&upstream.readyState===WebSocket.OPEN)beginTask();
    else upstream.once('open',beginTask);
   }
   function detachUpstream(){
@@ -173,7 +194,7 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
    if(closed)return;
    // An idle peer may have closed while the socket still looked open. No PCM
    // can have reached that task until task-started; keep the queued frames.
-   if(previousTaskId&&!ready){
+   if(retryPrepared&&!ready){
     terminateUpstream(detachUpstream());
     taskId=randomUUID();
     try{attachUpstream(null);}catch{fail('network');}
@@ -226,7 +247,7 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
     if(!ready||!finishSent)return fail('invalid_response');
     if([...segments.values()].some(s=>s.final===undefined))return fail('invalid_response');
     send({type:'final',text:result()});
-    if(duplex&&client.readyState===WebSocket.OPEN)keepCompleted(detachUpstream(),endpointURL,config.apiKey,taskId);
+    if(duplex&&client.readyState===WebSocket.OPEN)keepIdle(detachUpstream(),endpoint,config.apiKey,taskId,15000);
     client.close(1000,'Utterance complete');cleanup();
    }else if(type==='error'||type==='task-failed'||type==='conversation.item.input_audio_transcription.failed'){
     const code=event.header?.error_code||event.error?.code||event.code||'';

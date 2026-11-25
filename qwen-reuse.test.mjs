@@ -14,10 +14,11 @@ async function waitFor(predicate){
  }
 }
 class Provider extends EventEmitter{
- constructor(){
+ constructor(automaticOpen=true){
   super();this.frames=[];this.tasks=[];this.readyState=WebSocket.CONNECTING;this.bufferedAmount=0;
-  queueMicrotask(()=>{if(this.readyState===WebSocket.CONNECTING){this.readyState=WebSocket.OPEN;this.emit('open');}});
+  if(automaticOpen)queueMicrotask(()=>this.open());
  }
+ open(){if(this.readyState===WebSocket.CONNECTING){this.readyState=WebSocket.OPEN;this.emit('open');}}
  send(raw){
   if(Buffer.isBuffer(raw)){this.frames.push(Buffer.from(raw));return;}
   const request=JSON.parse(raw);
@@ -32,10 +33,10 @@ class Provider extends EventEmitter{
   this.emit('close');
  }
 }
-async function setup(t){
+async function setup(t,{reserve=()=>()=>{},automaticOpen=true}={}){
  const providers=[],clients=[],env={DASHSCOPE_API_KEY:'test-qwen-key'};
  const server=http.createServer((req,res)=>res.end());
- attachRealtimeAsr(server,{env,reserve:()=>()=>{},connect:()=>{const p=new Provider();providers.push(p);return p;}});
+ attachRealtimeAsr(server,{env,reserve,connect:()=>{const p=new Provider(automaticOpen);providers.push(p);return p;}});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  t.after(async()=>{for(const c of clients)c.terminate();await new Promise(resolve=>server.close(resolve));});
  const origin='http://127.0.0.1:'+server.address().port;
@@ -48,7 +49,13 @@ async function setup(t){
   const provider=providers.at(-1);
   return {socket,events,provider,id:provider.tasks.at(-1).header.task_id};
  }
- return {providers,start,env};
+ async function standby(language='en'){
+  const socket=new WebSocket(origin.replace('http:','ws:')+'/api/transcribe/standby?language='+language,{origin});
+  clients.push(socket);const events=[];
+  socket.on('message',raw=>events.push(JSON.parse(raw)));
+  await once(socket,'open');return {socket,events};
+ }
+ return {providers,start,standby,env};
 }
 async function complete({socket,events,provider,id},text){
  provider.event(id,'task-started');await waitFor(()=>events.some(e=>e.type==='ready'));
@@ -136,4 +143,68 @@ test('overlapping riders get exclusive transports and at most one completed conn
  assert.equal(second.provider.readyState,WebSocket.CLOSED);
  const next=await app.start('ko');assert.equal(app.providers.length,3);
  await complete(next,'다시.');
+});
+
+test('English and Korean standby share only an empty Qwen transport; the last cancellation closes it',async t=>{
+ let reservations=0;
+ const app=await setup(t,{reserve(){reservations++;return ()=>{};}});
+ const first=await app.standby('en'),second=await app.standby('ko');
+ assert.equal(app.providers.length,1);
+ const provider=app.providers[0];
+ assert.equal(provider.readyState,WebSocket.OPEN);
+ assert.deepEqual(provider.frames,[]);assert.equal(reservations,0);
+ first.socket.close();await once(first.socket,'close');
+ assert.equal(provider.readyState,WebSocket.OPEN);
+ second.socket.send(Buffer.alloc(10));
+ await once(second.socket,'close');
+ await waitFor(()=>provider.readyState===WebSocket.CLOSED);
+ assert.deepEqual(provider.frames,[]);assert.equal(reservations,0);
+ // Rapidly reopening standby cannot repeatedly dial the provider.
+ await app.standby();assert.equal(app.providers.length,1);
+});
+
+test('speech can claim a pending handshake without a second dial and sends queued PCM only after task-started',async t=>{
+ let reservations=0;
+ const app=await setup(t,{automaticOpen:false,reserve(){reservations++;return ()=>{};}});
+ const {socket,events}=await app.standby('ko'),provider=app.providers[0];
+ const audio=Buffer.from([1,2,3,4]);
+ assert.equal(provider.readyState,WebSocket.CONNECTING);
+ socket.send('{"type":"start"}');socket.send(audio);socket.send('{"type":"finish"}');
+ await waitFor(()=>reservations===1);
+ assert.deepEqual(provider.frames,[]);assert.equal(app.providers.length,1);
+ provider.open();assert.equal(provider.tasks.length,1);
+ const {header:{task_id:id},payload}=provider.tasks[0];assert.deepEqual(payload.parameters.language_hints,['ko']);
+ assert.equal(provider.frames.length,1);
+ provider.event(id,'task-started');
+ await waitFor(()=>provider.frames.some(f=>f.header?.action==='finish-task'));
+ assert.deepEqual(provider.frames.filter(Buffer.isBuffer),[audio]);
+ provider.sentence(id,'안녕',true);provider.event(id,'task-finished');
+ await waitFor(()=>events.some(e=>e.type==='final'&&e.text==='안녕'));
+});
+
+test('a denied activation closes the untouched prepared transport without a cloud task',async t=>{
+ const app=await setup(t,{reserve(){throw Error('No quota');}});
+ const {socket,events}=await app.standby(),p=app.providers[0];
+ socket.send('{"type":"start"}');
+ await once(socket,'close');
+ assert.deepEqual(events,[{type:'error',error:'rate_limited'}]);
+ assert.deepEqual(p.frames,[]);assert.equal(p.readyState,WebSocket.CLOSED);
+});
+
+test('when a prepared handshake fails during activation only the replacement gets PCM',async t=>{
+ const app=await setup(t,{automaticOpen:false});
+ const {socket,events}=await app.standby(),original=app.providers[0],other=await app.standby('ko');
+ socket.send('{"type":"start"}');socket.send(Buffer.from([9,8]));socket.send('{"type":"finish"}');
+ await waitFor(()=>original.listenerCount('open')>0);
+ other.socket.close();await once(other.socket,'close');
+ assert.equal(original.readyState,WebSocket.CONNECTING);
+ original.terminate();
+ await waitFor(()=>app.providers.length===2);const retry=app.providers[1];retry.open();
+ const id=retry.tasks[0].header.task_id;
+ retry.event(id,'task-started');
+ await waitFor(()=>retry.frames.some(f=>f.header?.action==='finish-task'));
+ assert.deepEqual(original.frames,[]);
+ assert.deepEqual(retry.frames.filter(Buffer.isBuffer),[Buffer.from([9,8])]);
+ retry.sentence(id,'Hello',true);retry.event(id,'task-finished');
+ await waitFor(()=>events.some(e=>e.type==='final'&&e.text==='Hello'));
 });
