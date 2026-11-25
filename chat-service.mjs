@@ -345,6 +345,9 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
           requestBody.temperature=.65;
           const register={en:'Use everyday spoken English with natural contractions.',zh:'像熟人一起骑车那样搭一句。骑手说“我”是指骑手自己。接对方的话茬，说你自己的反应；别把对方说的事换个人称再讲一遍。',ko:'실제로 같이 달리며 나눌 만한 말투로, 상대와 쓰던 높임말이나 반말을 이어 가.'};
           requestBody.messages[0].content+='\nVOICE MODE: '+register[payload.language]+' Start with what you mean and keep the first thought together. A fragment, a quick laugh in the wording, or a single word can be a whole answer. Avoid a stock acknowledgment before the real answer, scripted empathy, or a recap of what the rider just said. Do not introduce yourself again unless the rider asks who you are. Speak only the actual line, without a role label, stage directions, emoji or Markdown.';
+          if(payload.soul==='mori'){
+            requestBody.messages[0].content+=' For an everyday choice, end after one short answer. No second paragraph or parenthetical aside. Describe the rider’s options, never an unseen road’s appearance, gradient or surface. Give a longer answer only for necessary safety details or when explicitly asked.';
+          }
         }
         if(!vision){
           const priorities=[
