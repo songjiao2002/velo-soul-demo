@@ -65,6 +65,9 @@ test('each character loads its real skill and forwards bounded history with serv
   const request={...input(soul),messages:[{role:'user',content:'My name is Ji.'},{role:'assistant',content:'Hi Ji.'},{role:'user',content:'What is my name?'}]};
   const result=await service.reply(request),call=calls.at(-1);
   assert.equal(result.soul,soul);assert.equal(result.provider,'Qwen');assert.match(call.body.messages[0].content,new RegExp('You are '+name));
+  assert.doesNotMatch(call.body.messages[0].content,/^Rider:|^## Behavioral examples/m);
+  assert.match(call.body.messages[0].content,/Memories are voluntary/);
+  assert.doesNotMatch(call.body.messages[0].content,/Original character identity and embodied behavior/);
   assert.deepEqual(call.body.messages.slice(1),request.messages);assert.equal(call.options.headers.Authorization,'Bearer test-secret-only');
   assert.equal(call.url,'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions');assert.equal(call.options.redirect,'error');
   assert.equal(call.body.max_tokens,320);assert.equal(JSON.stringify(result).includes('test-secret-only'),false);
