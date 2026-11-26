@@ -50,8 +50,8 @@ test('Qwen readiness accepts official HTTPS endpoints and never exposes credenti
  for(const url of ['http://dashscope-intl.aliyuncs.com/compatible-mode/v1','https://attacker.test/compatible-mode/v1','https://dashscope-intl.aliyuncs.com.attacker.test/compatible-mode/v1','https://key@dashscope-intl.aliyuncs.com/compatible-mode/v1'])assert.equal(chatConfig({...env,QWEN_BASE_URL:url}).configured,false);
  assert.equal(JSON.stringify(createChatService({env}).status()).includes(env.DASHSCOPE_API_KEY),false);
 });
-test('each live persona receives its own spoken example in the selected language',async()=>{
- const samples={lumi:['the sticker','是贴纸','스티커였구나'],mori:['voting for the bench','投给长椅','벤치에 한 표'],bori:['I was eyeing it','我也盯上了','나도 찜했는데']};
+test('each live persona receives its own delivery cues in the selected language',async()=>{
+ const samples={lumi:['quicken your first few words','把好奇心收住','궁금증도 잠깐'],mori:['warmth on the word','朴素的陪伴','곁에 있는 마음'],bori:['the two of you get to enjoy','偷偷得意','둘만 아는 기쁜 일']};
  let prompt;
  const service=createChatService({env,fetchImpl:async(_,options)=>{prompt=JSON.parse(options.body).messages[0].content;return success();}});
  for(const [soul,examples] of Object.entries(samples)){
