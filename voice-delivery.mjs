@@ -6,6 +6,8 @@ const playful = /\b(?:haha|ha ha|funny|hilarious|kidding|joking|nailed it|we did
 const letdown = /\b(?:disappointed|frustrat(?:ed|ing)|what a letdown|didn['’]t work(?: out)?|didn['’]t (?:make|enjoy|like) it|wasn['’]t worth it|that fell flat)\b|失望|沮丧|扫兴|白跑|扑了个空|没成[功行]|실망|아쉽|허탕|기대 이하|잘 안됐|안 됐어/iu;
 const curiosity = /\b(?:i wonder|i['’]m curious|i am curious|what caught your eye|what do you make of)\b|我有点好奇|我很好奇|我在想|你注意到.{1,10}吗|궁금(?:해|하네|한데)|눈에 들어왔어/iu;
 const achievement = /\b(?:i did it(?=[!.]|$)|i finally (?:made it|finished it|managed it)|my first (?:ride|climb) without stopping|you earned that)\b|终于(?:骑上|完成|到|坚持下来)|第一次.{0,8}(?:没停|骑上|骑完|爬上)|드디어.{0,10}(?:올라왔|올랐|완주|도착했)|처음으로.{0,10}완주/iu;
+const pride = /\b(?:i(?:['’]m| am| feel) (?:really |pretty |so )?proud of myself|i(?:['’]ve| have) finally got the hang of it)\b|我(?:真的|真|挺|很|好|有点)(?:为自己(?:骄傲|高兴)|有成就感)|나(?:도|는)?\s*(?:정말|좀|꽤)?\s*뿌듯(?:해|하다|했어)|스스로가\s*대견해/iu;
+const easing = /\b(?:i(?:['’]m| am| feel) (?:a (?:bit|little) )?(?:less (?:nervous|afraid)|more relaxed)|i can finally relax)\b|(?:没那么|不再)(?:紧张|害怕)|(?:终于|开始|也敢|敢)(?:稍微)?放松|덜\s*(?:떨려|무서워|긴장돼)|긴장이\s*(?:좀\s*)?풀렸어/iu;
 const notTired = /\b(?:not|never) (?:that |really |very )?(?:tired|sad|worried)\b|(?:不|没那么|不怎么)(?:累|难过|担心)|(?:안\s*피곤\S*|피곤하지\s*않\S*)/giu;
 const negatedCue = /\b(?:not (?:at all |that |really )?(?:disappointed|frustrated|funny|dangerous|injured|hurt|bleeding)|(?:i['’]m |i am )?not (?:joking|kidding))\b|(?:不算|并不|不太|没那么|不)(?:失望|危险|好笑)|没(?:有)?受伤|(?:아쉽지|위험하지|웃기지|실망하지)\s*않\S*|안\s*다쳤\S*/giu;
 const irritation = /\b(?:annoyed|irritable|irritated|don['’]t (?:want|feel like) (?:to )?(?:explain(?:ing)?|talk(?:ing)? about it))\b|心烦|[有挺好很]点?烦|烦躁|烦死了|不想(?:说原因|解释|聊这个)|짜증|신경질|말하고 싶지 않/iu;
@@ -19,7 +21,8 @@ function phraseTone(text,spoken){
   if (serious.test(text)||closeCall.test(text)) return 'serious';
   if (letdown.test(text)) return 'disappointed';
   if (gentle.test(text)||irritation.test(text)) return 'gentle';
-  if (playful.test(text)||achievement.test(text)) return 'playful';
+  if (playful.test(text)||achievement.test(text)||pride.test(text)) return 'playful';
+  if (easing.test(text)) return 'gentle';
   if (spoken&&curiosity.test(text)) return 'curious';
   return 'neutral';
 }

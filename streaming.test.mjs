@@ -6,6 +6,7 @@ import {createVoiceOpeningStream,FirstSpeechStreams} from './first-speech.mjs';
 import {createVoiceSentenceReader,readVoiceReply} from './public/chat-stream.mjs';
 import {relaySpeech,trimSpeechWave} from './speech-stream.mjs';
 import {createChatHandler,createChatService} from './chat-service.mjs';
+import {CHARACTER_REACTIONS,characterReactionAudio} from './character-reactions.mjs';
 import {CloudSpeechPlayer} from './public/cloud-speech.mjs';
 import {encodeWav,createMicrophoneRecognition} from './public/microphone-asr.mjs';
 import {HandsFreeConversation} from './public/hands-free.mjs';
@@ -36,6 +37,77 @@ function deferred(){
  const promise=new Promise(r=>{resolve=r;});
  return {promise,resolve};
 }
+const reactionPrompts={
+ en:{summit:'I finally made it up that hill!',boundary:"I'm a bit annoyed, please don't ask why."},
+ ko:{summit:'나 드디어 정상에 올라왔어!',boundary:'오늘 좀 짜증 나, 이유는 묻지 마.'},
+ zh:{summit:'我终于骑上来了！',boundary:'今天有点烦，不想说原因。'}
+};
+
+test('each recorded emotional reply reaches existing voice readers as one complete sentence and both speech routes serve that recording',async t=>{
+ let paid=0;
+ const handler=createChatHandler({env:{DASHSCOPE_API_KEY:'fixture',QWEN_CONVERSATION_MAX_DAILY_REQUESTS:'0'},fetchImpl:()=>{paid++;throw Error('unexpected cloud call');}});
+ const server=http.createServer(handler);
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ t.after(()=>new Promise(r=>{server.close(r);server.closeAllConnections();}));
+ const origin='http://127.0.0.1:'+server.address().port;
+ const post=(path,data)=>fetch(origin+path,{method:'POST',headers:{origin,'content-type':'application/json',accept:'application/x-ndjson'},body:JSON.stringify(data)});
+ for(const [i,row] of CHARACTER_REACTIONS.entries()){
+  const {soul,language,intent,text}=row,id=randomUUID();
+  const ids=i%3===0?{firstSpeechId:id}:i%3===1?{voiceTurnId:id}:{firstSpeechId:id,voiceTurnId:id};
+  const message={role:'user',content:reactionPrompts[language][intent]};
+  const response=await post('/api/chat',{soul,language,voice:true,...ids,messages:[message]});
+  assert.equal(response.status,200,`${soul} ${language} ${intent}`);
+  const segments=[];
+  const reply=await readVoiceReply(response,{soul,onText:()=>{},onSentence:line=>segments.push(line),joinReactions:Boolean(ids.voiceTurnId)});
+  assert.deepEqual(segments,[text]);assert.equal(reply.reply,text);
+  assert.equal(reply.provider,'VELO SOUL');assert.equal(reply.truncated,false);
+  const wavBytes=characterReactionAudio(row);
+  const stream=await post('/api/speech/stream',{soul,language,text,...ids});
+  assert.equal(stream.status,200);
+  const frames=(await stream.text()).trim().split('\n').map(JSON.parse);
+  assert.deepEqual(frames.at(-1),{done:true});assert.deepEqual(frameAudio(frames),wavBytes.subarray(44));
+  const wave=await post('/api/speech',{soul,language,text,voiceTurnId:id});
+  assert.equal(wave.status,200);assert.deepEqual(Buffer.from(await wave.arrayBuffer()),wavBytes);
+ }
+ assert.equal(paid,0);
+});
+
+test('recordings require the exact turn, role, language and line; personal history and repeated disclosures reach the live model',async()=>{
+ let time=500,calls=0;
+ const service=createChatService({env:{DASHSCOPE_API_KEY:'fixture'},now:()=>time,fetchImpl:async(url)=>{
+  calls++;
+  return url.endsWith('/chat/completions')?Response.json({choices:[{message:{content:'I remember what you said.'},finish_reason:'stop'}]}):response([sse(wav),done]);
+ }});
+ const voiceTurnId=randomUUID(),base={soul:'mori',language:'en',voiceTurnId},user={role:'user',content:reactionPrompts.en.summit};
+ const turn={...base,voice:true,messages:[user]},reply=await service.reply(turn);
+ assert.equal(reply.provider,'VELO SOUL');assert.equal(calls,0);
+ const text=reply.reply,opts={emit:()=>{}};
+ for(const patch of [{voiceTurnId:undefined},{voiceTurnId:randomUUID()},{firstSpeechId:randomUUID()},{language:'ko'},{soul:'bori'},{text:text+'!'}]){
+  const before=calls;
+  await service.speechStream({...base,text,...patch},opts);assert.equal(calls,before+1);
+ }
+ const repeats={...turn,messages:[user,{role:'assistant',content:text},user]};
+ await assert.rejects(service.reply(repeats),{code:'invalid_request',status:409});
+ for(const request of [repeats,{...turn,messages:[{...user,content:user.content+' My sister came with me.'}]},
+  {...turn,context:{deviceMemory:{soul:turn.soul,visits:2,lastSeen:time,exchanges:[{user:'My nickname is Jo.',reply:'Hi Jo.',at:time}]}}}]){
+  const live=await service.reply({...request,voiceTurnId:randomUUID()});assert.equal(live.provider,'Qwen');
+ }
+ time+=5*60000;const prior=calls;
+ await service.speechStream({...base,text},opts);assert.equal(calls,prior+1);
+});
+
+test('an aborted recorded turn revokes its claim and a concurrent chat cannot take it over',async()=>{
+ let paid=0;
+ const service=createChatService({env:{DASHSCOPE_API_KEY:'fixture'},fetchImpl:async()=>{paid++;return response([sse(wav),done]);}});
+ const id=randomUUID(),turn={voice:true,soul:'mori',language:'en',voiceTurnId:id,messages:[{role:'user',content:reactionPrompts.en.summit}]};
+ const started=deferred(),release=deferred(),controller=new AbortController();
+ const pending=service.reply(turn,{signal:controller.signal,onDelta:async text=>{started.resolve(text);await release.promise;}});
+ const text=await started.promise;
+ await assert.rejects(service.reply({...turn,soul:'lumi'}),{code:'invalid_request',status:409});
+ controller.abort();release.resolve();
+ await assert.rejects(pending,{code:'cancelled'});assert.equal(paid,0);
+ await service.speechStream({voiceTurnId:id,soul:'mori',language:'en',text},{emit:()=>{}});assert.equal(paid,1);
+});
 async function firstSpeechFixture(t,{text='Breezy! ',deferChat=false,ttsFailure=false,env={}}={}){
  const first=deferred(),endChat=deferred(),endTts=deferred(),receivedWave=deferred(),calls=[];
  const handler=createChatHandler({env:{DASHSCOPE_API_KEY:'fixture',...env},fetchImpl:async(url,options)=>{

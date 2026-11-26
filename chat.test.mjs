@@ -112,6 +112,25 @@ test('an invitation to keep quiet models only the selected conversation language
   assert.ok(instruction.includes(`(for example: ${example})`));
  }
 });
+test('short spoken disclosures keep their own character and history, while questions and camera turns keep the riding context',async()=>{
+ let sent;
+ const service=createChatService({env,fetchImpl:async(_,options)=>{sent=JSON.parse(options.body);return success();}});
+ for(const [soul,language,line,identity] of [
+  ['lumi','zh','朋友夸我的时候我好开心。','好奇心旺盛的小猫'],
+  ['mori','ko','오늘은 친구 일 때문에 속상했어.','느긋한 판다'],
+  ['bori','en','I feel sad about losing that old cap.','warmhearted hamster']
+ ]){
+  const messages=[{role:'user',content:'Hi.'},{role:'assistant',content:'Hi there.'},{role:'user',content:line}];
+  await service.reply({soul,language,voice:true,messages});
+  assert.ok(sent.messages[0].content.includes(identity));
+  assert.deepEqual(sent.messages.slice(1),messages);
+ }
+ const image='data:image/jpeg;base64,'+Buffer.from([255,216,255,224,0,2,255,217]).toString('base64');
+ for(const [content,extra] of [['好开心，今天的天气预报呢',{}],['我有点烦，帮我看看路线',{}],['我有点烦，别说话',{}],['我有点担心会有来车',{}],['我好开心', {image}]]){
+  await service.reply({soul:'lumi',language:'zh',voice:true,messages:[{role:'user',content}],...extra});
+  assert.match(sent.messages[0].content,/When the rider asks a practical question/);
+ }
+});
 test('location events use the server catalog and explicitly distinguish simulations',async()=>{
  const systems=[];const service=createChatService({env,fetchImpl:async(_,options)=>{systems.push(JSON.parse(options.body).messages[0].content);return success();}});
  for(const source of ['gps','simulation'])await service.reply({...input('bori'),event:{placeId:'daelim-changgo',source,name:'Invented Store',lat:1.23456789}});

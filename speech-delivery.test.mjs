@@ -4,11 +4,60 @@ import {readFileSync} from 'node:fs';
 import {createSpeechWave,relaySpeech,trimSpeechWave} from './speech-stream.mjs';
 import {deliveryTone,contextualTone,pandaDirection,spokenPunctuation} from './voice-delivery.mjs';
 import {createChatService} from './chat-service.mjs';
+import {CHARACTER_REACTIONS,characterReactionAudio,matchCharacterReaction} from './character-reactions.mjs';
+
+test('narrow first-person reactions have a distinct, verified original-voice recording with a prompt audible start',()=>{
+ const cases={
+  zh:['我终于骑上来了！','今天有点烦，不想说原因。'],
+  en:['I finally made it up that hill!', "I'm a little annoyed, don't ask me why."],
+  ko:['드디어 언덕을 올라왔어!', '오늘 좀 짜증 나, 이유는 말하고 싶지 않아.']
+ };
+ const files=new Set();
+ for(const row of CHARACTER_REACTIONS){
+  const content=cases[row.language][row.intent==='summit'?0:1];
+  assert.deepEqual(matchCharacterReaction({...row,messages:[{role:'user',content}]}),row);
+  const wave=characterReactionAudio(row);
+  assert.ok(Buffer.isBuffer(wave));
+  let onset;
+  for(let pos=44;pos+240<=wave.length;pos+=240){
+   let energy=0;
+   for(let j=pos;j<pos+240;j+=2)energy+=wave.readInt16LE(j)**2;
+   if(Math.sqrt(energy/120)>=90){onset=(pos-44)/48;break;}
+  }
+  assert.ok(onset>=0&&onset<=80,row.file+' onset '+onset);
+  files.add(row.file);
+  assert.equal(characterReactionAudio({...row,text:row.text+'!'}),undefined);
+ }
+ assert.equal(files.size,18);
+});
+
+test('character reactions preserve personal details, questions, safety, negation, and continuity',()=>{
+ const examples={
+  en:{line:'I finally reached the summit!',topic:'I like the colors of the trees.',ordinary:'Those trees are bright green.',followup:'What color do you see?',danger:'I almost crashed.',boundary:"I am annoyed, please don't ask why.",miss:["I did not make it up that hill.","Did I finally reach the summit?","I finally reached the summit but I hurt my knee.","I am annoyed, why?"]},
+  zh:{line:'我终于骑上来了！',topic:'河边这些树的颜色真绿。',ordinary:'树叶已经变绿了。',followup:'我们接着看树吧。',danger:'我刚才差点撞车。',boundary:'今天有点烦，不想说原因。',miss:['我还没骑上来。','我终于骑上来了吗？','朋友终于骑上来了。','我终于骑上来了，但刹车坏了。']},
+  ko:{line:'드디어 언덕을 올라왔어!',topic:'나무 색깔이 초록이야.',ordinary:'나무가 초록빛이네.',followup:'무슨 색이 보여?',danger:'넘어질 뻔했어.',boundary:'오늘 좀 짜증 나, 이유는 말하고 싶지 않아.',miss:['아직 정상에 못 올라왔어.','드디어 언덕을 올라왔어?','친구가 드디어 언덕을 올라왔어.','드디어 언덕을 올라왔어, 근데 넘어졌어.']}
+ };
+ const user=content=>({role:'user',content}),assistant=content=>({role:'assistant',content});
+ for(const [language,t] of Object.entries(examples)){
+  const match=(...messages)=>matchCharacterReaction({soul:'mori',language,messages});
+  const previous=[user(t.topic),assistant(t.ordinary)];
+  const recorded=match(user(t.line));
+  assert.equal(match(...previous,user(t.line))?.text,recorded.text);
+  assert.equal(match(...previous,user(t.boundary)),undefined);
+  assert.equal(match(user(t.topic),assistant(t.followup),user(t.line)),undefined);
+  assert.equal(match(user(t.danger),assistant(t.ordinary),...previous,user(t.line)),undefined);
+  assert.equal(match(user(t.line),assistant(recorded.text),...previous,user(t.line)),undefined);
+  assert.equal(match(user(t.line),assistant(t.ordinary),...previous,user(t.line)),undefined);
+  for(const other of t.miss)assert.equal(match(user(other)),undefined,other);
+ }
+});
 
 test('the spoken line and current rider select restrained delivery in all three languages',()=>{
  for(const rider of ['I am exhausted','我有点累','오늘 좀 피곤해'])assert.equal(deliveryTone('Okay.',rider),'gentle');
  for(const rider of ['We did it!','好耶！','드디어 해냈어!'])assert.equal(deliveryTone('Okay.',rider),'playful');
  for(const rider of ['I finally made it.','第一次骑上这段坡了。','처음으로 완주했어.'])assert.equal(deliveryTone('Nice.',rider),'playful');
+ for(const rider of ["I feel proud of myself.",'我挺有成就感的。','나도 좀 뿌듯해.'])assert.equal(deliveryTone('Nice.',rider),'playful');
+ for(const rider of ['I feel a little less nervous.','今天过弯我没那么紧张了。','이제 긴장이 좀 풀렸어.'])assert.equal(deliveryTone('Okay.',rider),'gentle');
  for(const rider of ['Watch out!','小心来车！','조심해!'])assert.equal(deliveryTone('Haha, I know.',rider),'serious');
  for(const rider of ['I am not tired.','我不累。','피곤하지 않아.'])assert.equal(deliveryTone('Okay.',rider),'neutral');
  assert.equal(spokenPunctuation('真的？','playful','Chinese'),'真的？');
