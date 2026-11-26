@@ -169,6 +169,37 @@ test('a real ending at a segment boundary uses only one upload, and a route chan
  a.feed(.08,12400);a.feed(0,1000);assert.equal(a.calls.length,2);
  resolvers[1](Response.json({text:'새 기기로 말했어.'}));await flush();assert.deepEqual(finals,['새 기기로 말했어.']);
 });
+test('open chat can prepare before the real endpoint, correct a late ASR word, and keep both sides of a breath',()=>{
+ for(const continued of [true,false]){
+  const sockets=[],finals=[],candidates=[];let resumed=0;
+  class Socket{
+   readyState=1;bufferedAmount=0;
+   constructor(){sockets.push(this);}
+   send(data){if(typeof data==='string'&&JSON.parse(data).type==='finish')this.committed=true;}
+   close(){this.readyState=3;}
+   event(type,text){this.onmessage({data:JSON.stringify({type,text})});}
+  }
+  const input={onLevel(){},attach:async()=>{},detach(){}};
+  const R=createMicrophoneRecognition({input,Socket,location:new URL('https://ride.test'),setTimer:()=>1,clearTimer(){},fetchImpl:()=>assert.fail('unnecessary upload')});
+  const r=new R();r.start();
+  r.onresult=e=>{if(e.results[0].isFinal)finals.push(e.results[0][0].transcript);};
+  r.onturncandidate=text=>{candidates.push(text);return true;};r.onturncontinued=()=>resumed++;
+  const voice=Float32Array.from({length:320},(_,i)=>.08*Math.sin(2*Math.PI*185*i/16000)),quiet=new Float32Array(320);
+  const feed=(ms,frame)=>{for(let n=0;n<ms;n+=20)r.samples(frame,16000);};
+  feed(640,voice);sockets[0].event('partial','I like the sound');sockets[0].event('partial','I like the sound.');
+  assert.deepEqual(candidates,['I like the sound.'],'stable wording can prepare while the mic is still open');
+  feed(220,quiet);assert.equal(sockets[0].committed,true);
+  sockets[0].event('partial','I like that sound.');assert.equal(candidates.at(-1),'I like that sound.');
+  sockets[0].event('final','I like that sound.');
+  feed(260,quiet);assert.equal(r.finalizing,undefined);assert.deepEqual(finals,[]);
+  if(continued){
+   feed(500,voice);assert.equal(sockets.length,2);assert.ok(resumed);
+   sockets[1].event('partial','Actually it was the bell.');
+   feed(600,quiet);sockets[1].event('final','Actually it was the bell.');
+  }else feed(160,quiet);
+  assert.deepEqual(finals,[continued?'I like that sound. Actually it was the bell.':'I like that sound.']);
+ }
+});
 test('cloud recognition completes the hands-free loop without browser SpeechRecognition',async()=>{
  const a=recorder(),states=[],spoken=[],timers=new Map();let id=0;
  const session=new HandsFreeConversation({Recognition:a.Recognition,releaseInput:()=>a.input.release(),getContext:()=>({}),fetchImpl:async(_,options)=>{

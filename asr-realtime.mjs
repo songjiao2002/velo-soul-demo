@@ -4,7 +4,6 @@ import {randomUUID} from 'node:crypto';
 import {chatConfig,ChatError,qwenFailure} from './chat-service.mjs';
 import {relayScribeRealtime} from './scribe-realtime.mjs';
 import {interimTranscript} from './asr-preview.mjs';
-import {MAX_MESSAGE_LENGTH} from './public/conversation-limits.mjs';
 
 function terminateUpstream(socket){
  if(socket&&socket.readyState!==WebSocket.CLOSED){
@@ -146,7 +145,7 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
    finishSent=true;
    if(duplex)task('finish-task',{input:{}});else emit({type:'session.finish'});
   };
-  const result=()=>[...segments.values()].map(s=>s.final??s.partial??'').filter(Boolean).join(' ').trim().slice(0,MAX_MESSAGE_LENGTH);
+  const result=()=>[...segments.values()].map(s=>s.final??s.partial??'').filter(Boolean).join(' ').trim();
   const unsettledInitial=language==='en' ? /^[\p{Script=Han}\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}]$/u
     : language==='ko' ? /^(?:\p{Script=Han}{1,3}|[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Latin}])$/u : null;
   let previousPreview='';
@@ -245,17 +244,17 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
     const key=sentence.sentence_id;
     if(!segments.has(key)&&segments.size>=40)return fail('invalid_response');
     if(segments.get(key)?.final!==undefined)return;
-    segments.set(key,{[sentence.sentence_end?'final':'partial']:sentence.text.slice(0,MAX_MESSAGE_LENGTH).trim()});
+    segments.set(key,{[sentence.sentence_end?'final':'partial']:sentence.text.trim()});
     sendPreview(!sentence.sentence_end);
    }else if(event.type==='conversation.item.input_audio_transcription.text'){
     if(typeof event.text!=='string'||typeof(event.stash??'')!=='string')return fail('invalid_response');
     const key=event.item_id||'utterance';if(segments.size>40)return fail('invalid_response');
     const previous=segments.get(key);if(previous?.final!==undefined)return;
-    segments.set(key,{partial:(event.text+(event.stash||'')).slice(0,MAX_MESSAGE_LENGTH)});sendPreview(true);
+    segments.set(key,{partial:(event.text+(event.stash||''))});sendPreview(true);
    }else if(event.type==='conversation.item.input_audio_transcription.completed'){
     if(typeof event.transcript!=='string')return fail('invalid_response');
     const key=event.item_id||'utterance';if(!segments.has(key)&&segments.size>=40)return fail('invalid_response');
-    segments.set(key,{final:event.transcript.slice(0,MAX_MESSAGE_LENGTH)});sendPreview(false);
+    segments.set(key,{final:event.transcript});sendPreview(false);
    }else if(type===(duplex?'task-finished':'session.finished')){
     // A VAD segment may finish during a natural pause. Submit only once our
     // client ends its utterance, using confirmed segments, never tentative text.

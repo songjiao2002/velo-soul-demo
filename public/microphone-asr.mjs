@@ -4,7 +4,7 @@ import {BUILD} from './build-version.mjs';
 import {rideIntent} from './ride-quick-replies.mjs';
 import {prepareStandby,StreamingTranscriber} from './asr-stream.mjs';
 import {loadSpeechDetectorFactory} from './speech-detector.mjs';
-import {isConversationLimit,conversationServiceError,MAX_MESSAGE_LENGTH} from './conversation-limits.mjs';
+import {isConversationLimit,conversationServiceError} from './conversation-limits.mjs';
 // A 150 Hz high-pass reduces mic offsets, wind rumble and mains hum.
 function createSpeechBand(rate) {
   const angle=2*Math.PI*150/rate, cos=Math.cos(angle), a0=1+Math.sin(angle)/Math.SQRT2;
@@ -252,7 +252,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
       this.previewEndPause=0;this.backgroundPause=0;
       this.resetCandidate();
       this.releaseDetector();this.detectorFailed=false;
-      this.earlyPart=null;
+      this.earlyPart=null;this.statementPause=0;
       this.speech=false;this.started=false;this.quietReported=false;this.noise=.002;this.onaudiorecovering?.();
     }
     watchCapture(){
@@ -275,17 +275,30 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
         const preparedSocket=this.standby?.take();this.standby=null;
         part.stream=new StreamingTranscriber({Socket,url:url.href,preparedSocket,setTimer,clearTimer,
           onPartial:text=>{
-            if(!this.active||part!==this.part||part.sealed||!text.trim())return;
+            if(!this.active||part.discarded||!text.trim())return;
+            if(part.sealed){
+              // The provider often restores a final word between our commit and
+              // its final. Replace the waiting draft without reopening the mic.
+              if(part.preparedText&&((part===this.earlyPart&&!this.part.hasFreshSpeech)||
+                 (this.finalizing&&part===this.part)))this.preparePreview(part,text);
+              return;
+            }
+            if(part!==this.part)return;
             const earlier=part.preview.trim().toLowerCase();
             const next=text.trim().toLowerCase();
             const growing=earlier.length>=2&&next.length>earlier.length&&next.startsWith(earlier);
+            // Some providers emit the same complete wording twice, restoring
+            // only final punctuation. This is an early *preparation* signal.
+            part.stableEnding=next.length>=10&&/[.!?。！？]$/u.test(next)&&
+              earlier.replace(/[.!?。！？]$/u,'')===next.replace(/[.!?。！？]$/u,'');
             const settled=(growing||this.backgroundPause>=100)&&this.clearVoiceMs>=160&&this.voiced-this.lastClearVoice<=80;
             this.previewEndPause=previewPause(text.trim(),settled);
             this.previewVoiced=this.voiced;
             part.preview=text;
             part.routine=Boolean(rideIntent(text));
             this.showPreview();
-            if(this.active&&this.previewEndPause&&this.backgroundPause>=this.previewEndPause)this.stop();
+            this.considerPreview();
+            if(this.active&&this.previewEndPause&&this.backgroundPause>=this.endOfTurnPause())this.stop();
           },
           onFinal:text=>{
             part.stream=null;
@@ -304,6 +317,29 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
             if(part.sealed)this.transcribe(part);
           }});
       }
+    }
+    preparePreview(part,text){
+      if(part.preparedText!==text){
+        part.preparedText=text;
+        part.preparing=Boolean(this.onturncandidate?.(text));
+      }
+      return part.preparing;
+    }
+    endOfTurnPause(){
+      // An open-ended statement can be followed by another sentence after a
+      // short breath. Chat and synthesis can run while the mic covers it.
+      return Math.max(this.statementPause||0,this.previewEndPause);
+    }
+    considerPreview(){
+      const part=this.part;
+      if(!this.onturncandidate||!part?.stream||part.sealed||part.routine||this.earlyPart||
+         this.parts.length!==1||this.confirmedText||!this.previewEndPause||(!part.stableEnding&&this.backgroundPause<100)||
+         this.clearVoiceMs<180||this.voiced-this.lastClearVoice>80||this.voiced-this.previewVoiced>160)return false;
+      if(this.preparePreview(part,part.preview)){
+        this.statementPause=/[?？]$/u.test(part.preview.trim())?0:540;
+        return true;
+      }
+      return false;
     }
     samples(data, rate) {
       if (!this.active || this.finalizing) return;
@@ -386,7 +422,10 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
       if(continuing&&!this.part.hasFreshSpeech){
         this.part.hasFreshSpeech=true;this.openStream();this.stream?.writeBuffered(this.chunks,rate);
       }else this.stream?.write(audio,rate);
-      if(continuing&&this.quiet>=80)this.previewEndPause=0;
+      if(continuing&&this.quiet>=80){
+        this.previewEndPause=0;
+        if(this.earlyPart||this.part.preparedText)this.onturncontinued?.();
+      }
       this.quiet = continuing ? 0 : this.quiet + ms;
       if(continuing){
         this.voiced+=ms;
@@ -400,11 +439,12 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
         : rms<=Math.max(.0015,this.noise*1.4)&&midRms<=Math.max(.00045,this.midNoise*1.4);
       this.backgroundPause=!continuing&&nearBackground?this.backgroundPause+ms:0;
       // Stale words, a soft trailing syllable, or elevated street noise cannot shorten the pause.
-      const clearEnding=this.previewEndPause>0&&this.voiced-this.previewVoiced<=160&&this.backgroundPause>=this.previewEndPause;
-      const clearAudioEnd=audioOnly&&this.clearVoiceMs>=360&&this.voiced-this.lastClearVoice<=80&&this.backgroundPause>=460;
+      const preparing=this.considerPreview();
+      const clearEnding=this.previewEndPause>0&&this.voiced-this.previewVoiced<=160&&this.backgroundPause>=this.endOfTurnPause();
+      const clearAudioEnd=audioOnly&&this.clearVoiceMs>=360&&this.voiced-this.lastClearVoice<=80&&this.backgroundPause>=Math.max(460,this.statementPause||0);
       const endPause = this.voiced <= 220 ? 360 : 540;
       if(clearEnding||clearAudioEnd||this.quiet>=endPause)this.stop();
-      else if(!this.earlyPart&&this.part.routine&&this.stream&&!this.stream.closed&&
+      else if(!this.earlyPart&&(this.part.routine||preparing)&&this.stream&&!this.stream.closed&&
         this.backgroundPause>=180&&this.clearVoiceMs>=180&&this.voiced-this.lastClearVoice<=80&&this.voiced-this.previewVoiced<=160){
         // Ask ASR to finalize the first clause, but keep listening through the
         // normal end pause. A rider who adds "actually..." stays in this turn.
@@ -445,10 +485,10 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
     completePart(part,text){
       if(!this.active||part.discarded||part.done)return;
       part.chunks=[];part.done=true;part.text=text.trim();
+      if(part.preparedText&&part===this.earlyPart&&!this.part.hasFreshSpeech&&part.text)this.preparePreview(part,part.text);
       while(this.parts[0]?.done){
         const next=this.parts.shift();
         this.confirmedText=joinSegments(this.confirmedText,next.text,next.overlap);
-        if(this.confirmedText.length>MAX_MESSAGE_LENGTH)return this.fail('utterance_too_long');
       }
       if(this.finalizing&&!this.parts.length)this.deliver(this.confirmedText);
       else this.showPreview();

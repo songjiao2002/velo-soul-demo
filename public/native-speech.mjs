@@ -1,6 +1,6 @@
 import {appFetch} from './app-network.mjs';
 import {isConversationLimit} from './conversation-limits.mjs';
-import {speechFileBytes} from './speech-response.mjs';
+import {speechFileBytes,inlineSpeechWave} from './speech-response.mjs';
 import {characterRate,setMediaTempo} from './speech-tempo.mjs';
 import {speechCacheKey,serverVoiceTurnId} from './speech-cache.mjs';
 // Optional media-element playback for browsers whose Web Audio route is wrong.
@@ -37,7 +37,7 @@ export class NativeSpeechPlayer {
   this.preloads.set(key,entry);while(this.preloads.size>8){const first=this.preloads.keys().next().value;this.preloads.get(first).controller.abort();this.preloads.delete(first);}return entry.promise;
  }
  cancelPrefetches(){for(const [key,entry]of this.preloads)if(entry.dynamic){entry.controller.abort();this.preloads.delete(key);}}
- async speak(parts,{language,soul,source,firstSource,voiceTurnId,firstSpeechId,report,allowed=()=>true}){
+ async speak(parts,{language,soul,source,firstSource,voiceTurnId,firstSpeechId,inlineSpeech,report,allowed=()=>true}){
   this.stop();const serial=this.serial,valid=()=>serial===this.serial;
   if(!this.audio){report('unavailable');return;}const controller=this.controller=new AbortController();
   try{
@@ -64,8 +64,14 @@ export class NativeSpeechPlayer {
      if(entry.failure){this.preloads.delete(key);throw entry.failure;}
     }
     if(!bytes){this.fetchTimer=this.setTimer(()=>controller.abort(),35000);
-     const response=await this.fetchImpl(source||'/api/speech',{signal:controller.signal,...(source?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:part,language,soul,voiceTurnId:serverVoiceTurnId(voiceTurnId),firstSpeechId:index===0?firstSpeechId:undefined})})});
-     bytes=await speechFileBytes(response);this.clearTimer(this.fetchTimer);this.fetchTimer=null;
+     const prepared=index===0&&inlineSpeech?await inlineSpeech:null;
+     if(!valid()){prepared?.body?.cancel().catch(()=>{});return;}
+     if(prepared)bytes=await inlineSpeechWave(prepared);
+     else{
+      const response=await this.fetchImpl(source||'/api/speech',{signal:controller.signal,...(source?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:part,language,soul,voiceTurnId:serverVoiceTurnId(voiceTurnId),firstSpeechId:index===0?firstSpeechId:undefined})})});
+      bytes=await speechFileBytes(response);
+     }
+     this.clearTimer(this.fetchTimer);this.fetchTimer=null;
      if(!valid())return;if(bytes.byteLength<44||bytes.byteLength>4000000)throw Error('audio');this.remember(key,bytes);
     }
     if(!valid())return;if(!allowed()){report('blocked');return;}

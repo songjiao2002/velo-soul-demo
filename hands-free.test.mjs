@@ -40,6 +40,36 @@ test('cancelled drafts never speak and visual questions never start from interim
  assert.ok(a.calls[0].signal.aborted);assert.equal(a.voices.length,0);
  a.session.stop();
 });
+test('a candidate can prepare during a breath but a continued or revised thought never plays the old answer',async()=>{
+ for(const language of ['en','ko','zh']){
+  const [first,continued]={
+   en:['I like orange.','I like orange, but today I want blue.'],
+   ko:['그 소리가 좋아.','그 소리가 좋은데 오늘은 다른 걸 듣고 싶어.'],
+   zh:['我喜欢橙色。','我喜欢橙色，但今天更喜欢蓝色。']
+  }[language];
+  const turns=[];
+  const a=setup(undefined,{getContext:()=>({}),onTurn:turn=>turns.push(turn)});
+  a.session.start('bori',language);const mic=a.recognizers[0];
+  assert.equal(mic.onturncandidate(first),true);
+  assert.equal(mic.onturncandidate(first),true);await flush();
+  assert.equal(a.calls.length,1);assert.equal(a.voices.length,0);
+  mic.onturncontinued();assert.equal(a.calls[0].signal.aborted,true);
+  mic.ontranscribing({text:continued});mic.hear(continued);await flush();
+  assert.equal(a.calls.length,2);assert.deepEqual(turns.map(t=>t.user),[continued]);
+  assert.equal(a.voices.length,1);a.session.stop();
+ }
+});
+test('candidate revisions and aborts share no reply, and never launch a request per interim token',async()=>{
+ const a=setup(undefined,{getContext:()=>({})});a.session.start('bori','en');
+ const mic=a.recognizers[0],c='I want blue.';
+ mic.onturncandidate('I want red.');
+ mic.onresult({results:[{0:{transcript:'I want green.'},isFinal:false}]});
+ assert.equal(a.calls[0].signal.aborted,true);
+ mic.onturncandidate('I want green.');mic.onturncandidate(c);
+ assert.equal(a.calls.length,2);assert.ok(a.calls.every(entry=>entry.signal.aborted));
+ mic.hear(c);await flush();assert.equal(a.calls.length,3);assert.equal(a.voices.length,1);
+ assert.equal(a.session.histories.bori[0].content,c);a.session.stop();
+});
 function setup(fetchImpl,options={}){
  const recognizers=[],calls=[],voices=[],states=[],timers=new Map();let timerId=0,stops=0;
  class Recognition{constructor(){recognizers.push(this);}start(){this.active=true;this.onstart?.();}abort(){this.active=false;}stop(){this.active=false;this.onend?.();}hear(text){this.onspeechstart?.();this.onresult?.({results:[{0:{transcript:text},isFinal:true}]});}}
@@ -95,11 +125,10 @@ test('normal and interrupted speech deliver the entire long turn to each compani
   a.session.stop();
  }
 });
-test('unusually long speech is explained and listening resumes without sending a truncated message',async()=>{
+test('speech beyond ten thousand characters reaches the server intact',async()=>{
  const a=setup(),text='说'.repeat(10001);
  a.session.start('lumi','zh');a.recognizers[0].hear(text);await flush();
- assert.equal(a.session.state,'utterance_too_long');assert.equal(a.calls.length,0);
- a.run(1500);assert.equal(a.session.state,'listening');a.session.stop();
+ assert.equal(a.calls.length,1);assert.equal(a.calls[0].body.messages.at(-1).content,text);a.session.stop();
 });
 test('stopping aborts an in-flight answer and ignores its eventual response',async()=>{
  let resolve;const a=setup(()=>new Promise(r=>resolve=r));a.session.start('bori','en');a.recognizers[0].hear('Hello');a.session.stop();assert.ok(a.calls[0].signal.aborted);

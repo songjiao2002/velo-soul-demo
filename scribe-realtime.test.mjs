@@ -108,7 +108,7 @@ test('Scribe signals fallback on provider errors, malformed transcripts, and a l
     [{message_type:'quota_exceeded'},'provider_unavailable'],
     [{message_type:'error'},'provider_unavailable'],
     [{message_type:'partial_transcript',text:15},'invalid_response'],
-    [{message_type:'committed_transcript',text:'x'.repeat(10001)},'invalid_response'],
+    [{message_type:'committed_transcript',text:'x'.repeat(1024*1024+1)},'invalid_response'],
     [null,'invalid_response']
   ]) {
     const s=session(t);

@@ -20,6 +20,16 @@ test('media compatibility reuses one native element, caches clips and never requ
 test('saved media test loads only the introduction and does not call the speech API',async()=>{
  const a=setup();await a.player.prepare();await a.player.speak(['intro'],{...a.options,source:'/audio/intro/lumi-ko.wav'});assert.equal(a.requests.length,1);assert.equal(a.requests[0][0],'/audio/intro/lumi-ko.wav');assert.equal(a.getCaptures(),0);assert.equal(a.urls.size,0);a.player.dispose();a.devices.dispose();
 });
+test('the media route turns inline chat PCM into an exact WAV and plays without a second request',async()=>{
+ const a=setup(),samples=Uint8Array.from([90,2,30,8]);
+ const body=JSON.stringify({audio:Buffer.from(samples).toString('base64'),rate:24000})+'\n{"done":true}\n';
+ let file;a.player.URL.createObjectURL=blob=>{file=blob;return 'blob:inline';};
+ await a.player.speak(['여기 있었네.'],{...a.options,inlineSpeech:Promise.resolve(new Response(body))});
+ assert.deepEqual(a.states,['playing','ended']);assert.equal(a.requests.length,0);
+ const wav=Buffer.from(await file.arrayBuffer());assert.equal(wav.toString('ascii',0,4),'RIFF');assert.equal(wav.readUInt32LE(24),24000);
+ assert.equal(wav.readUInt32LE(40),4);assert.deepEqual(wav.subarray(44),Buffer.from(samples));
+ a.player.dispose();a.devices.dispose();
+});
 test('a packaged first phrase on the media route plays once and falls back to its own generated voice if missing',async()=>{
  for(const missing of [false,true]){
   const a=setup(),firstSource='/audio/fast-openings/test.wav',firstSpeechId=crypto.randomUUID();

@@ -305,6 +305,42 @@ test('first speech starts before the rest of the reply and live PCM is claimed e
  assert.deepEqual(f.calls,['Breezy!']);
 });
 
+test('an opted-in live turn plays original PCM over the chat request before generation finishes', {timeout:5000},async t=>{
+ const f=await firstSpeechFixture(t,{deferChat:true}),id=randomUUID();
+ const response=await f.post('/api/chat',{voice:true,soul:'bori',language:'en',firstSpeechId:id,voiceTurnId:id,inlineFirstSpeech:true,messages:[{role:'user',content:'Hello'}]});
+ const arrived=deferred(),started=deferred(),a=player();
+ await a.p.prepare();a.p.fetchImpl=()=>{throw Error('A second audio request was made');};
+ let voice,speech;const states=[];
+ const reading=readVoiceReply(response,{soul:'bori',onText:()=>{},onFirstSpeech:entry=>{voice=entry;},onSentence:text=>{
+   assert.equal(text,voice.text);
+   speech=a.p.speak(text,{soul:'bori',voiceTurnId:id,firstReplySegment:true,inlineSpeech:voice.audio,onState:state=>{states.push(state);if(state==='playing')started.resolve();}});
+   arrived.resolve();
+ }});
+ await arrived.promise;await started.promise;
+ assert.deepEqual(f.calls,['Breezy!']);assert.deepEqual(states,['loading','playing']);
+ f.endChat.resolve();f.endTts.resolve();
+ assert.equal((await reading).reply,'Breezy!');
+ await flush();for(const source of a.sources)source.onended?.();
+ await speech;assert.equal(states.at(-1),'ended');a.p.dispose();
+});
+
+test('inline synthesis ends cleanly on provider quota or a cancelled chat without a second synthesis', {timeout:5000},async t=>{
+ for(const quota of [true,false]){
+  const f=await firstSpeechFixture(t,{ttsFailure:quota,deferChat:!quota}),controller=new AbortController(),id=randomUUID();
+  const response=await f.post('/api/chat',{voice:true,soul:'bori',language:'en',firstSpeechId:id,voiceTurnId:id,inlineFirstSpeech:true,messages:[{role:'user',content:'Hello'}]},controller.signal);
+  if(quota){
+   let voice;
+   await readVoiceReply(response,{soul:'bori',onText:()=>{},onSentence:()=>{},onFirstSpeech:entry=>{voice=entry;}});
+   const failure=await voice.audio;assert.equal(failure.status,429);assert.deepEqual(await failure.json(),{error:'provider_quota'});
+  }else{
+   const signal=await f.first.promise;
+   const cancelled=new Promise(resolve=>signal.addEventListener('abort',resolve,{once:true}));
+   controller.abort();await cancelled;
+  }
+  assert.deepEqual(f.calls,['Breezy!']);
+ }
+});
+
 test('Android can claim the actual final phrase as one exact WAV, never starting another synthesis', {timeout:5000},async t=>{
  const f=await firstSpeechFixture(t,{text:'山'}),id=randomUUID();
  const chat=await f.chat(id,'zh','lumi');

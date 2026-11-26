@@ -118,12 +118,12 @@ export class CloudSpeechPlayer {
    }
   }finally{cleanup();reader.releaseLock();}
  }
- async speak(text,{language='en',soul='lumi',source,quickReplySource,voiceTurnId,firstSpeechId,firstReplySegment=false,onState=()=>{}}={}){
+ async speak(text,{language='en',soul='lumi',source,quickReplySource,voiceTurnId,firstSpeechId,inlineSpeech,firstReplySegment=false,onState=()=>{}}={}){
   this.stop();const serial=this.serial,valid=()=>serial===this.serial,report=(state,detail)=>{if(valid()){this.audioSession?.setPlayback?.(this,['loading','playing'].includes(state));onState(state,detail);}};
   const parts=speechChunks(text);if(!parts.length){report('ended');return;}
   report('loading');
   const firstSource=firstReplySegment&&!source?(quickReplySource?quickReplySource+'?v='+BUILD:voiceTurnId==null?getFastOpeningSource(text,{language,soul}):undefined):undefined;
-  if(this.audioSession?.playbackMode==='media')return this.native.speak(parts,{language,soul,source,firstSource,voiceTurnId,firstSpeechId,report});
+  if(this.audioSession?.playbackMode==='media')return this.native.speak(parts,{language,soul,source,firstSource,voiceTurnId,firstSpeechId,inlineSpeech,report});
   if(!this.context){report('blocked');return;}
   if(this.context.state!=='running'){
    let resumeTimer;
@@ -155,7 +155,9 @@ export class CloudSpeechPlayer {
     if(!buffer&&partSource){key=speechCacheKey(part,language,soul,null,voiceTurnId);buffer=this.cache.get(key);}
     if(!buffer){
      fetchTimer=this.timer=this.setTimer(()=>controller.abort(),35000);
-     const response=await this.fetchImpl('/api/speech/stream',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({text:part,language,soul,voiceTurnId:serverVoiceTurnId(voiceTurnId),firstSpeechId:index===0?firstSpeechId:undefined})});
+     const prepared=index===0&&inlineSpeech?await inlineSpeech:null;
+     if(!valid()){prepared?.body?.cancel().catch(()=>{});return;}
+     const response=prepared||await this.fetchImpl('/api/speech/stream',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({text:part,language,soul,voiceTurnId:serverVoiceTurnId(voiceTurnId),firstSpeechId:index===0?firstSpeechId:undefined})});
      await requireSpeechResponse(response);
      if(!valid()){response.body?.cancel().catch(()=>{});return;}
      if(response.headers.get('content-type')?.includes('application/x-ndjson')){

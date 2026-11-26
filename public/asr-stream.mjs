@@ -1,4 +1,3 @@
-import {MAX_MESSAGE_LENGTH} from './conversation-limits.mjs';
 // Keep fractional sample boundaries between microphone batches (44.1/48 kHz).
 export function createPcm16Encoder(){
  let phase=0,sum=0,lastRate;
@@ -41,8 +40,8 @@ export class StreamingTranscriber {
    if(this.closed)return;let message;try{message=JSON.parse(event.data);}catch{return this.fail();}
    if(!message||typeof message!=='object'||Array.isArray(message))return this.fail();
    if(message.type==='ready'){this.clearTimer(this.timer);if(this.finishing)this.timer=this.setTimer(()=>this.fail(),10000);}
-   else if(message.type==='partial'&&typeof message.text==='string')this.onPartial(message.text.slice(0,MAX_MESSAGE_LENGTH));
-   else if(message.type==='final'&&typeof message.text==='string'){this.close();this.onFinal(message.text.slice(0,MAX_MESSAGE_LENGTH));}
+   else if(message.type==='partial'&&typeof message.text==='string')this.onPartial(message.text);
+   else if(message.type==='final'&&typeof message.text==='string'){this.close();this.onFinal(message.text);}
    else if(message.type==='error')this.fail(typeof message.error==='string'?message.error:'network',message.retryAfter);
    else this.fail();
   };

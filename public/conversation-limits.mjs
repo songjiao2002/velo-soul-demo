@@ -1,16 +1,18 @@
-export const MAX_MESSAGE_LENGTH=10000;
-export const MAX_CONTEXT_LENGTH=12000;
-export const MAX_CONTEXT_MESSAGES=11;
+// Byte envelopes protect the HTTP and WebSocket transports. They are not
+// model token settings. A fresh turn always goes to the model in full.
+export const CHAT_REQUEST_BYTES=2*1024*1024;
+export const TRANSCRIPT_FRAME_BYTES=1024*1024;
+const historyBytes=CHAT_REQUEST_BYTES/2, encoder=new TextEncoder();
 
 // Keep the newest uninterrupted run of complete turns that fits this request.
 export function conversationMessages(history,text){
  const messages=[{role:'user',content:text}];
- let size=text.length;
- for(let i=history.length-2;i>=0&&messages.length+2<=MAX_CONTEXT_MESSAGES;i-=2){
+ let size=encoder.encode(JSON.stringify(messages[0])).byteLength;
+ for(let i=history.length-2;i>=0;i-=2){
   const user=history[i],assistant=history[i+1];
   if(user.role!=='user'||assistant.role!=='assistant')break;
-  const turnSize=user.content.length+assistant.content.length;
-  if(user.content.length>MAX_MESSAGE_LENGTH||assistant.content.length>MAX_MESSAGE_LENGTH||size+turnSize>MAX_CONTEXT_LENGTH)break;
+  const turnSize=encoder.encode(JSON.stringify([user,assistant])).byteLength;
+  if(size+turnSize>historyBytes)break;
   messages.unshift(user,assistant);
   size+=turnSize;
  }

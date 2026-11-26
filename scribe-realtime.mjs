@@ -1,5 +1,5 @@
 import WebSocket from 'ws';
-import {MAX_MESSAGE_LENGTH as maxTextLength} from './public/conversation-limits.mjs';
+import {TRANSCRIPT_FRAME_BYTES} from './public/conversation-limits.mjs';
 import {interimTranscript} from './asr-preview.mjs';
 
 const maxAudioBytes = 512000;
@@ -114,9 +114,9 @@ export function relayScribeRealtime(client, {language, apiKey, connect, release}
     }
     if (type === 'warning') return;
     if (type !== 'partial_transcript' && type !== 'committed_transcript') return fail(scribeError(type));
-    if (!ready || typeof event.text !== 'string' || event.text.length > maxTextLength) return fail('invalid_response');
+    if (!ready || typeof event.text !== 'string' || Buffer.byteLength(event.text,'utf8') > TRANSCRIPT_FRAME_BYTES) return fail('invalid_response');
     const text = [confirmed, event.text.trim()].filter(Boolean).join(' ');
-    if (text.length > maxTextLength) return fail('invalid_response');
+    if (Buffer.byteLength(text,'utf8') > TRANSCRIPT_FRAME_BYTES) return fail('invalid_response');
     if (type === 'partial_transcript') {
       send({type:'partial', text:interimTranscript(text,language)});
       return;

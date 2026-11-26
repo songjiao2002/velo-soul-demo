@@ -1,4 +1,4 @@
-import {conversationServiceError} from './conversation-limits.mjs';
+import {CHAT_REQUEST_BYTES,conversationServiceError} from './conversation-limits.mjs';
 // Shared bounded readers: provider SSE stays on the server; the client sees text only.
 export async function readProviderChat(response,onDelta,providerError=()=>Error('invalid_stream')){
  if(!response.headers.get('content-type')?.includes('text/event-stream')||!response.body)throw Error('invalid_stream');
@@ -7,10 +7,10 @@ export async function readProviderChat(response,onDelta,providerError=()=>Error(
   if(!raw.startsWith('data:'))return;const data=raw.slice(5).trim();if(data==='[DONE]'){finished=true;return;}if(!data)return;
   const event=JSON.parse(data);if(event.error||event.code)throw providerError(event);const choice=event.choices?.[0];
   const delta=choice?.delta?.content;
-  if(delta!==undefined&&delta!==null){if(typeof delta!=='string'||text.length+delta.length>10000)throw Error('invalid_stream');text+=delta;if(delta)await onDelta(delta);}
+  if(delta!==undefined&&delta!==null){if(typeof delta!=='string')throw Error('invalid_stream');text+=delta;if(delta)await onDelta(delta);}
   if(choice?.finish_reason){reason=choice.finish_reason;finished=true;}
  }
- for await(const chunk of response.body){pending+=decoder.decode(chunk,{stream:true});if(pending.length>131072)throw Error('invalid_stream');let end;while((end=pending.indexOf('\n'))>=0){await line(pending.slice(0,end).trimEnd());pending=pending.slice(end+1);}if(finished)break;}
+ for await(const chunk of response.body){pending+=decoder.decode(chunk,{stream:true});if(pending.length>CHAT_REQUEST_BYTES)throw Error('invalid_stream');let end;while((end=pending.indexOf('\n'))>=0){await line(pending.slice(0,end).trimEnd());pending=pending.slice(end+1);}if(finished)break;}
  if(!finished)throw Error('incomplete_stream');
  return {choices:[{message:{content:text},finish_reason:reason||'stop'}]};
 }
@@ -91,15 +91,69 @@ export function createVoiceSentenceReader(soul,onSentence,{joinReactions=false}=
  };
 }
 
-export async function readVoiceReply(response,{soul,onText,onSentence,joinReactions=false}){
+// Audio is not exposed for playback until the first PCM packet arrives. A
+// synthesis failure before that point lets the ordinary speech request retry.
+function inlineVoice(text,onFirstSpeech){
+ let writer,resolve,started=false,finished=false,bytes=0;
+ const audio=new Promise(done=>{resolve=done;});
+ const stream=new ReadableStream({
+  start(controller){writer=controller;},
+  cancel(){writer=null;}
+ });
+ const encoder=new TextEncoder();
+ function close(){
+  if(finished)return;
+  finished=true;
+  if(!started)resolve(null);
+  writer?.close();writer=null;
+ }
+ onFirstSpeech({text,audio});
+ return {
+  get finished(){return finished;},
+  push(frame){
+   if(finished)throw Error('invalid_audio');
+   if(frame.failed){
+    if(!started&&frame.failure?.error&&Number.isInteger(frame.failure.status)&&frame.failure.status>=400&&frame.failure.status<=599){
+     resolve(new Response(JSON.stringify({error:frame.failure.error}),{status:frame.failure.status,headers:{'content-type':'application/json',...(frame.failure.retryAfter?{'retry-after':String(frame.failure.retryAfter)}:{})}}));
+    }
+    close();return;
+   }
+   if(frame.done){
+    if(started)writer?.enqueue(encoder.encode('{"done":true}\n'));
+    close();return;
+   }
+   if(frame.rate!==24000||typeof frame.audio!=='string'||!frame.audio.length||frame.audio.length>32768||!/^([A-Za-z0-9+/]+)={0,2}$/.test(frame.audio))throw Error('invalid_audio');
+   bytes+=frame.audio.length;if(bytes>5500000)throw Error('invalid_audio');
+   if(!started){
+    started=true;
+    resolve(new Response(stream,{headers:{'content-type':'application/x-ndjson'}}));
+   }
+   writer?.enqueue(encoder.encode(JSON.stringify({audio:frame.audio,rate:24000})+'\n'));
+  },
+  close
+ };
+}
+
+export async function readVoiceReply(response,{soul,onText,onSentence,onFirstSpeech,joinReactions=false}){
  const reader=response.body.getReader(),decoder=new TextDecoder();let pending='',text='',result;
+ let voice;
  const sentences=createVoiceSentenceReader(soul,onSentence,{joinReactions});
  const line=raw=>{
-  if(!raw.trim())return;const frame=JSON.parse(raw);if(frame.error)throw conversationServiceError(frame,response.headers);if(result)throw Error('invalid_response');
-  if(frame.type==='delta'&&typeof frame.text==='string'){text+=frame.text;if(text.length>10000)throw Error('invalid_response');onText(text);sentences(text);}
+  if(!raw.trim())return;const frame=JSON.parse(raw);if(frame.error)throw conversationServiceError(frame,response.headers);
+  if(frame.type==='voice'&&voice){voice.push(frame);return;}
+  if(result)throw Error('invalid_response');
+  if(frame.type==='first_voice'&&!voice&&onFirstSpeech&&typeof frame.text==='string'&&frame.text.trim()&&frame.text.length<=540){voice=inlineVoice(frame.text,onFirstSpeech);return;}
+  if(frame.type==='delta'&&typeof frame.text==='string'){text+=frame.text;onText(text);sentences(text);}
   else if(frame.type==='complete'&&frame.soul===soul&&typeof frame.reply==='string'&&frame.reply.trim()===text.trim()){result=frame;sentences(text,true);}
   else throw Error('invalid_response');
  };
- try{while(!result){const chunk=await reader.read();if(chunk.done)break;pending+=decoder.decode(chunk.value,{stream:true});if(pending.length>131072)throw Error('invalid_response');let end;while((end=pending.indexOf('\n'))>=0){line(pending.slice(0,end));pending=pending.slice(end+1);}}if(!result)throw Error('incomplete_response');return result;}
- finally{await reader.cancel().catch(()=>{});}
+ try{
+  while(!result||(voice&&!voice.finished)){
+   const chunk=await reader.read();if(chunk.done)break;
+   pending+=decoder.decode(chunk.value,{stream:true});
+   let end;while((end=pending.indexOf('\n'))>=0){if(end>CHAT_REQUEST_BYTES)throw Error('invalid_response');line(pending.slice(0,end));pending=pending.slice(end+1);}
+   if(pending.length>CHAT_REQUEST_BYTES)throw Error('invalid_response');
+  }
+  if(!result)throw Error('incomplete_response');return result;
+ }finally{voice?.close();await reader.cancel().catch(()=>{});}
 }
