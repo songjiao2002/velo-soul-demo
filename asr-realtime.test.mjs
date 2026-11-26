@@ -100,6 +100,41 @@ test('speculative replies are scoped to one transcript, role, language, context 
  abandoned.close();assert.ok(calls.at(-1).signal.aborted);
 });
 
+test('a final already sent without a ticket generates only when its own ticket is claimed',async t=>{
+ t.mock.timers.enable({apis:['setTimeout']});
+ const calls=[];
+ const shelf=createRecognitionDrafts(async(payload,signal,emit)=>{
+   calls.push(payload.messages.at(-1).content);
+   await emit({type:'complete',reply:'That sounds delicious.'});
+ });
+ const text='I called my bicycle bell Toast.';
+ function afterTwoGuesses(){
+   const session=shelf.session('en');
+   session.configure({soul:'mori',history:[]});
+   session.transcript('I called my dog.',false);
+   session.transcript('I called my bicycle.',false);
+   assert.equal(session.transcript(text,false),undefined);
+   const id=session.transcript(text,true);
+   session.close();
+   assert.ok(id);
+   return {soul:'mori',language:'en',voice:true,inlineFirstSpeech:true,firstSpeechId:id,voiceTurnId:id,recognitionDraft:id,
+     messages:[{role:'user',content:text}]};
+ }
+ const unused=afterTwoGuesses();
+ t.mock.timers.tick(5100);
+ assert.equal(shelf.take(unused),undefined);
+ assert.ok(!calls.includes(text));
+ const requested=afterTwoGuesses();
+ assert.equal(shelf.take({...requested,soul:'bori'}),undefined);
+ assert.ok(!calls.includes(text));
+ const claim=shelf.take(requested);
+ assert.ok(claim);assert.equal(shelf.take(requested),undefined);
+ const frames=[];
+ await claim.deliver(frame=>frames.push(frame),new AbortController().signal);
+ assert.deepEqual(frames,[{type:'complete',reply:'That sounds delicious.'}]);
+ assert.equal(calls.filter(wording=>wording===text).length,1);
+});
+
 test('realtime relay streams partials, revises them, combines VAD segments and submits only confirmed text after finish',async t=>{
  const a=await relay(t),ws=new WebSocket(a.url+'?language=ko',{origin:a.origin});t.after(()=>ws.terminate());const events=[];ws.on('message',raw=>events.push(JSON.parse(raw)));await wait(()=>events.some(e=>e.type==='ready'));
  assert.equal(a.options.headers.Authorization,'Bearer secret-test-value');assert.equal(new URL(a.endpoint).hostname,'dashscope-intl.aliyuncs.com');assert.equal(a.upstream.sent[0].session.input_audio_transcription.language,'ko');

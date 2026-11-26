@@ -18,7 +18,7 @@ function eligible(text,final) {
 export function createRecognitionDrafts(generate,canPrepare=()=>true) {
   const waiting=new Map();
   function session(inputLanguage){
-    let setup,current,attempts=0,finalized=false;
+    let setup,current,lastUnticketedWords,attempts=0,finalized=false;
     function cancel(){
       if(!current)return;
       current.abort();
@@ -34,9 +34,14 @@ export function createRecognitionDrafts(generate,canPrepare=()=>true) {
         if(!setup||finalized)return;
         if(final)finalized=true;
         const words=confirmedWords(text);
+        const deferUntilClaim=final&&words===lastUnticketedWords;
+        if(!final)lastUnticketedWords=undefined;
         if(current?.words===words&&!current.signal.aborted)return current.id;
         cancel();
-        if(!eligible(text,final)||waiting.size>=24||(!final&&attempts>=2)||!canPrepare())return;
+        if(!eligible(text,final)||waiting.size>=24||(!final&&attempts>=2)||!canPrepare()){
+          if(!final)lastUnticketedWords=words;
+          return;
+        }
         const id=randomUUID(),language=replyLanguage(text,inputLanguage);
         const payload={soul:setup.soul,language,context:setup.context,voice:true,inlineFirstSpeech:true,voiceTurnId:id,firstSpeechId:id,
           messages:[...setup.history,{role:'user',content:text}]};
@@ -48,7 +53,12 @@ export function createRecognitionDrafts(generate,canPrepare=()=>true) {
           clearTimeout(timer);waiting.delete(id);controller.abort();
           writer.abort(controller.signal.reason).catch(()=>{});
         }
-        const entry={id,words,payload,signal:controller.signal,abort,async deliver(emit,signal){
+        function start(){
+          generate(payload,controller.signal,f=>writer.write(f)).then(()=>writer.close(),err=>writer.abort(err)).catch(()=>{});
+        }
+        // An unticketed preview can already be generating over normal HTTP.
+        // A client reusing that request will never claim the matching final.
+        const entry={id,words,payload,signal:controller.signal,abort,startOnClaim:deferUntilClaim?start:undefined,async deliver(emit,signal){
           clearTimeout(timer);
           const reader=channel.readable.getReader();
           const end=()=>{abort();reader.cancel().catch(()=>{});};
@@ -61,7 +71,7 @@ export function createRecognitionDrafts(generate,canPrepare=()=>true) {
           }finally{signal.removeEventListener('abort',end);if(!complete)end();reader.releaseLock();}
         }};
         waiting.set(id,entry);current=entry;attempts++;
-        generate(payload,controller.signal,f=>writer.write(f)).then(()=>writer.close(),err=>writer.abort(err)).catch(()=>{});
+        if(!deferUntilClaim)start();
         return id;
       },
       close(){if(!finalized)cancel();setup=null;}
@@ -75,6 +85,7 @@ export function createRecognitionDrafts(generate,canPrepare=()=>true) {
        typeof p.messages.at(-1)?.content!=='string'||confirmedWords(p.messages.at(-1).content)!==entry.words||
        !isDeepStrictEqual(p.messages.slice(0,-1),expected.messages.slice(0,-1))||!isDeepStrictEqual(p.context,expected.context))return;
     waiting.delete(entry.id);
+    entry.startOnClaim?.();
     return entry;
   }
   return {session,take};
