@@ -42,7 +42,7 @@ const triggers={
   }
 };
 const rideContext = /\b(?:hills?|uphill|climb\w*|summit|the top|mountain|accident|ambulance|traffic|brakes?|pain|injur\w*|scared|afraid|please remember)\b|坡|登顶|山顶|骑上来|爬上来|受伤|好疼|不适|害怕|刹车|车流|事故|记住|언덕|오르막|정상에|꼭대기|올라왔|사고|무섭|아프|아파|브레이크|기억해/iu;
-const invitesAnswer = /[?？]|\b(?:why not|how about|try|let['’]s|you (?:could|should|might)|would you|tell me|i suggest|what do you|do you|shall we)\b|不如|要不要|你可以|你觉得|试试|试一下|建议|告诉我|[吗呢吧][。！.!]?\s*$|어때|해\s*보|해봐|해볼|할까|볼까|알려\s*줘|하자|가자|갈래|좋겠/iu;
+const invitesAnswer = /[?？]|\b(?:why not|how about|try|let['’]s|you (?:could|should|might)|(?:would|can|are|will|did|do) you|tell me|i suggest|what do you|shall we|take a look)\b|^(?:look|check|take|turn|watch|stop|wait|listen)\b|不如|要不要|你可以|你觉得|试试|试一下|建议|告诉我|看看|试着|你先|记得|怎么样|[吗呢吧][。！.!]?\s*$|어때|해\s*보|해봐|해볼|할까|볼까|알려\s*줘|하자|가자|갈래|좋겠|(?:봐|보자|보세요)[.,! ]*$/iu;
 // Only an ordinary, unrelated preceding topic is safe to interrupt with a standalone celebration.
 const unrelatedTopic = /\b(?:hellos?|hi|hey|colors?|colours?|trees?|leaves|flowers?|river|sky|clouds?|sunshine|birds?|weather|scenery|murals?|music)\b|你好|嗨|颜色|树|花|河|天空|云朵|天气|鸟|壁画|音乐|안녕|색깔|색상|나무|꽃|하늘|구름|강변|날씨|음악|벽화/iu;
 
