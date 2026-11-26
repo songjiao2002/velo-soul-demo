@@ -193,14 +193,14 @@ function joinSegments(left,right,overlap){
   if(overlap){
     // Prefer the overlapping recognition when it repeats the preceding words
     // and revises a cut-off syllable. Without that anchor, keep the syllable,
-    // except for the observed 喜 / 心里 acoustic confusion at this boundary.
+    // except for the observed 喜 or 吸 / 心里 confusion at this boundary.
     const fragment=left.match(/([，,])([\p{Script=Han}])—+$/u);
     if(fragment){
       const before=left.slice(0,fragment.index);
       const anchor=before.match(/[\p{Script=Han}]{2}$/u)?.[0];
       const replayed=anchor&&right.slice(0,10).includes(anchor);
       const protectedWord=/[不没沒未无無别別非勿莫甭零〇一二两兩三四五六七八九十百千万萬亿億]/u.test(fragment[2]);
-      if(!protectedWord&&!right.startsWith(fragment[2])&&(replayed||(fragment[2]==='喜'&&/^心[里裡裏]/u.test(right)))){
+      if(!protectedWord&&!right.startsWith(fragment[2])&&(replayed||(/[喜吸]/u.test(fragment[2])&&/^心[里裡裏]/u.test(right)))){
         left=before+fragment[1];
       }
     }

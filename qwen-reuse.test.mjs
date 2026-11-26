@@ -84,6 +84,7 @@ async function setup(t,{reserve=()=>()=>{},automaticOpen=true}={}){
   const socket=new WebSocket(origin.replace('http:','ws:')+'/api/transcribe/live?language='+language,{origin});
   clients.push(socket);const events=[];
   socket.on('message',raw=>events.push(JSON.parse(raw)));
+  await once(socket,'open');
   await waitFor(()=>providers.reduce((n,p)=>n+p.tasks.length,0)>previousTasks);
   const provider=providers.at(-1);
   return {socket,events,provider,id:provider.tasks.at(-1).header.task_id};

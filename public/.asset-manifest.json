@@ -30,16 +30,16 @@
       }
     },
     "/app.bundle.js": {
-      "size": 649908,
-      "sha256": "4696668aa6043ace12f4dc513f969f38c30a11c38a11815317814a756604ba3b",
+      "size": 649918,
+      "sha256": "01ec566667817bc9034df5f9d24ee8a3b03fb1ae6339e9a462f72a3bd09896e1",
       "br": {
-        "size": 157910,
-        "sha256": "338aa68768cbf9aafdc066ad7dbc5c41aa5f3873f0fc4f52a95f5716c6109a3b",
+        "size": 157915,
+        "sha256": "32a9ed91f8c2e558d0d67c9be1d46980d82d41859d75163ce7947a2ae8cfa96e",
         "suffix": ".br"
       },
       "gzip": {
         "size": 242011,
-        "sha256": "46fb355cf84a9500f92a4d4380656a6929c064137dec3de54c47d3b085330af8",
+        "sha256": "b18e68cc1f42ad2f6bea0d8783a8bcc2055062f77e4d74659b58038fc758b7f6",
         "suffix": ".gz"
       }
     },

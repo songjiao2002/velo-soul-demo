@@ -187,6 +187,7 @@ function mandarinEndpoint(t,{early=false}={}){
 test('a cut-off Mandarin commit keeps the rest of the same utterance and corrects only the cut-off syllable',t=>{
   for(const [first,second,expected] of [
     ['我双手一直握着车把，喜——','心里没那么紧张了。','我双手一直握着车把，心里没那么紧张了。'],
+    ['我双手一直握着车把，吸——','心里没那么紧张了。','我双手一直握着车把，心里没那么紧张了。'],
     ['我双手一直握着车把，不——','想松手。','我双手一直握着车把，不想松手。'],
     ['我想买，三——','个就够了。','我想买，三个就够了。'],
     ['我一直握着车把，兔——','车把，突然放松了。','我一直握着车把，突然放松了。'],
