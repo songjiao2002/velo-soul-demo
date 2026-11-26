@@ -48,6 +48,22 @@ test('an interrupt may include a new question; late playback events cannot resta
  a.recognizers.at(-1).hear('等一下，我想喝咖啡');await flush();assert.equal(a.calls.at(-1).body.messages.at(-1).content,'我想喝咖啡');assert.equal(a.voices.length,2);
  old.callback('ended');assert.equal(a.session.state,'synthesizing');a.session.stop();assert.equal(a.timers.size,0);
 });
+test('normal and interrupted speech deliver the entire long turn to each companion',async()=>{
+ for(const [soul,language,phrase] of [['lumi','ko','여기에서 잠깐 쉬고 싶어. '],['mori','en','I remember riding here. '],['bori','zh','我们沿着这条路绕一圈。']]){
+  const a=setup(()=>Response.json({soul,reply:'Sure.'})),text=phrase.repeat(130).trim(),follow=(phrase+' ').repeat(111).trim();
+  a.session.start(soul,language);a.recognizers[0].hear(text);await flush();
+  assert.equal(a.calls[0].body.messages.at(-1).content,text);
+  a.voices[0].callback('playing');a.run(150);a.recognizers.at(-1).hear(follow);await flush();
+  assert.equal(a.calls.length,2);assert.equal(a.calls[1].body.messages.at(-1).content,follow);
+  a.session.stop();
+ }
+});
+test('unusually long speech is explained and listening resumes without sending a truncated message',async()=>{
+ const a=setup(),text='说'.repeat(10001);
+ a.session.start('lumi','zh');a.recognizers[0].hear(text);await flush();
+ assert.equal(a.session.state,'utterance_too_long');assert.equal(a.calls.length,0);
+ a.run(1500);assert.equal(a.session.state,'listening');a.session.stop();
+});
 test('stopping aborts an in-flight answer and ignores its eventual response',async()=>{
  let resolve;const a=setup(()=>new Promise(r=>resolve=r));a.session.start('bori','en');a.recognizers[0].hear('Hello');a.session.stop();assert.ok(a.calls[0].signal.aborted);
  resolve(new Response(JSON.stringify({soul:'bori',reply:'Too late'})));await flush();assert.equal(a.voices.length,0);assert.equal(a.session.active,false);

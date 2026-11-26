@@ -2,7 +2,7 @@ import {VOICE_PRIVACY} from './voice-privacy.mjs';
 import {readVoiceReply} from './chat-stream.mjs';
 import {appFetch} from './app-network.mjs';
 import {replyLanguage,needsCamera} from './input-language.mjs';
-import {COMMUNICATION_LIMIT_COPY,conversationServiceError,isConversationLimit} from './conversation-limits.mjs';
+import {COMMUNICATION_LIMIT_COPY,conversationServiceError,isConversationLimit,MAX_MESSAGE_LENGTH,conversationMessages} from './conversation-limits.mjs';
 
 const endConversation=/^(stop listening|stop (the )?(voice )?conversation|停止(语音)?对话|停止聆听|대화\s*멈춰|음성\s*대화\s*(종료|그만))[.!?。！\s]*$/i;
 const temporaryLimits=new Set(['service_busy','minute_limit','provider_rate_limited','rate_limited']);
@@ -75,7 +75,7 @@ export class HandsFreeConversation {
   r.ontranscribing=()=>{if(valid()){this.clearTimer(this.timer);this.setState('transcribing');}};
   r.onaudiorecovering=()=>{if(valid()){this.clearTimer(this.timer);this.setState('audio_reconnecting');}};
   r.onquiet=()=>{if(valid())this.setState('quiet');};
-  r.onresult=e=>{if(!valid())return;let interim='';const finals=[];for(const result of Array.from(e.results)){const text=result[0]?.transcript||'';if(result.isFinal)finals.push(text);else interim+=text;}finalText=finals.join(' ').trim().slice(0,1000);this.onTranscript(finalText||interim,Boolean(finalText));if(finalText){this.retryCount=0;send();}};
+  r.onresult=e=>{if(!valid())return;let interim='';const finals=[];for(const result of Array.from(e.results)){const text=result[0]?.transcript||'';if(result.isFinal)finals.push(text);else interim+=text;}finalText=finals.join(' ').trim();if(finalText.length>MAX_MESSAGE_LENGTH)return this.recognitionError(serial,{error:'utterance_too_long'});this.onTranscript(finalText||interim,Boolean(finalText));if(finalText){this.retryCount=0;send();}};
   r.onspeechend=()=>{if(valid())try{r.stop();}catch{send();}};
   r.onend=send;
   r.onerror=e=>{if(valid())this.recognitionError(serial,e);};
@@ -87,6 +87,7 @@ export class HandsFreeConversation {
   this.disconnect();this.clearTimer(this.timer);
   if(temporaryLimits.has(reason)){this.setState(reason);this.resumeAfter(serial,retryDelay(reason,event.retryAfter));}
   else if(hardLimits.has(reason)||['unsupported','not_configured','provider_auth','provider_not_activated'].includes(reason))this.stop(reason);
+  else if(reason==='utterance_too_long'){this.setState(reason);this.resumeAfter(serial,1500);}
   else if(reason==='no-speech'||reason==='aborted'){this.setState('listening');this.resumeAfter(serial,reason==='no-speech'?1000:500);}
   else if(reason==='audio-capture'||['network','asr_timeout','timeout','provider_unavailable','invalid_response'].includes(reason))this.recover(serial,reason==='audio-capture');
   else this.stop(['not-allowed','service-not-allowed'].includes(reason)?'denied':'network');
@@ -101,7 +102,7 @@ export class HandsFreeConversation {
   let request=retryRequest,receivedReply=false;
   try{
    if(!request){
-    const extra=this.getContext(needsCamera(text)),messages=[...this.histories[this.soul].slice(-10),{role:'user',content:text}];
+    const extra=this.getContext(needsCamera(text)),messages=conversationMessages(this.histories[this.soul],text);
     request={url:extra.image?'/api/chat/scene':'/api/chat',body:{voice:true,soul:this.soul,language,messages,context:extra.context,image:extra.image}};
    }
    // A retry gets its own ID. Only the player for this turn may claim the audio.
@@ -223,7 +224,8 @@ export class HandsFreeConversation {
     if(!final){if(substantialPreview(text))yieldToRider();this.onTranscript(text,false);return;}
     if(endConversation.test(text)){this.stop();return;}
     yieldToRider();
-    const rest=interruption(text).slice(0,1000);
+    const rest=interruption(text);
+    if(rest.length>MAX_MESSAGE_LENGTH){this.stopInterrupt();this.spokenPhrases=[];this.recognitionError(owner,{error:'utterance_too_long'});return;}
     if(!rest){resume(150);return;}
     this.stopInterrupt();this.spokenPhrases=[];this.retryCount=0;this.onTranscript(rest,true);this.submit(rest,owner);
    };
@@ -281,7 +283,7 @@ Object.assign(HANDS_FREE_COPY.ko,{audio_reconnecting:'오디오 연결을 복구
 Object.assign(HANDS_FREE_COPY.en,{audio_reconnecting:'Restoring the audio connection…','audio-capture':'Audio could not reconnect. Check your headset connection and start the conversation again.'});
 Object.assign(HANDS_FREE_COPY.zh,{audio_reconnecting:'正在恢复音频连接…','audio-capture':'音频连接未能恢复。请检查耳机连接，再点击开始交流。'});
 
-Object.assign(HANDS_FREE_COPY.ko,{speaking:'소울이 말하는 중 · 말하면 끼어들 수 있어요',speaking_no_interrupt:'말하는 중 · 듣기는 답변 후 다시 시작해요',notice:'말하는 동안 자막이 나타나요. 답변 중에도 새 질문을 할 수 있고, “잠깐”으로 멈출 수 있어요. 연결 오류는 자동으로 복구하며, 마이크 권한이 없으면 화면에 알려드려요. '+VOICE_PRIVACY.ko});
-Object.assign(HANDS_FREE_COPY.en,{speaking:'Speaking · You can interrupt with a question',speaking_no_interrupt:'Speaking · Listening will resume after this reply',notice:'Words appear while you speak. Ask a new question during a reply, or say “stop” to interrupt. Connection errors retry automatically; microphone permission errors are shown. '+VOICE_PRIVACY.en});
-Object.assign(HANDS_FREE_COPY.zh,{speaking:'正在回答 · 直接说话可以打断',speaking_no_interrupt:'正在回答 · 回答结束后继续聆听',notice:'说话时字幕会逐步出现。回答中可直接提出新问题，也可说“等一下”打断。连接异常会自动重试，麦克风权限问题会显示提示。'+VOICE_PRIVACY.zh});
+Object.assign(HANDS_FREE_COPY.ko,{speaking:'소울이 말하는 중 · 말하면 끼어들 수 있어요',speaking_no_interrupt:'말하는 중 · 듣기는 답변 후 다시 시작해요',utterance_too_long:'한 번에 보내기에는 너무 길어요. 나누어 말씀해 주세요.',notice:'길게 이야기해도 자막이 이어져요. 말을 마치고 잠시 쉬면 소울이 답해요. 답변 중 새 질문을 하거나 “잠깐”으로 멈출 수 있어요. '+VOICE_PRIVACY.ko});
+Object.assign(HANDS_FREE_COPY.en,{speaking:'Speaking · You can interrupt with a question',speaking_no_interrupt:'Speaking · Listening will resume after this reply',utterance_too_long:'That was too long to send in one turn. Please try it in parts.',notice:'Captions follow you as you speak, even on longer turns. Pause when you finish and your Soul will reply. You can ask a new question during a reply or say “stop” to interrupt. '+VOICE_PRIVACY.en});
+Object.assign(HANDS_FREE_COPY.zh,{speaking:'正在回答 · 直接说话可以打断',speaking_no_interrupt:'正在回答 · 回答结束后继续聆听',utterance_too_long:'这段话太长了，请分几次说。',notice:'长一点的话也可以连续说，字幕会跟着出现。说完稍作停顿，角色就会接话。回答中可直接提出新问题，也可说“等一下”打断。'+VOICE_PRIVACY.zh});
 for(const language of ['ko','en','zh'])Object.assign(HANDS_FREE_COPY[language],COMMUNICATION_LIMIT_COPY[language]);

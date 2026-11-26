@@ -5,6 +5,17 @@ import {getFastOpeningSource} from './public/fast-openings.mjs';
 // Treat only a word we actually received as a filler, never create one.
 const interjection=/^(?:hm+|m{2,}|uh|um+|huh|oh|ah|hey|ok(?:ay)?|sure|well|yeah|yes|yep|nope|음+|응+|어|아|네|그래|맞아|좋아|글쎄|그렇지|아하|嗯+|唔+|哦+|噢|啊|哎|哇|好|好呀|好啊|行|行呀|对|对呀)$/iu;
 const opening=/^(\s*)([\p{L}]+)([\s,，、;；:：…~～—]*)([\s\S]*)$/u;
+// Conversational lead-ins that can span several model tokens. Limit this
+// list to acknowledgments; e.g. "slow down" is already a useful answer.
+const compoundOpenings={
+  en:['sure thing','of course','all right','no problem','for sure','you bet','fair enough'],
+  ko:['아 그럼','그럼 물론이지','그럼 당연하지','그렇긴 하지','물론이지','물론이죠'],
+  zh:['没问题','没问题呀','当然可以','当然啦','那当然','好嘞','那好吧']
+};
+const compounds=Object.fromEntries(Object.entries(compoundOpenings).map(([lang,forms])=>{
+  const words=forms.map(form=>form.replaceAll(' ','\\s+')).join('|');
+  return [lang,{forms,match:new RegExp('^(\\s*)('+words+')(?=$|[\\s,，、;；:：…~～—.!?。！？])([\\s,，、;；:：…~～—]*)([\\s\\S]*)$','iu')}];
+}));
 function firstSelected(soul,text){
   let first;
   createVoiceSentenceReader(soul,phrase=>{first??=phrase;})(text);
@@ -12,7 +23,8 @@ function firstSelected(soul,text){
 }
 
 export function createVoiceOpeningStream({soul,language},emit,{signal,waitMs=320,maxChars=128,setTimer=setTimeout,clearTimer=clearTimeout}={}){
-  let text='',sent=0,plain=false,holding=false,timer,queued=Promise.resolve(),openingLength=0;
+  const compound=Object.hasOwn(compounds,language)?compounds[language]:undefined;
+  let text='',sent=0,plain=false,holding=false,standaloneDot=false,timer,queued=Promise.resolve(),openingLength=0;
   function write(delta){
     if(delta)queued=queued.then(()=>{signal?.throwIfAborted();return emit(delta);});
     // A timer may flush while the provider is idle. Its error is propagated
@@ -41,6 +53,19 @@ export function createVoiceOpeningStream({soul,language},emit,{signal,waitMs=320
     sent=Math.max(prefix,sent);
     return write(delta);
   }
+  // Reveal as much of a compound opener as possible without letting an
+  // existing player speak just "Sure" at the first space in "Sure thing".
+  function safeCompoundEnd(end){
+    if(!firstSelected(soul,text.slice(0,end)))return end;
+    let safe=sent;
+    while(safe<end&&!firstSelected(soul,text.slice(0,safe+1)))safe++;
+    return safe;
+  }
+  function showCompoundPrefix(){
+    const safe=safeCompoundEnd(text.length);
+    if(safe<text.length)return hold(safe);
+    const delta=text.slice(sent);sent=text.length;return write(delta);
+  }
   function hasWholeSentence(value){
     const first=firstSelected(soul,value);
     return first&&/[。！？!?.]$/u.test(first)&&/[\p{L}\p{N}]/u.test(first.slice(openingLength));
@@ -51,33 +76,46 @@ export function createVoiceOpeningStream({soul,language},emit,{signal,waitMs=320
       text+=delta;
       if(text.length>maxChars)return flush();
       if(holding)return hasWholeSentence(text)?flush():queued;
-      const match=opening.exec(text);
+      const multi=compound?.match.exec(text);
+      if(!multi&&compound){
+        const partial=text.trimStart().toLowerCase().replace(/\s+/gu,' ');
+        if(partial&&compound.forms.some(form=>form.startsWith(partial)))return showCompoundPrefix();
+      }
+      const match=multi||opening.exec(text);
       if(!match){
         if(text.trim())return flush();
         const delta=text.slice(sent);sent=text.length;return write(delta);
       }
       const [,space,word,boundary,rest]=match,endWord=space.length+word.length;
+      standaloneDot=false;
+      if(multi&&!boundary&&rest==='.'&&firstSelected(soul,text)&&firstSelected(soul,text+' ')===word+'.'){
+        standaloneDot=true;
+        return hold(safeCompoundEnd(endWord));
+      }
+      if(multi&&!boundary.trim()&&!rest)return showCompoundPrefix();
       if(!boundary&&!rest){
         // A Chinese particle can itself trigger a cut without punctuation.
         // Expose its first character immediately and wait briefly for context.
         if(interjection.test(word)&&firstSelected(soul,text))return hold(space.length+1);
         const delta=text.slice(sent);sent=text.length;return write(delta);
       }
-      if(!interjection.test(word)||!boundary||!boundary.trim()&&!(soul==='mori'&&/^[a-z]/iu.test(word)))return flush();
+      const bareOpener=!multi&&soul==='mori'&&/^[a-z]/iu.test(word);
+      if((!multi&&!interjection.test(word))||!boundary||(!boundary.trim()&&!bareOpener))return flush();
       const phrase=firstSelected(soul,text.slice(0,endWord+boundary.length));
       if(!phrase||getFastOpeningSource(phrase,{soul,language}))return flush();
       holding=true;openingLength=phrase.length;
       if(hasWholeSentence(text))return flush();
       // Never publish the comma on its own, even when a provider delta starts
       // with the entire greeting plus comma. The existing APK would speak it.
-      const safe=firstSelected(soul,text.slice(0,endWord))?space.length+1:endWord;
+      const safe=multi?safeCompoundEnd(endWord):(firstSelected(soul,text.slice(0,endWord))?space.length+1:endWord);
       return hold(safe);
     },
     finish(success=true){
       // The deployed reader needs whitespace lookahead to recognize a final
       // English period. Only add layout whitespace if it unlocks a real full
       // sentence; the authoritative complete frame keeps the exact source text.
-      const lookahead=success&&holding&&text.endsWith('.')&&hasWholeSentence(text+' ')?' ':'';
+      const needLookahead=standaloneDot||holding&&text.endsWith('.')&&hasWholeSentence(text+' ');
+      const lookahead=success&&needLookahead?' ':'';
       return plain?queued:flush(lookahead);
     },
     stop

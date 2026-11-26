@@ -28,12 +28,13 @@ test('recorder WAV resampling produces bounded PCM and server rejects remote or 
 });
 
 test('ASR auto-detects language, keeps authorization on server and shares chat quota',async()=>{
+ const transcripts=['你好，你听得到吗？','오늘 날씨가 좋아','Hello there. '.repeat(120).trim(),''];
  let calls=0;const service=createChatService({env:{...env,QWEN_MAX_DAILY_REQUESTS:'4'},fetchImpl:async(url,options)=>{
   calls++;const body=JSON.parse(options.body);assert.equal(body.model,'qwen3-asr-flash');assert.deepEqual(body.asr_options,{enable_itn:false});
   assert.equal(options.headers.Authorization,'Bearer private-test-key');assert.equal(options.redirect,'error');
-  return success(['你好，你听得到吗？','오늘 날씨가 좋아','Hello there',''][calls-1]);
+  return success(transcripts[calls-1]);
  }});
- for(const expected of ['你好，你听得到吗？','오늘 날씨가 좋아','Hello there','']){const result=await service.transcribe({audio:audio()});assert.equal(result.text,expected);assert.ok(!JSON.stringify(result).includes(env.DASHSCOPE_API_KEY));}
+ for(const expected of transcripts){const result=await service.transcribe({audio:audio()});assert.equal(result.text,expected);assert.ok(!JSON.stringify(result).includes(env.DASHSCOPE_API_KEY));}
  await assert.rejects(service.reply({soul:'lumi',language:'en',messages:[{role:'user',content:'Hi'}]}),{code:'daily_limit'});
  assert.equal(calls,4);
 });
@@ -93,6 +94,55 @@ test('a short click is not uploaded; continuous audio is capped; stopping ignore
  let resolve;const a=recorder(()=>new Promise(r=>resolve=r)),r=new a.Recognition();let results=0;r.onresult=()=>results++;r.start();await flush();a.feed(.1,100);a.feed(0,1200);assert.equal(a.calls.length,0);
  a.feed(.1,16000);assert.equal(a.calls.length,1);assert.ok(a.calls[0].body.length<=490000);
  r.abort();assert.equal(a.calls[0].signal.aborted,true);resolve(new Response(JSON.stringify({text:'late'})));await flush();assert.equal(results,0);
+});
+test('long file-backed speech is recorded across bounded parts and delivered once in recording order',async()=>{
+ for(const [first,second,full] of [
+  ['We should stop by the river','the river and get water.','We should stop by the river and get water.'],
+  ['We should stop by the riv','the river and get water.','We should stop by the river and get water.'],
+  ['우리 바람을 느껴','바람을 느껴 보고 싶어.','우리 바람을 느껴 보고 싶어.'],
+  ['자전거를 타','타고 갈게.','자전거를 타고 갈게.'],
+  ['我们一起去河边','去河边看看吧。','我们一起去河边看看吧。']
+ ]){
+  const resolvers=[],a=recorder(()=>new Promise(resolve=>resolvers.push(resolve))),r=new a.Recognition(),final=[];
+  let endings=0;r.onspeechend=()=>endings++;r.onresult=e=>{if(e.results[0].isFinal)final.push(e.results[0][0].transcript);};
+  r.start();await flush();a.feed(.08,15300);
+  assert.equal(endings,0);assert.equal(a.calls.length,1);assert.equal(r.active,true);
+  a.feed(0,800);assert.equal(endings,1);assert.equal(a.calls.length,2);
+  for(const call of a.calls)assert.doesNotThrow(()=>validateAudio({audio:Buffer.from(call.body)}));
+  resolvers[1](Response.json({text:second}));await flush();assert.deepEqual(final,[]);
+  resolvers[0](Response.json({text:first}));await flush();assert.deepEqual(final,[full]);assert.equal(r.active,false);
+ }
+});
+test('live ASR moves to the next segment without ending the turn or talking over a short breath',async()=>{
+ const sockets=[],interims=[],finals=[];
+ class Socket{
+  constructor(){sockets.push(this);this.readyState=1;this.bufferedAmount=0;}
+  send(frame){if(typeof frame==='string'&&JSON.parse(frame).type==='finish')this.finishes=(this.finishes||0)+1;}
+  close(){this.readyState=3;}
+  event(type,text){this.onmessage({data:JSON.stringify({type,text})});}
+ }
+ const input={onLevel(){},attach:async()=>{},detach(){}};
+ const R=createMicrophoneRecognition({input,Socket,location:new URL('https://ride.test'),setTimer:()=>1,clearTimer(){},fetchImpl:()=>assert.fail('live ASR should cover the entire turn')});
+ const r=new R();r.onresult=e=>{const result=e.results[0];(result.isFinal?finals:interims).push(result[0].transcript);};r.start();
+ const frame=new Float32Array(320).map((_,i)=>.08*Math.sin(2*Math.PI*185*i/16000));
+ const quiet=new Float32Array(320),feed=(ms,pcm)=>{for(let n=0;n<ms;n+=20)r.samples(pcm,16000);};
+ feed(12100,frame);feed(200,quiet);
+ assert.equal(sockets.length,1);assert.equal(sockets[0].finishes,1);
+ sockets[0].event('final','Slow');assert.deepEqual(finals,[]);
+ feed(500,frame);assert.equal(sockets.length,2);sockets[1].event('partial','slow please');
+ assert.equal(interims.at(-1),'Slow slow please');
+ feed(600,quiet);sockets[1].event('final','slow please.');
+ assert.deepEqual(finals,['Slow slow please.']);
+});
+test('a real ending at a segment boundary uses only one upload, and a route change discards a pending segment',async()=>{
+ const resolvers=[],a=recorder(()=>new Promise(resolve=>resolvers.push(resolve))),r=new a.Recognition(),finals=[];
+ r.onresult=e=>{if(e.results[0].isFinal)finals.push(e.results[0][0].transcript);};
+ r.start();await flush();a.feed(.08,12400);a.feed(0,300);
+ assert.equal(a.calls.length,1);assert.equal(r.finalizing,undefined);
+ r.resetCapture();assert.equal(a.calls[0].signal.aborted,true);
+ resolvers[0](Response.json({text:'old route'}));await flush();assert.deepEqual(finals,[]);
+ a.feed(.08,12400);a.feed(0,1000);assert.equal(a.calls.length,2);
+ resolvers[1](Response.json({text:'새 기기로 말했어.'}));await flush();assert.deepEqual(finals,['새 기기로 말했어.']);
 });
 test('cloud recognition completes the hands-free loop without browser SpeechRecognition',async()=>{
  const a=recorder(),states=[],spoken=[],timers=new Map();let id=0;
@@ -312,6 +362,16 @@ test('streaming previews shorten a clear endpoint only after acoustic silence, a
  const noise=capture();noise.feed(400,.04);noise.preview('All done.');
  noise.feed(400,.0027);assert.equal(noise.finished(),0,'audio above the local floor prevents the accelerated close');
  noise.stop();
+ for(const [text,target] of [['Shall we stop?',240],['We can stop here',380],['이제 같이 갈게',280],['我们停一下吧',280]]){
+  const a=capture();a.feed(560,.06);a.feed(140);a.preview(text);
+  a.feed(target-160);assert.equal(a.finished(),0,text);a.feed(40);assert.equal(a.finished(),1,text);a.stop();
+ }
+ const late=capture();late.feed(560,.06);late.feed(300);late.preview('All done.');assert.equal(late.finished(),1);late.stop();
+ const growing=capture();growing.feed(460,.06);growing.preview('Shall we');growing.feed(100,.06);growing.preview('Shall we stop?');
+ growing.feed(220);assert.equal(growing.finished(),0);growing.feed(40);assert.equal(growing.finished(),1);growing.stop();
+ for(const text of ['I am looking for.','좋은데, 그리고.','我想说的是，因为。']){
+  const a=capture();a.feed(560,.06);a.feed(180);a.preview(text);a.feed(320);assert.equal(a.finished(),0,text);a.stop();
+ }
 });
 
 test('silent PCM stays listening, but a stalled capture graph fails and releases its watchdog',async()=>{

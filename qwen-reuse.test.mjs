@@ -5,6 +5,8 @@ import {EventEmitter,once} from 'node:events';
 import WebSocket from 'ws';
 import {attachRealtimeAsr} from './asr-realtime.mjs';
 import {ChatError} from './chat-service.mjs';
+import {buildConnector} from 'undici';
+import {createQwenTransport} from './qwen-transport.mjs';
 
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 async function waitFor(predicate){
@@ -14,6 +16,42 @@ async function waitFor(predicate){
   await new Promise(resolve=>setTimeout(resolve,5));
  }
 }
+
+test('microphone warmup sends no HTTP request and both overlapping calls use existing connections',async t=>{
+ const sockets=new Set(),requests=[];
+ const server=http.createServer((req,res)=>{requests.push({socket:req.socket,res});});
+ server.on('connection',socket=>sockets.add(socket));
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const origin='http://127.0.0.1:'+server.address().port;
+ const transport=createQwenTransport(origin);
+ t.after(async()=>{for(const socket of sockets)socket.destroy();await transport.close();await new Promise(done=>server.close(done));});
+ transport.warm();transport.warm();
+ await waitFor(()=>sockets.size===2);
+ await tick();
+ assert.equal(requests.length,0);
+ const warmed=new Set(sockets);
+ const pending=Promise.all(['/chat','/speech'].map(path=>fetch(origin+path,{dispatcher:transport.dispatcher}).then(res=>res.text())));
+ await waitFor(()=>requests.length===2);
+ assert.equal(sockets.size,2);
+ for(const {socket,res} of requests){assert.ok(warmed.has(socket));res.end('ok');}
+ assert.deepEqual(await pending,['ok','ok']);
+});
+
+test('failed speculative connections never block the real request',async t=>{
+ const server=http.createServer((req,res)=>res.end('ok'));
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const origin='http://127.0.0.1:'+server.address().port;
+ const cold=buildConnector({});
+ let calls=0;
+ const transport=createQwenTransport(origin,{dial(options,callback){
+   if(++calls<=2)queueMicrotask(()=>callback(new Error('offline'),null));
+   else cold(options,callback);
+ }});
+ t.after(async()=>{await transport.close();await new Promise(done=>server.close(done));});
+ transport.warm();
+ const response=await fetch(origin+'/chat',{dispatcher:transport.dispatcher});
+ assert.equal(await response.text(),'ok');assert.equal(calls,3);
+});
 class Provider extends EventEmitter{
  constructor(automaticOpen=true){
   super();this.frames=[];this.tasks=[];this.readyState=WebSocket.CONNECTING;this.bufferedAmount=0;

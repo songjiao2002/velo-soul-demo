@@ -1,3 +1,22 @@
+export const MAX_MESSAGE_LENGTH=10000;
+export const MAX_CONTEXT_LENGTH=12000;
+export const MAX_CONTEXT_MESSAGES=11;
+
+// Keep the newest uninterrupted run of complete turns that fits this request.
+export function conversationMessages(history,text){
+ const messages=[{role:'user',content:text}];
+ let size=text.length;
+ for(let i=history.length-2;i>=0&&messages.length+2<=MAX_CONTEXT_MESSAGES;i-=2){
+  const user=history[i],assistant=history[i+1];
+  if(user.role!=='user'||assistant.role!=='assistant')break;
+  const turnSize=user.content.length+assistant.content.length;
+  if(user.content.length>MAX_MESSAGE_LENGTH||assistant.content.length>MAX_MESSAGE_LENGTH||size+turnSize>MAX_CONTEXT_LENGTH)break;
+  messages.unshift(user,assistant);
+  size+=turnSize;
+ }
+ return messages;
+}
+
 export const COMMUNICATION_LIMIT_COPY={
  en:{
   service_busy:'Other requests are still finishing.',

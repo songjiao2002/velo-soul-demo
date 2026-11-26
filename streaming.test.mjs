@@ -98,6 +98,48 @@ test('an unrecorded opening is visible immediately and the shipped reader receiv
  }
 });
 
+test('English, Korean and Chinese compound acknowledgments share one utterance with the actual answer',async()=>{
+ for(const [language,full] of [
+  ['en','Sure thing—take it easy.'],['en','Of course, we can slow down!'],
+  ['ko','그럼 당연하지, 천천히 가자.'],['zh','当然可以，我们慢点骑。']
+ ]){
+  for(const soul of ['lumi','mori','bori']){
+   const t=observeOpening(soul,language);
+   for(const part of Array.from(full))await t.stream.push(part);
+   await t.finish();
+   assert.equal(t.deltas[0],Array.from(full)[0]);
+   assert.equal(t.deltas.join('').trim(),full);
+   assert.deepEqual(t.phrases,[full],soul+' '+full);
+  }
+ }
+});
+
+test('a standalone compound answer finishes immediately, and an ordinary word sharing the prefix stays intact',async()=>{
+ for(const [language,full] of [['en','Sure thing.'],['ko','그럼 당연하지!'],['zh','没问题。']]){
+  const t=observeOpening('mori',language,{setTimer:()=>1,clearTimer:()=>{}});
+  for(const part of Array.from(full))await t.stream.push(part);
+  await t.finish();
+  assert.equal(t.deltas.join('').trim(),full);
+  assert.deepEqual(t.phrases,[full]);
+ }
+ const normal=observeOpening('bori','en');
+ for(const part of ['A ','sure thing—','for me.'])await normal.stream.push(part);
+ assert.deepEqual(normal.deltas,['A ','sure thing—','for me.']);
+ const almost=observeOpening('bori','en');
+ for(const part of ['Sure',' ','thing','s are tricky.'])await almost.stream.push(part);
+ assert.deepEqual(almost.deltas,['Sure',' ','thing','s are tricky.']);
+});
+
+test('a slow compound continuation respects the wait window and flushes the exact remaining stream',async()=>{
+ let timer;
+ const t=observeOpening('bori','en',{setTimer:fn=>{timer=fn;return 1;},clearTimer:()=>{}});
+ for(const part of ['Sure',' thing','—','take'])await t.stream.push(part);
+ assert.equal(t.deltas.join(''),'Sure thing');assert.deepEqual(t.phrases,[]);
+ timer();await t.stream.push(' it easy.');await t.finish();
+ assert.equal(t.deltas.join(''),'Sure thing—take it easy.');
+ assert.deepEqual(t.phrases,['Sure thing—','take it easy.']);
+});
+
 test('ordinary starts, standalone sentences and exact recorded openings retain their original delta cadence',async()=>{
  for(const [soul,language,parts] of [
   ['mori','en',['Mm',',',' take it easy.']],['bori','en',['Oh,',' nice.']],
@@ -137,17 +179,22 @@ test('opening wait has a timer and a size bound, and pending output flushes in o
  assert.deepEqual(lost.deltas,['Yeah']);
 });
 
-test('a streaming chat and the already-shipped player claim one synthesis for the actual observed Lulu reply', {timeout:5000},async t=>{
- const text=['Yeah',',',' take',' it',' easy','.'],f=await firstSpeechFixture(t,{text}),id=randomUUID();
- const response=await f.chat(id,'en','mori');
- const full=text.join(''),captions=[],sentences=[];
- const result=await readVoiceReply(response,{soul:'mori',onText:s=>captions.push(s),onSentence:s=>sentences.push(s)});
- assert.equal(result.reply,full);assert.equal(captions[0],'Yeah');assert.deepEqual(sentences,[full]);
- await f.first.promise;f.endTts.resolve();
- const input={firstSpeechId:id,soul:'mori',language:'en',text:sentences[0]};
- assert.match(await (await f.post('/api/speech/stream',input)).text(),/"done":true/);
- assert.equal((await f.post('/api/speech',input)).status,409);
- assert.deepEqual(f.calls,[full]);
+test('streaming chat and the shipped player claim one synthesis for observed Lulu and Popo replies', {timeout:5000},async t=>{
+ for(const [soul,text] of [
+  ['mori',['Yeah',',',' take',' it',' easy','.']],
+  ['bori',['Sure',' thing','—','take',' it',' easy',', I’ve got your back','.']]
+ ]){
+  const f=await firstSpeechFixture(t,{text}),id=randomUUID();
+  const response=await f.chat(id,'en',soul);
+  const full=text.join(''),captions=[],sentences=[];
+  const result=await readVoiceReply(response,{soul,onText:s=>captions.push(s),onSentence:s=>sentences.push(s)});
+  assert.equal(result.reply,full);assert.equal(captions[0],text[0]);assert.deepEqual(sentences,[full]);
+  await f.first.promise;f.endTts.resolve();
+  const input={firstSpeechId:id,soul,language:'en',text:sentences[0]};
+  assert.match(await (await f.post('/api/speech/stream',input)).text(),/"done":true/);
+  assert.equal((await f.post('/api/speech',input)).status,409);
+  assert.deepEqual(f.calls,[full]);
+ }
 });
 
 test('first speech starts before the rest of the reply and live PCM is claimed exactly once', {timeout:5000},async t=>{
@@ -291,7 +338,7 @@ test('short speech cache keys respect exact inputs, voice configuration and fixe
  now+=5*60000;await say('Okay.');assert.equal(calls,10);
 });
 
-test('cached clips retain a delivery limit without consuming the shared daily cloud budget',async()=>{
+test('cached clip replays remain available when an explicit cloud budget is exhausted',async()=>{
  let calls=0,broken=true;
  const service=createChatService({env:{DASHSCOPE_API_KEY:'fixture',QWEN_MAX_DAILY_REQUESTS:'3'},now:()=>0,fetchImpl:async()=>{
   calls++;return response(broken?[sse(pcm)]:[sse(pcm),done]);
@@ -303,28 +350,25 @@ test('cached clips retain a delivery limit without consuming the shared daily cl
  await assert.rejects(cancelled,{code:'cancelled'});
  assert.equal(calls,2);
  await service.speechStream(input,{emit:()=>{}});assert.equal(calls,3);
- for(let n=0;n<120;n++)await service.speechStream(input,{emit:()=>{}});
- await assert.rejects(service.speechStream(input,{emit:()=>{}}),{code:'minute_limit',retryAfter:60});
+ for(let n=0;n<125;n++)await service.speechStream(input,{emit:()=>{}});
  await assert.rejects(service.speechStream({...input,text:'private phrase'},{emit:()=>{}}),{code:'daily_limit'});
  assert.equal(calls,3);
 });
 
-test('a 15-minute ride can exchange 45 spoken turns within the unchanged 200-call daily allowance',async()=>{
- let now=0,providerCalls=0;
- const service=createChatService({env:{DASHSCOPE_API_KEY:'fixture'},now:()=>now,fetchImpl:async(url)=>{
+test('all three companions can keep chatting beyond the former daily and minute budgets',async()=>{
+ let providerCalls=0;
+ const service=createChatService({env:{DASHSCOPE_API_KEY:'fixture'},now:()=>0,fetchImpl:async(url)=>{
   providerCalls++;
   return url.endsWith('/chat/completions')?Response.json({choices:[{message:{content:'Let’s ride.'}}]}):response([sse(pcm),done]);
  }});
- for(let turn=0;turn<45;turn++){
-  now=turn*20000;
-  const soul=['lumi','mori','bori'][turn%3],language=['en','ko','zh'][turn%3];
+ for(let turn=0;turn<60;turn++){
+  const soul=['lumi','mori','bori'][turn%3],language=['en','ko','zh'][Math.floor(turn/3)%3];
   const releaseAsr=service.reserveRealtime();releaseAsr();
   await service.reply({soul,language,voice:true,messages:[{role:'user',content:'Ready?'}]});
   await Promise.all(['First phrase.','Next phrase.'].map(text=>service.speechStream({soul,language,text},{emit:()=>{}})));
  }
- assert.equal(providerCalls,135);
- for(let spare=0;spare<20;spare++)service.reserveRealtime()();
- assert.throws(()=>service.reserveRealtime(),{code:'daily_limit'});
+ assert.equal(providerCalls,180);
+ assert.deepEqual(service.status().conversationLimits,{dailyRequests:null,requestsPerMinute:null,maxConcurrentRequests:8});
 });
 
 test('Lulu streams the first audible sample as soon as both PCM bytes arrive and preserves all following pauses',async()=>{

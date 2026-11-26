@@ -3,7 +3,7 @@ import {ConversationAudioSession} from './audio-session.mjs';
 import {BUILD} from './build-version.mjs';
 import {prepareStandby,StreamingTranscriber} from './asr-stream.mjs';
 import {loadSpeechDetectorFactory} from './speech-detector.mjs';
-import {isConversationLimit,conversationServiceError} from './conversation-limits.mjs';
+import {isConversationLimit,conversationServiceError,MAX_MESSAGE_LENGTH} from './conversation-limits.mjs';
 // A 150 Hz high-pass reduces mic offsets, wind rumble and mains hum.
 function createSpeechBand(rate) {
   const angle=2*Math.PI*150/rate, cos=Math.cos(angle), a0=1+Math.sin(angle)/Math.SQRT2;
@@ -171,21 +171,52 @@ export class MicrophoneInput {
 
 // An interim can shorten the pause only after local speech has already been detected.
 // An unfinished phrase retains the longer interval for a rider to take a breath.
-function previewPause(text){
+function previewPause(text,settled){
   if(/(?:\.{2,}|[…,:;，、：；—-])\s*$/u.test(text))return 0;
-  if(/[.!?。！？]["'”’」』)]*$/u.test(text))return 320;
-  if(/^(?:yes|yeah|no|okay|ok|thanks|thank you|stop|응|네|아니|고마워|그래|좋아|好|好的|谢谢|不用|对)$/iu.test(text))return 280;
-  if(/(?:습니다|습니까|니다|해요|어요|아요|예요|세요|할게|갈게|할래|있어|없어|[었았였했됐졌뒀겠]다|한다|된다|있다|없다|[吗吧呢呀啦])[~～]?$/u.test(text))return 360;
-  if(/\b(?:a|an|the|to|of|for|and|or|but|if|because|with|at|in|on|my|your|is|are|can|could|would|should)$/iu.test(text))return 0;
+  const words=text.replace(/[.!?。！？"'”’」』)]+$/u,'').trim();
+  if(/\b(?:a|an|the|to|of|for|and|or|but|if|because|with|at|in|on|my|your|is|are|can|could|would|should)$/iu.test(words)
+     ||/(?:그리고|그래서|하지만|왜냐하면|因为|但是|然后|如果|所以)$/u.test(words))return 0;
+  if(/^(?:yes|yeah|no|okay|ok|thanks|thank you|stop|응|네|아니|고마워|그래|좋아|好|好的|谢谢|不用|对)$/iu.test(text))return settled?220:280;
+  if(/[.!?。！？]["'”’」』)]*$/u.test(text))return settled?240:320;
+  if(/(?:습니다|습니까|니다|해요|어요|아요|예요|세요|할게|갈게|할래|있어|없어|[었았였했됐졌뒀겠]다|한다|된다|있다|없다|[吗吧呢呀啦])[~～]?$/u.test(text))return settled?280:360;
   // English previews often arrive without punctuation until the provider commits.
-  return /^[a-z][\w'’-]*(?:\s+[a-z][\w'’-]*){2,}$/iu.test(text)?460:0;
+  return /^[a-z][\w'’-]*(?:\s+[a-z][\w'’-]*){2,}$/iu.test(text)?(settled?380:460):0;
+}
+
+// Only forced mid-speech cuts replay audio. A normal segment boundary keeps
+// intentional repeated words, and Mandarin text does not gain artificial spaces.
+function joinSegments(left,right,overlap){
+  right=right.trim();
+  if(!left||!right)return left||right;
+  let insideWord=false;
+  if(overlap){
+    const tokens=/[\p{Script=Han}\p{Script=Hangul}]|[\p{Script=Latin}\p{N}]+(?:['’][\p{Script=Latin}]+)*/gu;
+    const end=[...left.matchAll(tokens)].slice(-12),start=[...right.matchAll(tokens)].slice(0,12);
+    for(let n=Math.min(end.length,start.length);n>0;n--){
+      const aligns=start.slice(0,n).every((word,i)=>{
+        const prior=end[end.length-n+i][0].toLowerCase(),next=word[0].toLowerCase();
+        return prior===next||(i===n-1&&/^[a-z]{3,}$/iu.test(prior)&&next.startsWith(prior));
+      });
+      if(!aligns)continue;
+      const last=start[n-1];
+      if(last[0].length>end.at(-1)[0].length)left=left.slice(0,end.at(-1).index)+last[0];
+      const remainder=right.slice(last.index+last[0].length);
+      insideWord=/\p{Script=Hangul}$/u.test(last[0])&&/^\p{Script=Hangul}/u.test(remainder);
+      right=remainder.replace(/^[\s,，、.!?。！？]+/u,'');
+      break;
+    }
+  }
+  if(!right)return left;
+  const continuous=insideWord||(/[\p{Script=Han}。，！？]$/u.test(left)&&/^\p{Script=Han}/u.test(right));
+  return left+(continuous?'':' ')+right;
 }
 
 export function createMicrophoneRecognition({input = new MicrophoneInput(), createDetector, Socket, standby=false, location = globalThis.location, fetchImpl = appFetch,
   now=Date.now, setTimer = (...args) => globalThis.setTimeout(...args), clearTimer = (...args) => globalThis.clearTimeout(...args)} = {}) {
   let streamDisabledUntil=0;
   return class MicrophoneRecognition {
-    constructor() { this.active = false; this.chunks = []; this.preroll = []; this.noise = .002; this.total = this.quiet = this.voiced = 0; this.resetCandidate(); this.startTimeoutMs=isNative()?100000:50000; }
+    constructor() { this.active = false; this.chunks = []; this.parts=[];this.confirmedText='';this.preroll = []; this.noise = .002; this.total = this.quiet = this.voiced = 0; this.resetCandidate(); this.startTimeoutMs=isNative()?100000:50000; }
+    get stream(){return this.part?.stream;}
     resetCandidate(){
       this.candidate=0;this.candidateGap=0;this.candidateMin=Infinity;this.candidateMax=0;
     }
@@ -209,7 +240,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
     resetCapture(){
       if(!this.active||this.finalizing)return;
       this.standby?.close();this.standby=null;
-      this.stream?.close();this.stream=null;this.chunks=[];this.preroll=[];this.total=this.quiet=this.voiced=0;this.filter=null;this.rate=null;
+      this.discardParts();this.chunks=[];this.preroll=[];this.total=this.quiet=this.voiced=0;this.filter=null;this.rate=null;
       this.previewEndPause=0;this.backgroundPause=0;
       this.resetCandidate();
       this.releaseDetector();this.detectorFailed=false;
@@ -223,32 +254,44 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
         this.watchCapture();
       },6000);
     }
+    beginPart(overlap=false,hasFreshSpeech=true){
+      this.part={chunks:this.chunks,rate:this.rate,overlap,hasFreshSpeech,preview:''};
+      this.parts.push(this.part);
+    }
     openStream(){
-      if(this.stream)return;
+      const part=this.part;
+      if(!part||part.stream)return;
       if(Socket&&location&&now()>=streamDisabledUntil){
         const url=speechSocketURL(location);url.searchParams.set('language',this.language());
         const preparedSocket=this.standby?.take();this.standby=null;
-        this.stream=new StreamingTranscriber({Socket,url:url.href,preparedSocket,setTimer,clearTimer,
+        part.stream=new StreamingTranscriber({Socket,url:url.href,preparedSocket,setTimer,clearTimer,
           onPartial:text=>{
-            if(!this.active||!this.speech||!text.trim())return;
-            this.previewEndPause=previewPause(text.trim());
+            if(!this.active||part!==this.part||part.sealed||!text.trim())return;
+            const earlier=part.preview.trim().toLowerCase();
+            const next=text.trim().toLowerCase();
+            const growing=earlier.length>=2&&next.length>earlier.length&&next.startsWith(earlier);
+            const settled=(growing||this.backgroundPause>=100)&&this.clearVoiceMs>=160&&this.voiced-this.lastClearVoice<=80;
+            this.previewEndPause=previewPause(text.trim(),settled);
             this.previewVoiced=this.voiced;
-            this.onresult?.({results:[{0:{transcript:text},isFinal:false}]});
+            part.preview=text;
+            this.showPreview();
+            if(this.active&&this.previewEndPause&&this.backgroundPause>=this.previewEndPause)this.stop();
           },
           onFinal:text=>{
-            this.stream=null;
-            if(!this.active||!this.finalizing)return;
-            if(text.trim())this.deliver(text);
-            else this.transcribe();
+            part.stream=null;
+            if(!this.active||!part.sealed||part.discarded)return;
+            if(text.trim())this.completePart(part,text);
+            else this.transcribe(part);
           },
           onUnavailable:(error,retryAfter)=>{
-            this.stream=null;this.backgroundPause=0;this.previewEndPause=0;
-            if(!this.active)return;
+            part.stream=null;
+            if(!this.active||part.discarded)return;
+            if(part===this.part){this.backgroundPause=0;this.previewEndPause=0;}
             // A shared limit also applies to file uploads. Let the conversation
             // wait or stop without uploading the same recording a second time.
             if(isConversationLimit(error))return this.fail(error,retryAfter);
             streamDisabledUntil=now()+(['provider_auth','not_configured'].includes(error)?60000:5000);
-            if(this.finalizing)this.transcribe();
+            if(part.sealed)this.transcribe(part);
           }});
       }
     }
@@ -308,8 +351,6 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
           this.candidateGap+=ms;
           if(this.candidateGap>60){
             this.resetCandidate();
-            this.stream?.close();
-            this.stream=null;
           }
           const floor=Math.min(rms,noiseOnly ? .0045 : .03);
           this.noise=Math.max(.001,Math.min(.025,this.noise*.96+floor*.04));
@@ -326,12 +367,15 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
           this.backgroundPause=0;this.clearVoiceMs=0;this.lastClearVoice=0;
           if(localVoice)this.voiced=Math.max(40,Math.min(120,this.voiced));
           this.total = this.chunks.reduce((n, c) => n + c.length, 0) / rate * 1000; this.onspeechstart?.();
-          if(this.active)this.openStream();
+          if(this.active){this.beginPart();this.openStream();}
           if(this.active)this.stream?.writeBuffered(this.chunks,rate);
         } else if (this.quiet > 8000 && !this.quietReported) { this.quietReported = true; this.onquiet?.(); }
         return;
       }
-      this.chunks.push(audio); this.total += ms; this.stream?.write(audio,rate);
+      this.chunks.push(audio); this.total += ms;
+      if(continuing&&!this.part.hasFreshSpeech){
+        this.part.hasFreshSpeech=true;this.openStream();this.stream?.writeBuffered(this.chunks,rate);
+      }else this.stream?.write(audio,rate);
       if(continuing&&this.quiet>=80)this.previewEndPause=0;
       this.quiet = continuing ? 0 : this.quiet + ms;
       if(continuing){
@@ -348,15 +392,54 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
       const clearEnding=this.previewEndPause>0&&this.voiced-this.previewVoiced<=160&&this.backgroundPause>=this.previewEndPause;
       const clearAudioEnd=audioOnly&&this.clearVoiceMs>=360&&this.voiced-this.lastClearVoice<=80&&this.backgroundPause>=460;
       const endPause = this.voiced <= 220 ? 360 : 540;
-      if (clearEnding || clearAudioEnd || this.quiet >= endPause || this.total >= 15000) this.stop();
+      if(clearEnding||clearAudioEnd||this.quiet>=endPause)this.stop();
+      else if((this.total>=12000&&this.backgroundPause>=180)||this.total>=14500)this.rotatePart();
+    }
+    rotatePart(){
+      // Each provider task and fallback upload remains below 15 seconds. If
+      // there is no pause, overlap the last 400 ms so a word can span the cut.
+      const carry=[];
+      let samples=0;
+      if(this.backgroundPause<180){
+        const target=Math.round(this.rate*.4);
+        for(let i=this.chunks.length-1;i>=0&&samples<target;i--){
+          const chunk=this.chunks[i],length=Math.min(chunk.length,target-samples);
+          carry.unshift(chunk.subarray(chunk.length-length));samples+=length;
+        }
+      }
+      const previous=this.part;
+      this.chunks=carry;this.total=samples/this.rate*1000;
+      this.previewEndPause=0;this.beginPart(samples>0,false);
+      this.sealPart(previous);
+    }
+    sealPart(part){
+      part.sealed=true;
+      if(!part.hasFreshSpeech)return this.completePart(part,'');
+      if(part.stream&&!part.stream.closed)return part.stream.finish();
+      return this.transcribe(part);
+    }
+    showPreview(){
+      if(this.finalizing)return;
+      const text=this.parts.reduce((acc,part)=>joinSegments(acc,part.text??part.preview,part.overlap),this.confirmedText);
+      if(text)this.onresult?.({results:[{0:{transcript:text},isFinal:false}]});
+    }
+    completePart(part,text){
+      if(!this.active||part.discarded||part.done)return;
+      part.chunks=[];part.done=true;part.text=text.trim();
+      while(this.parts[0]?.done){
+        const next=this.parts.shift();
+        this.confirmedText=joinSegments(this.confirmedText,next.text,next.overlap);
+        if(this.confirmedText.length>MAX_MESSAGE_LENGTH)return this.fail('utterance_too_long');
+      }
+      if(this.finalizing&&!this.parts.length)this.deliver(this.confirmedText);
+      else this.showPreview();
     }
     async stop() {
       if (!this.active || this.finalizing) return;
       if (!this.speech || this.voiced < 120) { this.abort(); this.onerror?.({error:'no-speech'}); return; }
       this.finalizing = true; input.detach(this); this.onspeechend?.(); this.ontranscribing?.();
       clearTimer(this.captureTimer);this.captureTimer=null;
-      if(this.stream&&!this.stream.closed){this.stream.finish();return;}
-      return this.transcribe();
+      return this.sealPart(this.part);
     }
     language(){return this.inputLanguage||({'ko-KR':'ko','en-US':'en','zh-CN':'zh'}[this.lang])||'auto';}
     deliver(text){
@@ -364,22 +447,30 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
       this.onresult?.({results:[{0:{transcript:text},isFinal:true}]});
       if(this.active){this.abort();this.onend?.();}
     }
-    async transcribe(){
-      if(!this.active||this.uploading)return;this.uploading=true;
-      const wav = encodeWav(this.chunks, this.rate); this.chunks = []; this.preroll = [];
-      this.controller = new AbortController(); this.timer = setTimer(() => this.controller?.abort(), 25000);
+    async transcribe(part){
+      if(!this.active||part.discarded||part.controller)return;
+      const wav=encodeWav(part.chunks,part.rate);
+      part.chunks=[];
+      const controller=new AbortController();part.controller=controller;
+      const timer=setTimer(()=>controller.abort(),25000);part.timer=timer;
       try {
         const response = await fetchImpl('/api/transcribe?language='+encodeURIComponent(this.language()), {
-          method:'POST',headers:{'Content-Type':'audio/wav'},signal:this.controller.signal,body:wav
+          method:'POST',headers:{'Content-Type':'audio/wav'},signal:controller.signal,body:wav
         });
-        const data = await response.json(); if (!this.active) return;
+        const data = await response.json(); if (!this.active||part.discarded) return;
         if (!response.ok) throw conversationServiceError(data,response.headers);
         if (typeof data.text !== 'string') throw new Error('invalid_response');
-        this.deliver(data.text);
-      } catch(error) { if (this.active) this.fail(error.name === 'AbortError' ? 'asr_timeout' : error.message,error.retryAfter); }
-      finally { clearTimer(this.timer); }
+        this.completePart(part,data.text);
+      } catch(error) { if (this.active&&!part.discarded) this.fail(error.name === 'AbortError' ? 'asr_timeout' : error.message,error.retryAfter); }
+      finally { clearTimer(timer); }
+    }
+    discardParts(){
+      for(const part of this.parts){
+        part.discarded=true;part.stream?.close();part.controller?.abort();clearTimer(part.timer);part.chunks=[];
+      }
+      this.parts=[];this.part=null;this.confirmedText='';
     }
     fail(error,retryAfter) { this.abort(); this.onerror?.({error,retryAfter}); }
-    abort() { this.active = false; this.standby?.close();this.standby=null;this.stream?.close();this.stream=null;this.releaseDetector();input.detach(this);this.controller?.abort();clearTimer(this.timer);clearTimer(this.captureTimer);this.captureTimer=null;this.chunks=[];this.preroll=[]; }
+    abort() { this.active = false; this.standby?.close();this.standby=null;this.discardParts();this.releaseDetector();input.detach(this);clearTimer(this.captureTimer);this.captureTimer=null;this.chunks=[];this.preroll=[]; }
   };
 }
