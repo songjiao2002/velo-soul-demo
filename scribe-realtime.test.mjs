@@ -33,6 +33,26 @@ function session(t, language = 'en') {
   return {client, upstream, url, options, get releases() { return releases; }};
 }
 
+test('Mandarin previews preserve a breath inside a time clause and leave complete and final utterances intact',t=>{
+ const {client,upstream}=session(t,'zh');
+ upstream.receive({message_type:'session_started'});
+ client.audio(Buffer.alloc(320));
+ const samples=[
+  ['我过弯以前。','我过弯以前'],['我过弯以前总。','我过弯以前总'],
+  ['出发之前。','出发之前'],['我總是。','我總是'],
+  ['我过弯以前总怕。','我过弯以前总怕。'],['我今天很开心。','我今天很开心。'],
+  ['我刚看到陈总。','我刚看到陈总。'],['我很怀念以前。','我很怀念以前。'],
+  ['我终于骑上来了！','我终于骑上来了！'],['好。','好。']
+ ];
+ for(const [raw,expected] of samples){
+  upstream.receive({message_type:'partial_transcript',text:raw});
+  assert.deepEqual(client.sent.at(-1),{type:'partial',text:expected});
+ }
+ client.receive({type:'finish'});
+ upstream.receive({message_type:'committed_transcript',text:'我过弯以前。'});
+ assert.deepEqual(client.sent.at(-1),{type:'final',text:'我过弯以前。'});
+});
+
 test('Scribe respects the selected language, revises provisional Korean and retains previously committed text', t => {
   const {client, upstream, url, options} = session(t, 'ko');
   assert.equal(url.origin, 'wss://api.elevenlabs.io');

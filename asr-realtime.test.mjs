@@ -63,6 +63,7 @@ test('3.1 streaming relay uses native PCM and language hints, revises subtitles 
  assert.equal(new URL(a.endpoint).pathname,'/api-ws/v1/inference');
  ws.send(Buffer.alloc(3200,1));await wait(()=>Buffer.isBuffer(a.upstream.sent[1]));
  const sentence=(id,text,final=false)=>a.upstream.task('result-generated',{output:{sentence:{sentence_id:id,text,sentence_end:final}}});
+ sentence(1,'我过弯以前总。');await wait(()=>events.some(e=>e.type==='partial'&&e.text==='我过弯以前总'));
  sentence(1,'你');await wait(()=>events.some(e=>e.text==='你'));
  a.upstream.task('result-generated',{output:{sentence:{heartbeat:true}}});
  sentence(1,'你好',true);sentence(1,'过期的草稿');sentence(2,'露露');

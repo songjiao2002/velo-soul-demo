@@ -1,4 +1,5 @@
 import {test} from 'node:test';
+import {interimTranscript} from './asr-preview.mjs';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import {MicrophoneInput,createMicrophoneRecognition,encodeWav} from './public/microphone-asr.mjs';
@@ -380,6 +381,15 @@ test('streaming previews shorten a clear endpoint only after acoustic silence, a
  unfinished.feed(480);assert.equal(unfinished.finished(),0);
  unfinished.feed(160,.035);unfinished.preview('I am looking for shade.');
  unfinished.feed(340);assert.equal(unfinished.finished(),1);unfinished.stop();
+ // Use the provisional captions from a ride recording with a 410 ms breath.
+ // The shipped client should keep recording, then use its ordinary quick
+ // endpoint once the rider completes the second clause.
+ const breathing=capture();breathing.feed(520,.05);
+ breathing.preview(interimTranscript('我过弯以前。','zh'));breathing.feed(200);
+ breathing.preview(interimTranscript('我过弯以前总。','zh'));breathing.feed(220);
+ assert.equal(breathing.finished(),0);
+ breathing.feed(380,.05);breathing.preview(interimTranscript('我过弯以前总怕，今天竟然敢放松一点了。','zh'));
+ breathing.feed(340);assert.equal(breathing.finished(),1);breathing.stop();
  const resumed=capture();resumed.feed(400,.04);resumed.preview('갈게');
  resumed.feed(220);resumed.feed(160,.008);resumed.feed(480);assert.equal(resumed.finished(),0,'a quiet Korean continuation invalidates the old ending');
  resumed.feed(80);assert.equal(resumed.finished(),1);resumed.stop();

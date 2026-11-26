@@ -3,6 +3,7 @@ import WebSocket,{WebSocketServer} from 'ws';
 import {randomUUID} from 'node:crypto';
 import {chatConfig,ChatError,qwenFailure} from './chat-service.mjs';
 import {relayScribeRealtime} from './scribe-realtime.mjs';
+import {interimTranscript} from './asr-preview.mjs';
 import {MAX_MESSAGE_LENGTH} from './public/conversation-limits.mjs';
 
 function terminateUpstream(socket){
@@ -150,7 +151,7 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
     : language==='ko' ? /^(?:\p{Script=Han}{1,3}|[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Latin}])$/u : null;
   let previousPreview='';
   function sendPreview(provisional){
-   const text=result();
+   const text=interimTranscript(result(),language);
    // Briefly withheld first guesses include short all-Han prefixes heard on Korean input.
    // A revised phrase or a confirmed word remains eligible in any language.
    if(text===previousPreview||(!previousPreview&&provisional&&unsettledInitial?.test(text)))return;

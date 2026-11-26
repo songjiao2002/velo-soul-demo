@@ -478,8 +478,10 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
           requestBody.messages[0].content=priorities+'\n\n'+requestBody.messages[0].content;
           if(personalDisclosure(payload)){
             const cue=emotionalVoice[payload.language];
-            const register=payload.language==='zh'?'写出的台词可以直接播。开口就接内容，把“太棒了”“我懂这种感觉”这类套话省掉。情绪放在用词和轻重里。别写景，别讲道理。':payload.language==='ko'?'이미 함께 달리는 중이다. 첫마디부터 상대가 말한 일에 반응한다. 과장된 응원이나 해결책을 덧붙이지 않는다.':'You are already riding together. Begin with the personal response, in plain speech. Avoid generic cheers, booster slogans and telling them what they must be feeling.';
-            requestBody.messages[0].content=cue[payload.soul]+' '+cue.common+' '+register+' Reply in '+LANGUAGES[payload.language]+'. Do not introduce yourself again. Follow their latest words.';
+            const register=payload.language==='zh'?'骑手来分享一件事，并没有请你教他怎么骑。听到他松了口气，你也可以跟着松口气。自己没在现场看见或听见什么，别说“我看你”“我还记得”。台词直接开口，省掉泛泛的夸奖、驾驶指导和警告。':payload.language==='ko'?'이미 함께 달리는 중이다. 첫마디부터 상대가 말한 일에 반응한다. 부탁하지 않은 조언이나 경고, 과장된 응원을 덧붙이지 않는다.':'You are already riding together. Begin with the personal response, in plain speech. They shared a moment with you. Skip unsolicited coaching, warnings and generic cheers.';
+            requestBody.temperature=.5;
+            const focus={zh:'用第一人称的视角回答：我听了骑手这件事，当下是什么感受。我只知道骑手刚才说的事。用一句陈述句把话接住，直接说台词。',en:'Take your own side of the conversation. What did hearing that detail make you feel? Give your friend that thought as a statement, in your own words.',ko:'친구가 방금 한 말을 듣고 내가 느낀 마음을 내 입장에서 말한다. 그 친구가 말해 준 것만 안다. 질문을 보태지 말고 내 말 한마디로 마친다.'};
+            requestBody.messages[0].content=cue[payload.soul]+' '+cue.common+' '+register+' Reply in '+LANGUAGES[payload.language]+'. Do not introduce yourself again. '+focus[payload.language];
           }
         }
         const turnId=!vision&&validFirstSpeechId(input.voiceTurnId)?input.voiceTurnId:null;

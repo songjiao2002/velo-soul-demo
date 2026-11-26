@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import {MAX_MESSAGE_LENGTH as maxTextLength} from './public/conversation-limits.mjs';
+import {interimTranscript} from './asr-preview.mjs';
 
 const maxAudioBytes = 512000;
 const maxBufferedBytes = 131072;
@@ -117,13 +118,13 @@ export function relayScribeRealtime(client, {language, apiKey, connect, release}
     const text = [confirmed, event.text.trim()].filter(Boolean).join(' ');
     if (text.length > maxTextLength) return fail('invalid_response');
     if (type === 'partial_transcript') {
-      send({type:'partial', text});
+      send({type:'partial', text:interimTranscript(text,language)});
       return;
     }
     if (++segments > 40) return fail('invalid_response');
     confirmed = text;
     if (!commitSent) {
-      send({type:'partial', text:confirmed});
+      send({type:'partial', text:interimTranscript(confirmed,language)});
       return;
     }
     if (send({type:'final', text:confirmed})) client.close(1000, 'Utterance complete');

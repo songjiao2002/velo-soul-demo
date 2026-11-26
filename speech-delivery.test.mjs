@@ -10,7 +10,7 @@ test('narrow first-person reactions have a distinct, verified original-voice rec
  const cases={
   zh:['我终于骑上来了！','今天有点烦，不想说原因。'],
   en:['I finally made it up that hill!', "I'm a little annoyed, don't ask me why."],
-  ko:['드디어 언덕을 올라왔어!', '오늘 좀 짜증 나, 이유는 말하고 싶지 않아.']
+  ko:['드디어 언덕을 올라왔어!', '오늘은 좀 짜증나. 이유는 말하고 싶지 않아.']
  };
  const files=new Set();
  for(const row of CHARACTER_REACTIONS){
