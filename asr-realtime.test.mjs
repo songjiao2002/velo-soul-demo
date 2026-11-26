@@ -133,7 +133,7 @@ test('realtime rejects cross-origin requests before spending quota and enforces 
 
 test('realtime cancellation releases upstream and shares the existing daily budget',async t=>{
  const a=await relay(t),ws=new WebSocket(a.url,{origin:a.origin});t.after(()=>ws.terminate());await once(ws,'open');await wait(()=>a.upstream);ws.close();await wait(()=>a.active===0);assert.equal(a.upstream.readyState,3);
- const service=createChatService({env:{DASHSCOPE_API_KEY:'test',QWEN_MAX_DAILY_REQUESTS:'1'}});const release=service.reserveRealtime();release();release();assert.throws(()=>service.reserveRealtime(),{code:'daily_limit'});
+ const service=createChatService({env:{DASHSCOPE_API_KEY:'test',QWEN_CONVERSATION_MAX_DAILY_REQUESTS:'1'}});const release=service.reserveRealtime();release();release();assert.throws(()=>service.reserveRealtime(),{code:'daily_limit'});
 });
 
 test('malformed JSON frames close only the affected connection and release quota',async t=>{

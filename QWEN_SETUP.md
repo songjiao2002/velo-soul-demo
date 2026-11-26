@@ -10,9 +10,13 @@ Railway → `velo-soul-demo` 服务 → **Variables**，设置以下变量并重
 | `QWEN_BASE_URL` | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` |
 | `QWEN_MODEL` | `qwen-plus`（文字对话） |
 | `QWEN_VISION_MODEL` | `qwen3-vl-plus`（图像理解） |
-| `QWEN_MAX_DAILY_REQUESTS` | 留空时，骑手对话可连续进行。填写整数后，所有访客共享该进程的每日云端调用预算，按 UTC 日期重置。 |
-| `QWEN_MAX_REQUESTS_PER_MINUTE` | 留空时，骑手对话不限每分钟调用数。填写整数后，所有访客共享该进程的每分钟云端调用预算。 |
+| `QWEN_MAX_DAILY_REQUESTS` | 自动观察、地点事件和骑行后记的每日云端调用预算，默认 200。 |
+| `QWEN_MAX_REQUESTS_PER_MINUTE` | 上述后台任务的每分钟云端调用预算，默认 60。 |
+| `QWEN_CONVERSATION_MAX_DAILY_REQUESTS` | 骑手主动对话的每日云端调用预算，包含语音识别、角色回复及语音合成。留空时不限次数。 |
+| `QWEN_CONVERSATION_MAX_REQUESTS_PER_MINUTE` | 骑手主动对话的每分钟云端调用预算。留空时不限次数。 |
 | `QWEN_MAX_CONCURRENT_REQUESTS` | `8`，每个服务进程同时进行的云端调用数 |
+
+后台与骑手对话分别计数，每类预算由该进程的所有访客共享。每日预算在 UTC 零点重置，每分钟预算在整分重置。填写 `0` 会暂停相应类别的云端调用。`/api/chat/status` 的 `conversationLimits` 显示骑手对话当前生效的设置，`null` 表示该时段不限次数。
 
 默认使用新加坡端点，密钥和模型权限必须匹配地域。如果控制台提供工作空间专用地址，可使用其以 `/compatible-mode/v1` 结尾的 OpenAI 兼容地址。本地可复制 `.env.example` 为 `.env` 填写；`.env` 被 Git 和 Docker 排除，服务启动时读取。
 
@@ -43,7 +47,7 @@ API Key 仅在服务端使用。文字、语音和视觉观察共享并发容量
 
 ## 使用量与验证
 
-默认情况下，文字聊天、骑手发起的看图提问、语音识别和语音合成均可连续调用。自动观察、地点事件、后记与后记翻译共用每进程每日 200 次、每分钟 60 次的后台预算。显式设置上表的每日或每分钟预算后，对应时间窗口按所有云端调用合并计数。填写 `0` 会阻止该时间窗口内的云端调用。已有部署可在 Railway Variables 将旧的次数设置留空，并通过 `/api/chat/status` 的 `conversationLimits` 核实，`null` 表示对应的次数限制已关闭。已发出的云端请求计一次，本地拒绝、待机连线及缓存回放不扣次数。阿里云的可用额度与收费取决于模型、地域及账号资格。[官方免费额度说明](https://www.alibabacloud.com/help/en/model-studio/new-free-quota)
+骑手发起的看图提问与文字聊天使用相同的对话预算。升级时可保留旧部署的后台设置，例如每天 200 次、每分钟 60 次。已发出的云端调用计一次，本地拒绝、待机连线及缓存回放不扣次数。阿里云的可用额度与收费取决于模型、地域及账号资格。[官方免费额度说明](https://www.alibabacloud.com/help/en/model-studio/new-free-quota)
 
 自动测试使用明确的模拟上游，覆盖请求、角色、语言、图片校验、停止与取消、场景防重复、GPS、配额和错误处理。真实模型、手机摄像头、语音识别、室外 GPS 和动画观感需配置密钥并在实机上验证。
 

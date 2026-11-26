@@ -29,7 +29,7 @@ test('recorder WAV resampling produces bounded PCM and server rejects remote or 
 
 test('ASR auto-detects language, keeps authorization on server and shares chat quota',async()=>{
  const transcripts=['你好，你听得到吗？','오늘 날씨가 좋아','Hello there. '.repeat(120).trim(),''];
- let calls=0;const service=createChatService({env:{...env,QWEN_MAX_DAILY_REQUESTS:'4'},fetchImpl:async(url,options)=>{
+ let calls=0;const service=createChatService({env:{...env,QWEN_CONVERSATION_MAX_DAILY_REQUESTS:'4'},fetchImpl:async(url,options)=>{
   calls++;const body=JSON.parse(options.body);assert.equal(body.model,'qwen3-asr-flash');assert.deepEqual(body.asr_options,{enable_itn:false});
   assert.equal(options.headers.Authorization,'Bearer private-test-key');assert.equal(options.redirect,'error');
   return success(transcripts[calls-1]);

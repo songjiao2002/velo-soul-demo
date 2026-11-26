@@ -173,8 +173,6 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
       return true;
     }finally{release();}
   }
-  // Optional operator budgets cover all cloud calls. By default only background
-  // observations, place events and diaries draw from the original demo budget.
   function limit(value,fallback){
     const parsed=Number(value);
     return value!=null&&String(value).trim()!==''&&Number.isSafeInteger(parsed)&&parsed>=0?parsed:fallback;
@@ -182,23 +180,26 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
   function optionalBudget(value,invalidFallback){
     return value==null||String(value).trim()===''?null:limit(value,invalidFallback);
   }
-  const maxDaily=optionalBudget(env.QWEN_MAX_DAILY_REQUESTS,200);
-  const maxMinute=optionalBudget(env.QWEN_MAX_REQUESTS_PER_MINUTE,60);
+  function budget(maxDaily,maxMinute){
+    return {maxDaily,maxMinute,day:0,dayCount:0,minute:0,minuteCount:0};
+  }
+  const backgroundBudget=budget(limit(env.QWEN_MAX_DAILY_REQUESTS,200),limit(env.QWEN_MAX_REQUESTS_PER_MINUTE,60));
+  const conversationBudget=budget(optionalBudget(env.QWEN_CONVERSATION_MAX_DAILY_REQUESTS,200),optionalBudget(env.QWEN_CONVERSATION_MAX_REQUESTS_PER_MINUTE,60));
   const cloud={active:0,maxActive:limit(env.QWEN_MAX_CONCURRENT_REQUESTS,8)};
   const cached={active:0,maxActive:12};
-  let minute=0,minuteCount=0,day=0,dayCount=0;
   function reserve({localClip=false,background=false}={}){
     const time=now(),m=Math.floor(time/60000),d=Math.floor(time/86400000),pool=localClip?cached:cloud;
-    if(m!==minute){minute=m;minuteCount=0;}
-    if(d!==day){day=d;dayCount=0;}
-    const countDay=!localClip&&(maxDaily!==null||background);
-    const countMinute=!localClip&&(maxMinute!==null||background);
-    if(countDay&&dayCount>=(maxDaily??200))throw new ChatError('daily_limit',429,Math.ceil(((d+1)*86400000-time)/1000));
-    if(countMinute&&minuteCount>=(maxMinute??60))throw new ChatError('minute_limit',429,Math.ceil(((m+1)*60000-time)/1000));
+    const budget=background?backgroundBudget:conversationBudget;
+    if(m!==budget.minute){budget.minute=m;budget.minuteCount=0;}
+    if(d!==budget.day){budget.day=d;budget.dayCount=0;}
+    const countDay=!localClip&&budget.maxDaily!==null;
+    const countMinute=!localClip&&budget.maxMinute!==null;
+    if(countDay&&budget.dayCount>=budget.maxDaily)throw new ChatError('daily_limit',429,Math.ceil(((d+1)*86400000-time)/1000));
+    if(countMinute&&budget.minuteCount>=budget.maxMinute)throw new ChatError('minute_limit',429,Math.ceil(((m+1)*60000-time)/1000));
     if(pool.active>=pool.maxActive)throw new ChatError('service_busy',429,1);
     pool.active++;
-    if(countDay)dayCount++;
-    if(countMinute)minuteCount++;
+    if(countDay)budget.dayCount++;
+    if(countMinute)budget.minuteCount++;
     let released=false;
     return ()=>{if(!released){released=true;pool.active--;}};
   }
@@ -236,7 +237,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
       return {configured:c.configured,provider:'Qwen',model:c.model,visionModel:c.visionModel,asrModel:c.asrModel,
         realtimeAsrModel:live?c.realtimeAsrModel:null,realtimeAsrModelEn:live?(scribe||c.realtimeAsrModelEn):null,
         realtimeAsrModelKo:live?(scribe||c.realtimeAsrModel):null,ttsModel:c.ttsModel,skills:SOUL_IDS,
-        conversationLimits:{dailyRequests:maxDaily,requestsPerMinute:maxMinute,maxConcurrentRequests:cloud.maxActive}};
+        conversationLimits:{dailyRequests:conversationBudget.maxDaily,requestsPerMinute:conversationBudget.maxMinute,maxConcurrentRequests:cloud.maxActive}};
     },
     async speechStream(input,{signal,emit,tone=deliveryTone(input?.text)}={}){
       const payload=validateSpeech(input),config=chatConfig(env);if(!config.configured)throw new ChatError('not_configured',503);

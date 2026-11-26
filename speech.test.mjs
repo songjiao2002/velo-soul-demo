@@ -33,7 +33,7 @@ test('cloud speech preserves persona voices across three languages and keeps cre
  assert.equal(downloads,9);
 });
 test('speech HTTP route serves non-cacheable WAV and enforces origins and shared budget',async t=>{
- const handler=createChatHandler({env:{...env,QWEN_MAX_DAILY_REQUESTS:'1'},fetchImpl:async url=>url.endsWith('/generation')?new Response(JSON.stringify({output:{audio:{url:'https://dashscope-result-sgp.oss-ap-southeast-1.aliyuncs.com/a.wav'}}})):new Response(wav)});
+ const handler=createChatHandler({env:{...env,QWEN_CONVERSATION_MAX_DAILY_REQUESTS:'1'},fetchImpl:async url=>url.endsWith('/generation')?new Response(JSON.stringify({output:{audio:{url:'https://dashscope-result-sgp.oss-ap-southeast-1.aliyuncs.com/a.wav'}}})):new Response(wav)});
  const server=http.createServer(async(req,res)=>{if(!await handler(req,res)){res.statusCode=404;res.end();}});await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>server.close(r)));const base='http://127.0.0.1:'+server.address().port;
  const send=(origin=base)=>fetch(base+'/api/speech',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(input)});
  assert.equal((await send('https://elsewhere.example')).status,403);assert.equal((await fetch(base+'/api/speech')).status,405);

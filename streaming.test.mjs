@@ -340,7 +340,7 @@ test('short speech cache keys respect exact inputs, voice configuration and fixe
 
 test('cached clip replays remain available when an explicit cloud budget is exhausted',async()=>{
  let calls=0,broken=true;
- const service=createChatService({env:{DASHSCOPE_API_KEY:'fixture',QWEN_MAX_DAILY_REQUESTS:'3'},now:()=>0,fetchImpl:async()=>{
+ const service=createChatService({env:{DASHSCOPE_API_KEY:'fixture',QWEN_CONVERSATION_MAX_DAILY_REQUESTS:'3'},now:()=>0,fetchImpl:async()=>{
   calls++;return response(broken?[sse(pcm)]:[sse(pcm),done]);
  }});
  const input={soul:'mori',language:'en',text:'Mm,'};
@@ -355,19 +355,19 @@ test('cached clip replays remain available when an explicit cloud budget is exha
  assert.equal(calls,3);
 });
 
-test('all three companions can keep chatting beyond the former daily and minute budgets',async()=>{
+test('all three companions keep listening, answering and speaking past the legacy deployment limits of 200 per day and 60 per minute',async()=>{
  let providerCalls=0;
- const service=createChatService({env:{DASHSCOPE_API_KEY:'fixture'},now:()=>0,fetchImpl:async(url)=>{
+ const service=createChatService({env:{DASHSCOPE_API_KEY:'fixture',QWEN_MAX_DAILY_REQUESTS:'200',QWEN_MAX_REQUESTS_PER_MINUTE:'60'},now:()=>0,fetchImpl:async(url)=>{
   providerCalls++;
   return url.endsWith('/chat/completions')?Response.json({choices:[{message:{content:'Let’s ride.'}}]}):response([sse(pcm),done]);
  }});
- for(let turn=0;turn<60;turn++){
+ for(let turn=0;turn<204;turn++){
   const soul=['lumi','mori','bori'][turn%3],language=['en','ko','zh'][Math.floor(turn/3)%3];
   const releaseAsr=service.reserveRealtime();releaseAsr();
   await service.reply({soul,language,voice:true,messages:[{role:'user',content:'Ready?'}]});
   await Promise.all(['First phrase.','Next phrase.'].map(text=>service.speechStream({soul,language,text},{emit:()=>{}})));
  }
- assert.equal(providerCalls,180);
+ assert.equal(providerCalls,612);
  assert.deepEqual(service.status().conversationLimits,{dailyRequests:null,requestsPerMinute:null,maxConcurrentRequests:8});
 });
 
@@ -520,7 +520,7 @@ test('SSE relay strips split WAV headers, preserves PCM, and requires provider c
  await assert.rejects(relaySpeech(response(['data: {"code":"secret-provider-error"}\n']),()=>{}));
 });
 test('stream HTTP sends the first audio before upstream completion, keeps Korean voice and applies quota/origin checks',async t=>{
- let upstream,request;const handler=createChatHandler({env:{DASHSCOPE_API_KEY:'private',QWEN_MAX_DAILY_REQUESTS:'1'},fetchImpl:async(_,options)=>{
+ let upstream,request;const handler=createChatHandler({env:{DASHSCOPE_API_KEY:'private',QWEN_CONVERSATION_MAX_DAILY_REQUESTS:'1'},fetchImpl:async(_,options)=>{
   request=JSON.parse(options.body);assert.equal(options.headers['X-DashScope-SSE'],'enable');return new Response(new ReadableStream({start(c){upstream=c;}}),{headers:{'Content-Type':'text/event-stream'}});
  }});
  const server=http.createServer(async(req,res)=>{if(!await handler(req,res))res.end();});await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>{server.close(r);server.closeAllConnections();}));const base='http://127.0.0.1:'+server.address().port;

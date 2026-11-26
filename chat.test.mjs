@@ -133,7 +133,7 @@ test('service activation and free-quota errors are not reported as invalid keys'
  }
 });
 test('shared budget caps upstream requests and resets on the next UTC day',async()=>{
- let clock=1800000000000,calls=0;const service=createChatService({env:{...env,QWEN_MAX_DAILY_REQUESTS:'2'},now:()=>clock,fetchImpl:async()=>{calls++;return success();}});
+ let clock=1800000000000,calls=0;const service=createChatService({env:{...env,QWEN_CONVERSATION_MAX_DAILY_REQUESTS:'2'},now:()=>clock,fetchImpl:async()=>{calls++;return success();}});
  await service.reply(input());await service.reply(input());await assert.rejects(service.reply(input()),{code:'daily_limit'});assert.equal(calls,2);
  clock+=86400000;await service.reply(input());assert.equal(calls,3);
 });
@@ -150,14 +150,14 @@ test('default background budgets stay separate from conversations and optional d
   service.reserveRealtime()();
  }
  for(const [value,limit] of [['',null],['0',0],['7',7],['invalid',200]]){
-  const configured=createChatService({env:{...env,QWEN_MAX_DAILY_REQUESTS:value}});
+  const configured=createChatService({env:{...env,QWEN_CONVERSATION_MAX_DAILY_REQUESTS:value}});
   assert.equal(configured.status().conversationLimits.dailyRequests,limit);
   if(limit===0)assert.throws(()=>configured.reserveRealtime(),{code:'daily_limit'});
  }
 });
 test('concurrency pressure and a short rate window do not consume daily budget on refusal',()=>{
  let time=Date.UTC(2026,0,1,0,0,32);
- const service=createChatService({env:{...env,QWEN_MAX_CONCURRENT_REQUESTS:'1',QWEN_MAX_REQUESTS_PER_MINUTE:'2',QWEN_MAX_DAILY_REQUESTS:'3'},now:()=>time});
+ const service=createChatService({env:{...env,QWEN_MAX_CONCURRENT_REQUESTS:'1',QWEN_CONVERSATION_MAX_REQUESTS_PER_MINUTE:'2',QWEN_CONVERSATION_MAX_DAILY_REQUESTS:'3'},now:()=>time});
  const first=service.reserveRealtime();
  assert.throws(()=>service.reserveRealtime(),{code:'service_busy',retryAfter:1});
  first();first();
@@ -165,6 +165,21 @@ test('concurrency pressure and a short rate window do not consume daily budget o
  assert.throws(()=>service.reserveRealtime(),{code:'minute_limit',retryAfter:28});
  time+=28000;service.reserveRealtime()();
  assert.throws(()=>service.reserveRealtime(),{code:'daily_limit',retryAfter:86340});
+});
+test('explicit rider and background budgets count separately while sharing cloud concurrency',async()=>{
+ let time=Date.UTC(2026,0,1);
+ const service=createChatService({env:{...env,QWEN_MAX_CONCURRENT_REQUESTS:'1',QWEN_MAX_REQUESTS_PER_MINUTE:'2',QWEN_MAX_DAILY_REQUESTS:'3',
+  QWEN_CONVERSATION_MAX_REQUESTS_PER_MINUTE:'1',QWEN_CONVERSATION_MAX_DAILY_REQUESTS:'2'},now:()=>time,fetchImpl:async()=>success()});
+ const event={...input(),event:{placeId:'daelim-changgo',source:'gps'}};
+ const release=service.reserveRealtime();await assert.rejects(service.reply(event),{code:'service_busy'});release();
+ await assert.rejects(service.reply(input()),{code:'minute_limit'});
+ await service.reply(event);await service.reply(event);await assert.rejects(service.reply(event),{code:'minute_limit'});
+ time+=60000;await service.reply(input());await assert.rejects(service.reply(input()),{code:'daily_limit'});
+ await service.reply(event);await assert.rejects(service.reply(event),{code:'daily_limit'});
+ time+=86400000;await service.reply(event);await service.reply(input());
+ const disabled=createChatService({env:{...env,QWEN_MAX_DAILY_REQUESTS:'1',QWEN_CONVERSATION_MAX_REQUESTS_PER_MINUTE:'0'},fetchImpl:async()=>success()});
+ assert.equal(disabled.status().conversationLimits.requestsPerMinute,0);
+ await assert.rejects(disabled.reply(input()),{code:'minute_limit'});await disabled.reply(event);
 });
 test('a token throughput rejection returns the upstream retry interval with no private details',async t=>{
  const handler=createChatHandler({env,fetchImpl:async()=>Response.json({error:{code:'insufficient_quota',message:'private account detail'}},{status:429,headers:{'retry-after':'7'}})});

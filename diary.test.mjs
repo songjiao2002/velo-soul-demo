@@ -44,9 +44,12 @@ test('diary rejects external images, oversized context and malformed or truncate
  for(const payload of ['not-json',JSON.stringify({title:'x',body:''}),JSON.stringify({title:'x'.repeat(81),body:'x'})])await assert.rejects(createChatService({env,fetchImpl:async()=>Response.json({choices:[{message:{content:payload}}]})}).diary(input()),{code:'invalid_response'});
  await assert.rejects(createChatService({env,fetchImpl:async()=>Response.json({choices:[{finish_reason:'length',message:{content:'{"title":"x","body":"unfinished"}'}}]})}).diary(input()),{code:'invalid_response'});
 });
-test('diary shares the existing demo budget and cancellation and does not leak upstream errors',async()=>{
- const service=createChatService({env:{...env,QWEN_MAX_DAILY_REQUESTS:'1'},fetchImpl:async()=>answer()});await service.diary({...input('lumi','en'),photos:[],conversation:[],observations:[],sourceDiary:{title:'Original',body:'Original words.'}});
- await assert.rejects(service.reply({soul:'lumi',language:'en',messages:[{role:'user',content:'Hello'}]}),{code:'daily_limit'});
+test('diary uses the background budget independently of conversations and handles cancellation and upstream errors',async()=>{
+ const service=createChatService({env:{...env,QWEN_MAX_DAILY_REQUESTS:'1'},fetchImpl:async()=>answer()});
+ const diary={...input('lumi','en'),photos:[],conversation:[],observations:[],sourceDiary:{title:'Original',body:'Original words.'}};
+ await service.diary(diary);
+ await assert.rejects(service.diary(diary),{code:'daily_limit'});
+ await service.reply({soul:'lumi',language:'en',messages:[{role:'user',content:'Hello'}]});
  await assert.rejects(createChatService({env,fetchImpl:async()=>new Response('diary-test-secret',{status:401})}).diary(input()),e=>e.code==='provider_auth'&&!e.message.includes('diary-test-secret'));
  const aborted=new AbortController();aborted.abort();await assert.rejects(createChatService({env,fetchImpl:async(_,options)=>{options.signal.throwIfAborted();}}).diary(input(),{signal:aborted.signal}),{code:'cancelled'});
 });
