@@ -142,6 +142,27 @@ test('short spoken disclosures keep their own character and history, while quest
   assert.match(sent.messages[0].content,/When the rider asks a practical question/);
  }
 });
+test('all conversational model prompts distinguish a feeling from an unreported bicycle action',async()=>{
+ const image='data:image/jpeg;base64,'+Buffer.from([255,216,255,224,0,2,255,217]).toString('base64');
+ for(const [soul,language,words,action] of [
+  ['lumi','zh','我过弯以前总怕，今天竟然敢放松一点了。',/只有骑手明确说自己松手、刹车/],
+  ['mori','ko','오늘은 친구 일 때문에 속상했어.',/손을 놓거나 브레이크를 잡는.*직접 그 행동을 했다고/],
+  ['bori','en','I feel sad about losing that old cap.',/let go of the handlebars, braked,.*only if they explicitly said/]
+ ]){
+  let messages;
+  const name={lumi:'Mori',mori:'Lulu',bori:'Popo'}[soul];
+  const service=createChatService({env,fetchImpl:async(_,options)=>{messages=JSON.parse(options.body).messages;return success();}});
+  for(const [extra,text] of [[{voice:true},words],[{voice:true},name+'?'],[{},words],[{voice:true,image},words]]){
+   await service.reply({soul,language,...extra,messages:[{role:'user',content:text}]});
+   assert.equal(messages[0].role,'system');
+   assert.match(messages[0].content.split('\n')[0],action);
+   assert.ok(messages[0].content.includes(name));
+   const actual=messages.at(-1).content;
+   assert.equal(Array.isArray(actual)?actual[0].text:actual,text);
+  }
+ }
+});
+
 test('location events use the server catalog and explicitly distinguish simulations',async()=>{
  const systems=[];const service=createChatService({env,fetchImpl:async(_,options)=>{systems.push(JSON.parse(options.body).messages[0].content);return success();}});
  for(const source of ['gps','simulation'])await service.reply({...input('bori'),event:{placeId:'daelim-changgo',source,name:'Invented Store',lat:1.23456789}});

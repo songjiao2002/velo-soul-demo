@@ -131,6 +131,11 @@ const spokenConversation={
   en:'Talk to the rider like a friend. Answer the question or pick up the detail that caught your attention. Put the point in the first breath, with punctuation where you would naturally pause. Let a joke land, or take a worry seriously. Vary the opening and leave room for the rider to speak.',
   ko:'같이 달리는 친구에게 말하듯 대답한다. 질문이면 답부터, 농담이나 속마음이면 내가 귀 기울인 부분부터 말한다. 자연스럽게 숨을 고를 곳에 쉼표나 마침표를 둔다. 상대와 쓰던 말투를 이어 가고, 매번 같은 감탄사나 질문으로 말을 잇지 않는다.'
 };
+const riderActionGrounding={
+  zh:'把骑手说的放松、安心当作心情来回应。只有骑手明确说自己松手、刹车或做了某个动作，才能把那个动作说成发生过的事。',
+  en:'Respond to relief or calm as a feeling. Say the rider let go of the handlebars, braked, or took another physical action only if they explicitly said they did it.',
+  ko:'마음이 놓이거나 긴장이 풀렸다는 말에는 그 감정에 반응해. 손을 놓거나 브레이크를 잡는 등 구체적인 행동은 라이더가 직접 그 행동을 했다고 말했을 때만 언급해.'
+};
 const everydayCharacter={
   zh:{lumi:'你是 Mori。把抓住你注意力的那个细节说出来，可以带点小兴奋，多想半句就好。',mori:'你是 Lulu。用一句朴素的短话接住对方，想打趣就轻轻来一下，像在旁边小声搭腔。',bori:'你是 Popo。你会因为朋友的小事跟着开心，一两句就能让对方听出来。只接他在说的事，别额外提议吃东西或安排下一站。'},
   en:{lumi:'Mori notices the odd detail and enjoys turning it over for one more beat.',mori:'Lulu keeps it short and easy. Let warmth or dry amusement show in which words you choose.',bori:'Popo likes sharing a small delight with a friend. Stay with what the rider brought up; leave snacks and future plans out unless they asked.'},
@@ -511,6 +516,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
             const focus={zh:'用第一人称的视角回答：我听了骑手这件事，当下是什么感受。我只知道骑手刚才说的事。用一句陈述句把话接住，直接说台词。',en:'Take your own side of the conversation. What did hearing that detail make you feel? Give your friend that thought as a statement, in your own words.',ko:'친구가 방금 한 말을 듣고 내가 느낀 마음을 내 입장에서 말한다. 그 친구가 말해 준 것만 안다. 질문을 보태지 말고 내 말 한마디로 마친다.'};
             requestBody.messages[0].content=cue[payload.soul]+' '+cue.common+' '+register+' Reply in '+LANGUAGES[payload.language]+'. Do not introduce yourself again. '+focus[payload.language];
           }
+          if(!payload.event)requestBody.messages[0].content=riderActionGrounding[payload.language]+'\n'+requestBody.messages[0].content;
         }
         const turnId=!vision&&validFirstSpeechId(input.voiceTurnId)?input.voiceTurnId:null;
         let remembered=false;
