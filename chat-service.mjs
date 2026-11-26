@@ -1,3 +1,4 @@
+import {createRecognitionDrafts} from './recognition-drafts.mjs';
 import {createVoiceSentenceReader,readProviderChat} from './public/chat-stream.mjs';
 import {getFastOpeningSource} from './public/fast-openings.mjs';
 import {CHAT_REQUEST_BYTES} from './public/conversation-limits.mjs';
@@ -330,11 +331,11 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
         realtimeAsrModelKo:live?(scribe||c.realtimeAsrModel):null,realtimeAsrModelZh:live?(scribe||c.realtimeAsrModel):null,ttsModel:c.ttsModel,skills:SOUL_IDS,
         conversationLimits:{dailyRequests:conversationBudget.maxDaily,requestsPerMinute:conversationBudget.maxMinute,maxConcurrentRequests:cloud.maxActive}};
     },
-    async speechStream(input,{signal,emit,tone=speechDelivery(input)}={}){
+    async speechStream(input,{signal,emit,tone=speechDelivery(input),firstReply=false}={}){
       const payload=validateSpeech(input),config=chatConfig(env);if(!config.configured)throw new ChatError('not_configured',503);
       const recording=recordedAudio(input);
       if(recording)return deliverAudio(recording.subarray(44),signal,emit);
-      const request=speechRequest(payload,config,tone),key=commonSpeechKey(input,request,config,'pcm',tone);
+      const request=speechRequest(payload,config,tone),key=commonSpeechKey(input,request,config,firstReply?'pcm-first':'pcm',tone);
       if(key&&await replayClip(key,signal,emit))return;
       return complete(request,config,signal,{speech:true,stream:true,readResponse:async(response,requestSignal)=>{
         let recording=key?Buffer.allocUnsafe(maxClipBytes):null,size=0;
@@ -346,7 +347,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
           if(size+bytes.length>maxClipBytes){recording=null;return;}
           bytes.copy(recording,size);size+=bytes.length;
         };
-        await relaySpeech(response,key?capture:emit,{trimPadding:true,tone,soul:payload.soul,providerError:qwenFailure});
+        await relaySpeech(response,key?capture:emit,{trimPadding:true,firstReply,tone,soul:payload.soul,providerError:qwenFailure});
         requestSignal.throwIfAborted();
         if(recording&&size%2===0)rememberClip(key,recording.subarray(0,size));
       }});
@@ -542,6 +543,72 @@ export async function readChatBody(req,limit=32768){
 export function createChatHandler(options={}){
   const service=createChatService(options);
   const firstSpeech=new FirstSpeechStreams(service.speechStream,{deliveryMs:options.timeoutMs,timeoutError:()=>new ChatError('timeout',504)});
+  async function streamVoice(payload,signal,emit,plain=true){
+    let leadText='',scan,cancelFirst,inlineText,inlineAudio;
+    const inline=payload.inlineFirstSpeech===true&&validFirstSpeechId(payload.firstSpeechId)&&payload.firstSpeechId===payload.voiceTurnId&&plain;
+    const stopInline=inline?new AbortController():null;
+    // New clients receive the first voice on this same response. A draft
+    // may already have real audio buffered by the time ASR confirms it.
+    const startInline=async()=>{
+      if(!inlineText||inlineAudio||stopInline.signal.aborted)return;
+      const text=inlineText;
+      await emit({type:'first_voice',text});
+      const input={soul:payload.soul,language:payload.language,text,voiceTurnId:payload.voiceTurnId};
+      const audioSignal=AbortSignal.any([signal,stopInline.signal,AbortSignal.timeout(options.timeoutMs||30000)]);
+      inlineAudio=service.speechStream(input,{signal:audioSignal,firstReply:true,emit:async frame=>{
+        if(frame.done)return emit({type:'voice',done:true},audioSignal);
+        // Keep lines small enough for cellular streams and older WebViews.
+        for(let at=0;at<frame.audio.length;at+=32768)await emit({type:'voice',audio:frame.audio.slice(at,at+32768),rate:frame.rate},audioSignal);
+      }}).catch(async error=>{
+        if(signal.aborted||stopInline.signal.aborted)return;
+        if(audioSignal.aborted){await emit({type:'voice',failed:true,failure:{error:'timeout',status:504}});return;}
+        const failure=error instanceof ChatError?{error:error.code,status:error.status,retryAfter:error.retryAfter}:undefined;
+        await emit({type:'voice',failed:true,failure},signal);
+      });
+      inlineAudio.catch(()=>{});
+    };
+    if(plain&&validFirstSpeechId(payload.firstSpeechId)){
+      scan=createVoiceSentenceReader(payload.soul,text=>{
+        if(!scan)return;
+        scan=null;
+        // Keep the existing normal path for offline clips and for phrases
+        // the player would split or strip before requesting synthesis.
+        const usesRecordedOpener=!validFirstSpeechId(payload.voiceTurnId)&&getFastOpeningSource(text,payload);
+        if(text.length>540||/[\p{Extended_Pictographic}\uFE0F]/u.test(text)||usesRecordedOpener||!service.canStartFirstSpeech())return;
+        const tone=deliveryTone(text,payload.messages?.at(-1)?.content);
+        if(inline)inlineText=text;
+        else cancelFirst=firstSpeech.start(payload.firstSpeechId,{soul:payload.soul,language:payload.language,text},signal,tone);
+      },{joinReactions:validFirstSpeechId(payload.voiceTurnId)});
+    }
+    const opening=createVoiceOpeningStream(payload,async text=>{
+      if(scan){leadText+=text;scan(leadText);}
+      if(inline)await startInline();
+      return emit({type:'delta',text});
+    },{signal:signal});
+    const spokenLead=createSpokenLead(payload,text=>opening.push(text));
+    try{
+      const reply=await service.reply(payload,{signal:signal,onDelta:async(text,delivery)=>{
+        if(!delivery?.recorded)return spokenLead.push(text);
+        // One complete sentence per recording. Whitespace gives deployed
+        // English readers the lookahead needed to recognize a final dot.
+        scan=null;
+        if(inline){inlineText=text;await startInline();}
+        return emit({type:'delta',text:text+' '});
+      }});
+      await spokenLead.finish();
+      reply.reply=spokenLead.reply(reply.reply);
+      await opening.finish();
+      if(scan&&leadText.trim()===reply.reply.trim())scan(leadText,true);
+      if(inline)await startInline();
+      await emit({type:'complete',...reply});
+      if(inlineAudio)await inlineAudio;
+    }catch(error){
+      cancelFirst?.();stopInline?.abort();scan=null;
+      if(!signal.aborted)await opening.finish(false);
+      throw error;
+    }finally{opening.stop();}
+  }
+  const drafts=createRecognitionDrafts(streamVoice,service.canStartFirstSpeech);
   const handler=async (req,res)=>{
     const url=new URL(req.url,'http://localhost'),pathname=url.pathname;
     if(!['/api/diary','/api/chat','/api/chat/scene','/api/chat/status','/api/vision','/api/transcribe','/api/speech','/api/speech/stream'].includes(pathname))return false;
@@ -569,70 +636,14 @@ export function createChatHandler(options={}){
         res.end();
       }
       else if(['/api/chat','/api/chat/scene'].includes(pathname)&&payload.voice===true&&req.headers.accept?.includes('application/x-ndjson')){
-        let leadText='',scan,cancelFirst,inlineText,inlineAudio;
-        const inline=payload.inlineFirstSpeech===true&&validFirstSpeechId(payload.firstSpeechId)&&payload.firstSpeechId===payload.voiceTurnId&&pathname==='/api/chat';
-        const stopInline=inline?new AbortController():null;
-        // New clients receive the first voice on this same response. A draft
-        // may already have real audio buffered by the time ASR confirms it.
-        const startInline=async()=>{
-          if(!inlineText||inlineAudio||stopInline.signal.aborted)return;
-          const text=inlineText;
-          await emit({type:'first_voice',text});
-          const input={soul:payload.soul,language:payload.language,text,voiceTurnId:payload.voiceTurnId};
-          const signal=AbortSignal.any([controller.signal,stopInline.signal,AbortSignal.timeout(options.timeoutMs||30000)]);
-          inlineAudio=service.speechStream(input,{signal,emit:async frame=>{
-            if(frame.done)return emit({type:'voice',done:true},signal);
-            // Keep lines small enough for cellular streams and older WebViews.
-            for(let at=0;at<frame.audio.length;at+=32768)await emit({type:'voice',audio:frame.audio.slice(at,at+32768),rate:frame.rate},signal);
-          }}).catch(async error=>{
-            if(controller.signal.aborted||stopInline.signal.aborted)return;
-            if(signal.aborted){res.destroy();return;}
-            const failure=error instanceof ChatError?{error:error.code,status:error.status,retryAfter:error.retryAfter}:undefined;
-            await emit({type:'voice',failed:true,failure},signal);
-          });
-          inlineAudio.catch(()=>{});
-        };
-        if(pathname==='/api/chat'&&validFirstSpeechId(payload.firstSpeechId)){
-          scan=createVoiceSentenceReader(payload.soul,text=>{
-            if(!scan)return;
-            scan=null;
-            // Keep the existing normal path for offline clips and for phrases
-            // the player would split or strip before requesting synthesis.
-            const usesRecordedOpener=!validFirstSpeechId(payload.voiceTurnId)&&getFastOpeningSource(text,payload);
-            if(text.length>540||/[\p{Extended_Pictographic}\uFE0F]/u.test(text)||usesRecordedOpener||!service.canStartFirstSpeech())return;
-            const tone=deliveryTone(text,payload.messages?.at(-1)?.content);
-            if(inline)inlineText=text;
-            else cancelFirst=firstSpeech.start(payload.firstSpeechId,{soul:payload.soul,language:payload.language,text},controller.signal,tone);
-          },{joinReactions:validFirstSpeechId(payload.voiceTurnId)});
+        const draft=pathname==='/api/chat'&&payload.recognitionDraft&&drafts.take(payload);
+        if(payload.recognitionDraft){
+          res.setHeader('X-Velo-ASR-Draft',draft?'hit':'miss');
+          if(!draft)throw new ChatError('stale_recognition_draft',409);
         }
-        const opening=createVoiceOpeningStream(payload,async text=>{
-          if(scan){leadText+=text;scan(leadText);}
-          if(inline)await startInline();
-          return emit({type:'delta',text});
-        },{signal:controller.signal});
-        const spokenLead=createSpokenLead(payload,text=>opening.push(text));
-        try{
-          const reply=await service.reply(payload,{signal:controller.signal,onDelta:async(text,delivery)=>{
-            if(!delivery?.recorded)return spokenLead.push(text);
-            // One complete sentence per recording. Whitespace gives deployed
-            // English readers the lookahead needed to recognize a final dot.
-            scan=null;
-            if(inline){inlineText=text;await startInline();}
-            return emit({type:'delta',text:text+' '});
-          }});
-          await spokenLead.finish();
-          reply.reply=spokenLead.reply(reply.reply);
-          await opening.finish();
-          if(scan&&leadText.trim()===reply.reply.trim())scan(leadText,true);
-          if(inline)await startInline();
-          await emit({type:'complete',...reply});
-          if(inlineAudio)await inlineAudio;
-          res.end();
-        }catch(error){
-          cancelFirst?.();stopInline?.abort();scan=null;
-          if(!controller.signal.aborted)await opening.finish(false);
-          throw error;
-        }finally{opening.stop();}
+        if(draft)await draft.deliver(emit,controller.signal);
+        else await streamVoice(payload,controller.signal,emit,pathname==='/api/chat');
+        res.end();
       }
       else if(speech){
         const wave=createSpeechWave();
@@ -655,5 +666,6 @@ export function createChatHandler(options={}){
     return true;
   };
   handler.reserveRealtime=service.reserveRealtime;
+  handler.createRecognitionDraft=drafts.session;
   return handler;
 }

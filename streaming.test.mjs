@@ -337,8 +337,14 @@ test('first speech starts before the rest of the reply and live PCM is claimed e
  const input={firstSpeechId:id,text:'Breezy!',soul:'bori',language:'en'};
  const pending=await f.post('/api/speech/stream',input);
  const reader=pending.body.getReader();
- const first=JSON.parse(new TextDecoder().decode((await reader.read()).value).trim());
- assert.equal(first.audio,wav.subarray(44).toString('base64'));
+ const decoder=new TextDecoder(),parts=[];let buffered='',received=0;
+ while(received<wav.length-44){
+  const chunk=await reader.read();assert.equal(chunk.done,false);
+  buffered+=decoder.decode(chunk.value,{stream:true});
+  const lines=buffered.split('\n');buffered=lines.pop();
+  for(const line of lines){const pcm=Buffer.from(JSON.parse(line).audio,'base64');parts.push(pcm);received+=pcm.length;}
+ }
+ assert.deepEqual(Buffer.concat(parts),wav.subarray(44));
  assert.equal((await f.post('/api/speech/stream',input)).status,409);
  f.endTts.resolve();f.endChat.resolve();
  assert.match(new TextDecoder().decode((await reader.read()).value),/"done":true/);

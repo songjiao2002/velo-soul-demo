@@ -13,7 +13,7 @@ function scribeError(type) {
 }
 
 // One client connection represents one locally delimited utterance.
-export function relayScribeRealtime(client, {language, apiKey, connect, release}) {
+export function relayScribeRealtime(client, {language, apiKey, connect, release, draft}) {
   let upstream;
   let ready = false;
   let closed = false;
@@ -30,6 +30,7 @@ export function relayScribeRealtime(client, {language, apiKey, connect, release}
   function cleanup() {
     if (closed) return;
     closed = true;
+    draft?.close();
     clearTimeout(readyTimer);
     clearTimeout(lifeTimer);
     queue.length = 0;
@@ -41,6 +42,10 @@ export function relayScribeRealtime(client, {language, apiKey, connect, release}
       client.terminate();
       cleanup();
       return false;
+    }
+    if(draft){
+      if(event.type==='ready')event.prepareReply=true;
+      else if(audioBytes>=5120&&(event.type==='partial'||event.type==='final'))event.draftId=draft.transcript(event.text,event.type==='final');
     }
     client.send(JSON.stringify(event));
     return true;
@@ -80,6 +85,7 @@ export function relayScribeRealtime(client, {language, apiKey, connect, release}
     }
     let command;
     try { command = JSON.parse(raw); } catch { return fail('invalid_request'); }
+    if(command?.type==='reply_context'&&draft&&!finishing){draft.configure(command);return;}
     if (command?.type !== 'finish' || finishing || !audioBytes) return fail('invalid_request');
     finishing = true;
     commitIfReady();

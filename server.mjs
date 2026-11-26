@@ -137,7 +137,7 @@ export const server = http.createServer(async (req, res) => {
   }
 });
 
-attachRealtimeAsr(server,{reserve:handleChat.reserveRealtime});
+attachRealtimeAsr(server,{reserve:handleChat.reserveRealtime,createDraft:handleChat.createRecognitionDraft});
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const port=Number(process.env.PORT || 3000);

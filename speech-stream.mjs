@@ -41,9 +41,9 @@ function lastSound(pcm){
  }
  return -1;
 }
-function trimLength(first){return Math.max(0,first-keepLead);}
+function trimLength(first,margin=keepLead){return Math.max(0,first-margin);}
 
-function speechLead(){
+function speechLead(firstReply){
  const prefix=Buffer.allocUnsafe(maxLead);
  let length=0,started=false;
  return {
@@ -51,18 +51,20 @@ function speechLead(){
    if(started||!pcm.length)return pcm;
    const previous=length,added=pcm.copy(prefix,length,0,Math.min(pcm.length,maxLead-length));
    length+=added;
+   // At the start of a reply, keep even faint breaths (-66 dBFS) plus
+   // 12 ms of their attack. Later phrases retain the ordinary 80 ms margin.
    const first=firstSound(prefix.subarray(0,length),previous-previous%2);
    if(first<0&&length<maxLead)return Buffer.alloc(0);
    started=true;
-   const lead=prefix.subarray(trimLength(first<0?maxLead:first),length);
+   const lead=prefix.subarray(trimLength(first<0?maxLead:first,firstReply?12*bytesPerMs:keepLead),length);
    return added===pcm.length?lead:Buffer.concat([lead,pcm.subarray(added)]);
   },
   finish(){return started?Buffer.alloc(0):prefix.subarray(0,length);}
  };
 }
 
-function speechEdges(){
- const lead=speechLead();
+function speechEdges(firstReply){
+ const lead=speechLead(firstReply);
  let odd=null,heard=false,grace=keepTail,quiet=[],head=0,held=0;
  function release(count,out){
   while(count>0){
@@ -205,22 +207,28 @@ export function trimSpeechWave(wave,{tone='neutral',soul='lumi'}={}){
 
 // Provider SSE stays on the server. Only bounded PCM and an explicit completion
 // marker reach the browser; credentials, provider URLs and errors never do.
-export async function relaySpeech(response,emit,{trimPadding=false,tone='neutral',soul='lumi',providerError=()=>new Error('provider_stream_error')}={}){
+export async function relaySpeech(response,emit,{trimPadding=false,firstReply=false,tone='neutral',soul='lumi',providerError=()=>new Error('provider_stream_error')}={}){
  if(!response.body||!response.headers.get('content-type')?.includes('text/event-stream'))throw new Error('invalid_stream');
- const edges=trimPadding?speechEdges():null,delivery=speechTone(tone,soul);
- async function sendPcm(pcm){
+ const edges=trimPadding?speechEdges(firstReply):null,delivery=speechTone(tone,soul);
+ let started=false,heldHead=Buffer.alloc(0);
+ async function sendPcm(pcm,partial=false){
+  if(heldHead.length){pcm=pcm?.length?Buffer.concat([heldHead,pcm]):heldHead;heldHead=Buffer.alloc(0);}
   if(!pcm?.length)return;
+  // A TCP fragment containing just a consonant is not a useful playout
+  // buffer. Only advance playback across a partial record with some runway.
+  if(partial&&!started&&pcm.length<120*bytesPerMs){heldHead=pcm;return;}
   if(delivery)pcm=delivery.push(pcm);
-  if(pcm.length)await emit({audio:pcm.toString('base64'),rate:24000});
+  if(pcm.length){
+   // A complete SSE record can hold hundreds of milliseconds. Send a small
+   // independent playable frame first; the rest follows immediately.
+   const head=firstReply&&!started?Math.min(pcm.length,48*bytesPerMs):pcm.length;
+   started=true;
+   await emit({audio:pcm.subarray(0,head).toString('base64'),rate:24000});
+   if(head<pcm.length)await emit({audio:pcm.subarray(head).toString('base64'),rate:24000});
+  }
  }
- const decoder=new TextDecoder();let pending='',header=Buffer.alloc(0),ready=false,done=false,total=0;
- async function line(value){
-  if(!value.startsWith('data:'))return;
-  const raw=value.slice(5).trim();if(!raw||raw==='[DONE]')return;
-  const data=JSON.parse(raw);if(data.code||data.error)throw providerError(data);
-  const encoded=data.output?.audio?.data;
-  if(encoded){
-   if(done||typeof encoded!=='string'||encoded.length>6000000||!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded))throw new Error('invalid_audio');
+ const decoder=new TextDecoder();let pending='',header=Buffer.alloc(0),ready=false,done=false,total=0,readChars=0;
+ async function consume(encoded,partial=false){
    let pcm=Buffer.from(encoded,'base64');total+=pcm.length;if(total>4000000)throw new Error('invalid_audio');
    if(!ready){
     header=Buffer.concat([header,pcm]);if(header.length<12)return;
@@ -241,9 +249,35 @@ export async function relaySpeech(response,emit,{trimPadding=false,tone='neutral
     ready=true;header=Buffer.alloc(0);
    }
    if(edges)pcm=edges.push(pcm);
-   await sendPcm(pcm);
+   await sendPcm(pcm,partial);
+ }
+ async function line(value){
+  if(!value.startsWith('data:'))return;
+  const raw=value.slice(5).trim();if(!raw||raw==='[DONE]')return;
+  const data=JSON.parse(raw);if(data.code||data.error)throw providerError(data);
+  const encoded=data.output?.audio?.data;
+  if(encoded){
+   if(done||typeof encoded!=='string'||encoded.length>6000000||!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)||encoded.length<readChars)throw new Error('invalid_audio');
+   if(encoded.length>readChars)await consume(encoded.slice(readChars));
+   else if(heldHead.length)await sendPcm();
   }
+  else if(readChars)throw new Error('invalid_audio');
+  readChars=0;
   if(data.output?.finish_reason==='stop')done=true;
+ }
+ // For the provider's unambiguous, canonical audio-first SSE envelope the
+ // front of a Base64 string is final as soon as four characters arrive.
+ // Unfamiliar JSON layouts still take the complete-record path.
+ const audioStart=/^data:\s*\{\s*"output"\s*:\s*\{\s*"audio"\s*:\s*\{\s*"data"\s*:\s*"/u;
+ async function preview(){
+  const start=audioStart.exec(pending)?.[0].length;
+  if(!start)return;
+  const index=start+readChars;
+  const groups=/^[A-Za-z0-9+/]+/u.exec(pending.slice(index))?.[0]||'';
+  const available=groups.length-groups.length%4;
+  if(available<128)return;
+  readChars+=available;
+  await consume(groups.slice(0,available),true);
  }
  for await(const chunk of response.body){
   pending+=decoder.decode(chunk,{stream:true});if(pending.length>6000000)throw new Error('invalid_stream');
@@ -251,6 +285,7 @@ export async function relaySpeech(response,emit,{trimPadding=false,tone='neutral
   // The protocol's finish marker is authoritative. Release the connection and
   // shared request slot without waiting for a slow upstream socket to close.
   if(done)break;
+  if(firstReply&&!started&&pending)await preview();
  }
  pending+=decoder.decode();if(pending.trim())await line(pending.trimEnd());
  if(!ready||!done)throw new Error('incomplete_audio');

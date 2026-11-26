@@ -133,6 +133,41 @@ function audioFrame(bytes){return 'data: '+JSON.stringify({output:{audio:{data:b
 const stop='data: {"output":{"finish_reason":"stop"}}\n';
 const asResponse=stream=>new Response(stream,{headers:{'Content-Type':'text/event-stream'}});
 
+test('the first reply can start inside a large provider audio record while preserving its breath and every following sample',async()=>{
+ const ms=48,pcm=Buffer.alloc(600*ms);
+ pcm.writeInt16LE(18,190*ms); // extremely quiet breath before the consonant
+ for(let i=220*ms;i<pcm.length;i+=2)pcm.writeInt16LE(1100,i);
+ const record=audioFrame(pcm),start=record.indexOf('"data":"')+8;
+ const frames=[];let producer;
+ const input=new ReadableStream({start(c){producer=c;}});
+ const task=relaySpeech(asResponse(input),frame=>frames.push(frame),{trimPadding:true,firstReply:true});
+ const feed=s=>producer.enqueue(new TextEncoder().encode(s));
+ const tick=()=>new Promise(resolve=>setImmediate(resolve));
+ const before=start+210*ms*4/3,playable=start+390*ms*4/3;
+ feed(record.slice(0,before));
+ await tick();assert.equal(frames.length,0,'a fragment with only an attack must not start playback');
+ feed(record.slice(before,playable));
+ await tick();
+ assert.ok(frames.length>0,'did not wait for the trailing JSON or the provider to finish');
+ assert.equal(Buffer.from(frames[0].audio,'base64').length,48*ms,'the onset fits a small mobile packet');
+ feed(record.slice(playable)+stop);producer.close();await task;
+ const played=Buffer.concat(frames.filter(f=>f.audio).map(f=>Buffer.from(f.audio,'base64')));
+ assert.deepEqual(played,pcm.subarray((190-12)*ms));
+ assert.equal(played.readInt16LE(12*ms),18);
+ assert.deepEqual(frames.at(-1),{done:true});
+});
+
+test('ordinary phrase playback retains its normal inter-phrase silence and accepts alternate JSON key order',async()=>{
+ const pcm=Buffer.alloc(300*48);
+ pcm.fill(9,200*48);
+ const record='data: '+JSON.stringify({request_id:'test',output:{audio:{data:pcm.toString('base64')}}})+'\n';
+ for(const [firstReply,margin] of [[false,80],[true,12]]){
+  const frames=[];
+  await relaySpeech(asResponse(record+stop),frame=>frames.push(frame),{trimPadding:true,firstReply});
+  assert.deepEqual(Buffer.concat(frames.filter(f=>f.audio).map(f=>Buffer.from(f.audio,'base64'))),pcm.subarray((200-margin)*48));
+ }
+});
+
 function compare(a,b){
  assert.equal(a.length,b.length);
  let aa=0,bb=0,ab=0,peak=0,first=-1,last=-1;

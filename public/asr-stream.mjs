@@ -31,7 +31,7 @@ export function prepareStandby(Socket,url,setTimer,clearTimer){
  }};
 }
 export class StreamingTranscriber {
- constructor({Socket,url,preparedSocket,onPartial,onFinal,onUnavailable,setTimer=(...a)=>globalThis.setTimeout(...a),clearTimer=(...a)=>globalThis.clearTimeout(...a)}){
+ constructor({Socket,url,preparedSocket,getReplyContext,onPartial,onFinal,onUnavailable,setTimer=(...a)=>globalThis.setTimeout(...a),clearTimer=(...a)=>globalThis.clearTimeout(...a)}){
   Object.assign(this,{onPartial,onFinal,onUnavailable,setTimer,clearTimer});this.queue=[];this.queuedBytes=0;this.encode=createPcm16Encoder();
   this.needsActivation=Boolean(preparedSocket);
   this.timer=setTimer(()=>this.fail(),6000);
@@ -39,9 +39,18 @@ export class StreamingTranscriber {
   const onMessage=event=>{
    if(this.closed)return;let message;try{message=JSON.parse(event.data);}catch{return this.fail();}
    if(!message||typeof message!=='object'||Array.isArray(message))return this.fail();
-   if(message.type==='ready'){this.clearTimer(this.timer);if(this.finishing)this.timer=this.setTimer(()=>this.fail(),10000);}
-   else if(message.type==='partial'&&typeof message.text==='string')this.onPartial(message.text);
-   else if(message.type==='final'&&typeof message.text==='string'){this.close();this.onFinal(message.text);}
+   if(message.type==='ready'){
+    if(message.prepareReply===true&&getReplyContext&&!this.finishing){
+      let setup;
+      try{setup=getReplyContext();}catch{/* Recognition still works without preparation. */}
+      if(setup){
+       const command=JSON.stringify({type:'reply_context',...setup});
+       if(new TextEncoder().encode(command).byteLength<=30000)this.send(command);
+      }
+    }
+    this.clearTimer(this.timer);if(this.finishing)this.timer=this.setTimer(()=>this.fail(),10000);}
+   else if(message.type==='partial'&&typeof message.text==='string')this.onPartial(message.text,message.draftId);
+   else if(message.type==='final'&&typeof message.text==='string'){this.close();this.onFinal(message.text,message.draftId);}
    else if(message.type==='error')this.fail(typeof message.error==='string'?message.error:'network',message.retryAfter);
    else this.fail();
   };

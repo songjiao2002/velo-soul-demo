@@ -20,18 +20,36 @@ class Socket extends EventEmitter {
   audio(data) { this.emit('message', data, true); }
 }
 
-function session(t, language = 'en') {
+function session(t, language = 'en', draft) {
   const client = new Socket();
   const upstream = new Socket();
   let url, options, releases = 0;
   relayScribeRealtime(client, {
-    language, apiKey:'scribe-test-key',
+    language, draft, apiKey:'scribe-test-key',
     connect(endpoint, opts) { url = new URL(endpoint); options = opts; return upstream; },
     release() { releases++; }
   });
   t.after(() => client.terminate());
   return {client, upstream, url, options, get releases() { return releases; }};
 }
+
+test('Scribe binds speculative captions only after real microphone data and preserves its confirmed transcript',t=>{
+ const calls=[],ctx=[];
+ const draft={configure:value=>ctx.push(value),transcript:(text,final)=>{calls.push([text,final]);return 'prepared-turn';},close(){}};
+ const s=session(t,'ko',draft);
+ s.upstream.receive({message_type:'session_started'});
+ assert.equal(s.client.sent[0].prepareReply,true);
+ s.client.receive({type:'reply_context',soul:'bori',history:[]});
+ s.upstream.receive({message_type:'partial_transcript',text:'오늘은'});
+ assert.equal(s.client.sent.at(-1).draftId,undefined);
+ s.client.audio(Buffer.alloc(6400,5));
+ s.upstream.receive({message_type:'partial_transcript',text:'오늘 정말 뿌듯했어.'});
+ s.client.receive({type:'finish'});
+ s.upstream.receive({message_type:'committed_transcript',text:'오늘 정말 뿌듯했어.'});
+ assert.equal(ctx.length,1);
+ assert.deepEqual(calls,[['오늘 정말 뿌듯했어.',false],['오늘 정말 뿌듯했어.',true]]);
+ assert.deepEqual(s.client.sent.at(-1),{type:'final',text:'오늘 정말 뿌듯했어.',draftId:'prepared-turn'});
+});
 
 test('Mandarin previews preserve a breath inside a time clause and leave complete and final utterances intact',t=>{
  const {client,upstream}=session(t,'zh');

@@ -1,4 +1,5 @@
 import {VOICE_PRIVACY} from './voice-privacy.mjs';
+import {confirmedWords} from './turn-text.mjs';
 import {readVoiceReply} from './chat-stream.mjs';
 import {newVoiceTurnId,serverVoiceTurnId} from './speech-cache.mjs';
 import {appFetch} from './app-network.mjs';
@@ -10,15 +11,6 @@ const endConversation=/^(stop listening|stop (the )?(voice )?conversation|停止
 const temporaryLimits=new Set(['service_busy','minute_limit','provider_rate_limited','rate_limited']);
 const hardLimits=new Set(['daily_limit','provider_quota']);
 const repeatRequest=/^(repeat that|say that again|再说一次|重复一遍|다시\s*말해)[.!?。！\s]*$/i;
-// Final ASR commonly restores casing, spacing and a closing period. Keep
-// question marks, negation, numbers and interior punctuation significant.
-function confirmedWords(text){
- const words=text.normalize('NFC').trim().toLowerCase().replace(/\s+/gu,' ').replace(/[.。]$/u,'');
- // A recognizer may add just the question mark to an explicit question.
- if(/^(?:what|why|when|where|how|which|who|should we|can we|could you)\b/iu.test(words)||
-    /(?:吗|么|나요|까요)[?？]?$/u.test(words))return words.replace(/[?？]$/u,'');
- return words;
-}
 function retryDelay(reason,retryAfter){
  const seconds=Number(retryAfter);
  return Number.isFinite(seconds)&&seconds>0?Math.ceil(seconds*1000):reason==='service_busy'?1000:60000;
@@ -82,17 +74,28 @@ export class HandsFreeConversation {
   r.inputLanguage=this.language;r.lang={en:'en-US',ko:'ko-KR',zh:'zh-CN'}[this.language]||'en-US';r.continuous=false;r.interimResults=true;r.maxAlternatives=1;
   const valid=()=>this.active&&this.epoch===serial&&this.recognizer===r;
   let finalText='',submitted=false,started=false,primedAutoLanguage,draftStarts=0;
-  const prepare=text=>{
+  let recognitionContext;
+  const prepare=(text,ticket)=>{
    if(!valid()||!text)return false;
    if(this.draft&&confirmedWords(this.draft.text)===confirmedWords(text))return true;
    this.discardDraft();
-   if(draftStarts>=2||!this.prepareDraft(text))return false;
-   draftStarts++;
+   if((!ticket&&draftStarts>=2)||!this.prepareDraft(text,ticket,recognitionContext))return false;
+   if(!ticket)draftStarts++;
    return true;
   };
   const send=()=>{if(!valid()||submitted)return;submitted=true;this.disconnect();this.clearTimer(this.timer);if(finalText)this.submit(finalText,serial);else{this.discardDraft();this.resumeAfter(serial,1000);}};
   r.onstart=()=>{if(valid()){started=true;this.clearTimer(this.timer);if(this.pendingOpening?.text){const opening=this.pendingOpening;this.pendingOpening=null;this.onOpening(opening.text,opening.language);this.output(opening.text,opening.language,serial,state=>{if(state==='playing')this.introduced.add(this.soul);});return;}this.setState('listening');this.timer=this.setTimer(()=>{if(valid()){this.disconnect();this.resumeAfter(serial);}},45000);}};
   r.onspeechstart=()=>{if(valid()){this.clearTimer(this.timer);this.setState('hearing');}};
+  if(this.canPrepareFirstSpeech()){
+   r.getReplyContext=()=>{
+    if(!valid())return;
+    const {context,messages,image}=this.requestFor('',this.language).body;
+    if(image)return;
+    recognitionContext={soul:this.soul,history:messages.slice(0,-1),context};
+    return recognitionContext;
+   };
+   r.onedgereply=(text,id)=>{if(recognitionContext&&typeof id==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))prepare(text,id);};
+  }
   r.onturncandidate=prepare;
   r.onturncontinued=()=>{if(valid())this.discardDraft();};
   r.ontranscribing=endpoint=>{if(valid()){this.clearTimer(this.timer);this.setState('transcribing');prepare(endpoint?.text);}};
@@ -135,29 +138,30 @@ export class HandsFreeConversation {
   const extra=this.getContext(needsCamera(text)),messages=conversationMessages(this.histories[this.soul],text);
   return {url:extra.image?'/api/chat/scene':'/api/chat',body:{voice:true,soul:this.soul,language,messages,context:extra.context,image:extra.image}};
  }
- beginRequest(request,text,controller){
-  const voiceTurnId=newVoiceTurnId();
+ beginRequest(request,text,controller,ticket){
+  const voiceTurnId=ticket||newVoiceTurnId();
   const id=request.url==='/api/chat'&&!needsCamera(text)&&this.canPrepareFirstSpeech()?serverVoiceTurnId(voiceTurnId):undefined;
-  const response=this.fetchImpl(request.url,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/x-ndjson'},signal:controller.signal,body:JSON.stringify({...request.body,voiceTurnId:serverVoiceTurnId(voiceTurnId),firstSpeechId:id,inlineFirstSpeech:id?true:undefined})});
+  const response=this.fetchImpl(request.url,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/x-ndjson'},signal:controller.signal,body:JSON.stringify({...request.body,voiceTurnId:serverVoiceTurnId(voiceTurnId),firstSpeechId:id,inlineFirstSpeech:id?true:undefined,recognitionDraft:ticket})});
   return {id,voiceTurnId,response};
  }
  discardDraft(){
   if(!this.draft)return;
   this.clearTimer(this.draft.timer);this.draft.controller.abort();this.draft=null;
  }
- prepareDraft(text){
+ prepareDraft(text,ticket,recognitionContext){
   // A probable ending may start a request. Only submit() can expose its
   // reply, after matching the final recognition of the complete utterance.
   if(this.draft||text.length>512||!substantialPreview(text)||needsCamera(text)||endConversation.test(text)||repeatRequest.test(text))return;
   const language=replyLanguage(text,this.language,this.soul);
   if(contextualRideQuickReply(text,{soul:this.soul,language},this.histories[this.soul].at(-1)))return;
   try{
-   const request=this.requestFor(text,language);
+   const request=ticket&&recognitionContext?{url:'/api/chat',body:{voice:true,soul:this.soul,language,context:recognitionContext.context,
+    messages:[...recognitionContext.history,{role:'user',content:text}]}}:this.requestFor(text,language);
    if(request.body.image)return;
    const controller=new AbortController();
-   const flight=this.beginRequest(request,text,controller);
+   const flight=this.beginRequest(request,text,controller,ticket);
    flight.response.catch(()=>{});
-   this.draft={...flight,request,controller,text,language,timer:this.setTimer(()=>this.discardDraft(),3000)};
+   this.draft={...flight,request,controller,text,language,ticket,timer:this.setTimer(()=>this.discardDraft(),3000)};
    return true;
   }catch{/* If preparation is unavailable the confirmed turn uses its usual request. */}
  }
@@ -189,8 +193,15 @@ export class HandsFreeConversation {
   let request=retryRequest||draft?.request,receivedReply=false;
   try{
    request??=this.requestFor(text,language);
-   const flight=draft||this.beginRequest(request,text,controller);
-   const firstSpeechId=flight.id,playback={voiceTurnId:flight.voiceTurnId},response=await flight.response;
+   let flight=draft||this.beginRequest(request,text,controller),response=await flight.response;
+   if(draft?.ticket&&response.status===409){
+    // A stale ticket (or an instance restart) cannot supply the confirmed
+    // answer. Use the full final transcript, once, over the normal route.
+    await response.body?.cancel().catch(()=>{});
+    flight=this.beginRequest(this.requestFor(text,language),text,controller);
+    response=await flight.response;
+   }
+   const firstSpeechId=flight.id,playback={voiceTurnId:flight.voiceTurnId};
    const valid=()=>this.active&&serial===this.epoch;
    const streamed=response.ok&&response.headers.get('content-type')?.includes('application/x-ndjson');
    let speaking=false,complete=false,firstReplySegment=true,firstVoice;const queue=[];

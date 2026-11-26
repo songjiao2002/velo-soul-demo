@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {HandsFreeConversation} from './public/hands-free.mjs';
 import {createVoiceSentenceReader} from './public/chat-stream.mjs';
+import {confirmedWords} from './public/turn-text.mjs';
 const flush=()=>new Promise(r=>setImmediate(r));
 test('a complete routine request uses the recorded answer only after final recognition and remembers the exchange',()=>{
  const turns=[],audio=[],primed=[];
@@ -38,6 +39,36 @@ test('cancelled drafts never speak and visual questions never start from interim
  mic.ontranscribing({text:'Tell me a story about trees'});assert.equal(a.calls.length,1);
  a.session.setLanguage('ko');await flush();
  assert.ok(a.calls[0].signal.aborted);assert.equal(a.voices.length,0);
+ a.session.stop();
+});
+test('the ASR ticket can fetch an exact open response early, but a different confirmed turn never speaks it',async()=>{
+ for(const changed of [false,true]){
+  const id=crypto.randomUUID(),turns=[];
+  const a=setup(undefined,{canPrepareFirstSpeech:()=>true,getContext:()=>({context:{weatherId:'one'}}),onTurn:t=>turns.push(t)});
+  a.session.start('bori','en');const mic=a.recognizers[0];
+  assert.deepEqual(mic.getReplyContext(),{soul:'bori',history:[],context:{weatherId:'one'}});
+  const text='I gave my bell a nickname.';
+  mic.onedgereply(text,id);await flush();
+  assert.equal(a.calls[0].body.recognitionDraft,id);assert.equal(a.calls[0].body.voiceTurnId,id);
+  assert.deepEqual(a.voices,[]);assert.deepEqual(turns,[]);
+  const confirmed=changed?'I gave my bell a nickname but want a new one.':text;
+  mic.hear(confirmed);await flush();
+  assert.equal(a.calls.length,changed?2:1);assert.equal(a.calls[0].signal.aborted,changed);
+  if(changed)assert.equal(a.calls[1].body.recognitionDraft,undefined);
+  assert.equal(a.voices.length,1);assert.equal(turns[0].user,confirmed);a.session.stop();
+ }
+});
+test('an expired ASR ticket retries the full confirmed transcript once with a fresh identity',async()=>{
+ const a=setup(async(url,options)=>{
+  const payload=JSON.parse(options.body);
+  return payload.recognitionDraft?Response.json({error:'stale_recognition_draft'},{status:409}):Response.json({soul:payload.soul,reply:'I like it.'});
+ },{canPrepareFirstSpeech:()=>true,getContext:()=>({})});
+ a.session.start('lumi','en');const mic=a.recognizers[0];mic.getReplyContext();
+ const text='I named my bicycle bell Toast.';
+ mic.onedgereply(text,crypto.randomUUID());mic.hear(text);await flush();await flush();
+ assert.equal(a.calls.length,2);assert.equal(a.calls[1].body.recognitionDraft,undefined);
+ assert.notEqual(a.calls[1].body.voiceTurnId,a.calls[0].body.voiceTurnId);
+ assert.equal(a.calls[1].body.messages.at(-1).content,text);assert.equal(a.voices.length,1);
  a.session.stop();
 });
 test('a candidate can prepare during a breath but a continued or revised thought never plays the old answer',async()=>{
@@ -496,4 +527,16 @@ test('the first spoken English phrase keeps an article with its noun',async()=>{
  frame({type:'delta',text:'hour '});await flush();assert.equal(a.voices[0].text,'Half an hour');
  frame({type:'delta',text:'sounds good.'});frame({type:'complete',soul:'bori',reply:'Half an hour sounds good.'});await flush();
  a.voices[0].callback('ended');assert.equal(a.voices[1].text,'sounds good.');a.session.stop();
+});
+test('recognition draft identity preserves meaning while ignoring an explicit request’s punctuation and a redundant change-of-degree ending',()=>{
+ for(const [draft,final] of [
+   ['今天我终于能走快一些。','今天我终于能走快一些了。'],
+   ['我过弯以前总怕，今天竟然敢放松一点。','我过弯以前总怕，今天竟然敢放松一点了。'],
+   ["Could you give it a name","Could you give it a name, please?"],
+   ['이 이름이 어떤가요','이 이름이 어떤가요?']
+ ])assert.equal(confirmedWords(draft),confirmedWords(final));
+ for(const [draft,final] of [
+   ['我付钱','我付钱了'],['我还没下坡','我下坡了'],['现在不敢再走快一点','现在不敢再走快一点了'],
+   ['今天能买一个','今天能买两个'],['I should leave','Should I leave?'],['괜찮아요','괜찮지 않아요']
+ ])assert.notEqual(confirmedWords(draft),confirmedWords(final));
 });

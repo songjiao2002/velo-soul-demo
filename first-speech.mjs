@@ -208,7 +208,7 @@ export class FirstSpeechStreams {
       entry.timer?.unref?.();
     };
     writer.closed.catch(()=>{});
-    this.synthesize(input,{signal:controller.signal,tone,emit:frame=>writer.write(frame)})
+    this.synthesize(input,{signal:controller.signal,tone,firstReply:true,emit:frame=>writer.write(frame)})
       .then(()=>writer.close(),error=>writer.abort(error)).catch(()=>{});
     return cancel;
   }

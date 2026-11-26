@@ -24,7 +24,7 @@ function qwenRoute(config,language){
  return {model,messageModel,duplex,endpoint:endpoint.href};
 }
 
-export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,options)=>new WebSocket(url,options)}={}){
+export function attachRealtimeAsr(server,{env=process.env,reserve,createDraft,connect=(url,options)=>new WebSocket(url,options)}={}){
  const sockets=new WebSocketServer({noServer:true,maxPayload:32768,perMessageDeflate:false});
  let waitingClients=0,waitingForDuplex=0;
  let idleQwen=null,stopping=false,nextPreparation=0;
@@ -77,8 +77,9 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
   if(standby&&waitingClients>=32)return reject(429);
   let release;
   function startProvider(client){
-   if(useScribe)relayScribeRealtime(client,{language,apiKey:config.scribeApiKey,connect,release});
-   else relay(client,language,config,route,release);
+   const draft=url.searchParams.get('prepareReply')==='1'?createDraft?.(language):undefined;
+   if(useScribe)relayScribeRealtime(client,{language,apiKey:config.scribeApiKey,connect,release,draft});
+   else relay(client,language,config,route,release,draft);
   }
   function reserveTask(client){
    try{release=reserve();socket.once('close',release);return true;}
@@ -123,14 +124,18 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
   }catch{release?.();socket.destroy();}
  });
  server.on('close',()=>{stopping=true;discardIdle();for(const client of sockets.clients)client.terminate();sockets.close();});
- function relay(client,language,config,route,release){
+ function relay(client,language,config,route,release,draft){
   let upstream,ready=false,closed=false,finishing=false,finishSent=false,total=0,queued=[],readyTimer,lifeTimer;
   const segments=new Map();
   const {model,messageModel,duplex,endpoint}=route;
   let taskId=randomUUID(),previousTaskId=null,retryPrepared=false;
   const vocabulary={en:{Mori:2,Popo:2,Lulu:2},ko:{모리:2,포포:2,루루:2},zh:{莫里:2,波波:2,露露:2}}[language];
-  const send=event=>{if(client.readyState!==WebSocket.OPEN)return;if(client.bufferedAmount>131072){client.terminate();return;}client.send(JSON.stringify(event));};
-  const cleanup=()=>{if(closed)return;closed=true;clearTimeout(readyTimer);clearTimeout(lifeTimer);queued=[];release();terminateUpstream(detachUpstream());};
+  const send=event=>{if(client.readyState!==WebSocket.OPEN)return;if(client.bufferedAmount>131072){client.terminate();return;}if(draft){
+    if(event.type==='ready')event.prepareReply=true;
+    else if(total>=5120&&(event.type==='partial'||event.type==='final'))event.draftId=draft.transcript(event.text,event.type==='final');
+   }
+   client.send(JSON.stringify(event));};
+  const cleanup=()=>{if(closed)return;closed=true;draft?.close();clearTimeout(readyTimer);clearTimeout(lifeTimer);queued=[];release();terminateUpstream(detachUpstream());};
   const fail=(error,retryAfter)=>{if(closed)return;send({type:'error',error,retryAfter});client.close(1011,'Recognition unavailable');cleanup();};
   const transmit=data=>{
    if(closed||upstream.readyState!==WebSocket.OPEN)return;
@@ -164,6 +169,7 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
     if(ready)append(raw);else queued.push(Buffer.from(raw));
    }else{
     let event;try{event=JSON.parse(raw);}catch{return fail('invalid_request');}
+    if(event?.type==='reply_context'&&draft&&!finishing){draft.configure(event);return;}
     if(!event||typeof event!=='object'||Array.isArray(event)||event.type!=='finish'||finishing)return fail('invalid_request');finishing=true;finish();
    }
   });

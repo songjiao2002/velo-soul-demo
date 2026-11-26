@@ -234,6 +234,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
       const url=speechSocketURL(location);
       if(standby)url.pathname='/api/transcribe/standby';
       url.searchParams.set('language',this.language());
+      if(this.getReplyContext)url.searchParams.set('prepareReply','1');
       if(this.inputLanguage==='zh')url.searchParams.set('provider','scribe');
       return url;
     }
@@ -273,9 +274,16 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
       if(Socket&&location&&now()>=streamDisabledUntil){
         const url=this.serviceURL();
         const preparedSocket=this.standby?.take();this.standby=null;
+        const firstTurn=this.parts.length===1&&!this.confirmedText&&!part.overlap;
+        const edge=(text,id)=>{
+          if(!firstTurn||!id||!this.active||part.discarded||this.confirmedText)return;
+          if(part===this.part||(part===this.earlyPart&&!this.part?.hasFreshSpeech))this.onedgereply?.(text,id);
+        };
         part.stream=new StreamingTranscriber({Socket,url:url.href,preparedSocket,setTimer,clearTimer,
-          onPartial:text=>{
+          getReplyContext:firstTurn?this.getReplyContext:undefined,
+          onPartial:(text,id)=>{
             if(!this.active||part.discarded||!text.trim())return;
+            edge(text,id);
             if(part.sealed){
               // The provider often restores a final word between our commit and
               // its final. Replace the waiting draft without reopening the mic.
@@ -300,8 +308,9 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
             this.considerPreview();
             if(this.active&&this.previewEndPause&&this.backgroundPause>=this.endOfTurnPause())this.stop();
           },
-          onFinal:text=>{
+          onFinal:(text,id)=>{
             part.stream=null;
+            edge(text,id);
             if(!this.active||!part.sealed||part.discarded)return;
             if(text.trim())this.completePart(part,text);
             else this.transcribe(part);

@@ -1,7 +1,8 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import http from 'node:http';import {EventEmitter,once} from 'node:events';
 import WebSocket from 'ws';
 import {attachRealtimeAsr} from './asr-realtime.mjs';
-import {createChatService} from './chat-service.mjs';
+import {createChatService,createChatHandler} from './chat-service.mjs';
+import {createRecognitionDrafts} from './recognition-drafts.mjs';
 import {createMicrophoneRecognition} from './public/microphone-asr.mjs';
 import {createPcm16Encoder,StreamingTranscriber} from './public/asr-stream.mjs';
 import {HandsFreeConversation} from './public/hands-free.mjs';
@@ -32,6 +33,72 @@ async function relay(t,model='qwen3-asr-flash-realtime',env={}){
  const origin='http://127.0.0.1:'+app.address().port;
  return {app,origin,url:origin.replace('http:','ws:')+'/api/transcribe/live',get upstream(){return upstream;},get options(){return options;},get endpoint(){return endpoint;},get active(){return active;}};
 }
+
+test('an opt-in ASR socket starts a new reply before the browser asks and an exact HTTP claim uses that original stream',async t=>{
+ const env={DASHSCOPE_API_KEY:'test-only',QWEN_ASR_REALTIME_MODEL:'qwen3-asr-flash-realtime'};
+ const calls=[];let upstream;
+ const handle=createChatHandler({env,fetchImpl:async(url,options)=>{
+   calls.push(url);const body=JSON.parse(options.body);
+   if(url.endsWith('/chat/completions')){
+     const content='I like that bell.';
+     return new Response('data: '+JSON.stringify({choices:[{delta:{content},finish_reason:'stop'}]})+'\n\n',{headers:{'content-type':'text/event-stream'}});
+   }
+   const audio=Buffer.alloc(6000,20).toString('base64');
+   return new Response('data: '+JSON.stringify({output:{audio:{data:audio}}})+'\n'+'data: {"output":{"finish_reason":"stop"}}\n',{headers:{'content-type':'text/event-stream'}});
+ }});
+ const app=http.createServer(handle);
+ attachRealtimeAsr(app,{env,createDraft:handle.createRecognitionDraft,reserve:()=>()=>{},connect:()=>upstream=new Upstream()});
+ await new Promise(r=>app.listen(0,'127.0.0.1',r));
+ const origin='http://127.0.0.1:'+app.address().port;
+ const ws=new WebSocket(origin.replace('http:','ws:')+'/api/transcribe/live?language=en&prepareReply=1',{origin});
+ t.after(async()=>{ws.terminate();await new Promise(r=>app.close(r));});
+ const events=[];ws.on('message',raw=>events.push(JSON.parse(raw)));
+ await wait(()=>events.some(e=>e.type==='ready'&&e.prepareReply));
+ ws.send(JSON.stringify({type:'reply_context',soul:'bori',history:[]}));
+ ws.send(Buffer.alloc(6400,22));
+ await wait(()=>upstream.sent.some(e=>e.type==='input_audio_buffer.append'));
+ const text='I named my bicycle bell Toast.';
+ upstream.event({type:'conversation.item.input_audio_transcription.text',item_id:'a',text});
+ await wait(()=>events.some(e=>e.draftId)&&calls.length===2);
+ const id=events.find(e=>e.draftId).draftId;
+ assert.deepEqual(events.map(e=>e.type),['ready','partial']);
+ ws.send(JSON.stringify({type:'finish'}));await wait(()=>upstream.sent.some(e=>e.type==='session.finish'));
+ upstream.event({type:'conversation.item.input_audio_transcription.completed',item_id:'a',transcript:text});
+ upstream.event({type:'session.finished'});await wait(()=>events.some(e=>e.type==='final'));
+ assert.equal(events.at(-1).draftId,id);
+ const response=await fetch(origin+'/api/chat',{method:'POST',headers:{'content-type':'application/json',accept:'application/x-ndjson'},body:JSON.stringify({
+   soul:'bori',language:'en',voice:true,inlineFirstSpeech:true,firstSpeechId:id,voiceTurnId:id,recognitionDraft:id,messages:[{role:'user',content:text}]
+ })});
+ assert.equal(response.status,200);assert.equal(response.headers.get('X-Velo-ASR-Draft'),'hit');
+ const frames=(await response.text()).trim().split('\n').map(JSON.parse);
+ assert.equal(frames.find(f=>f.type==='complete').reply,'I like that bell.');
+ assert.ok(frames.some(f=>f.type==='voice'&&f.audio));
+ assert.equal(calls.length,2);
+});
+
+test('speculative replies are scoped to one transcript, role, language, context and single consumer',async()=>{
+ const calls=[];
+ const shelf=createRecognitionDrafts(async(p,signal,emit)=>{calls.push({p,signal});await emit({type:'delta',text:'A new thought.'});});
+ const s=shelf.session('en'),context={weatherId:'one'};
+ s.configure({soul:'mori',history:[],context});
+ assert.equal(s.transcript('Thanks.',false),undefined);
+ assert.equal(s.transcript('I was thinking-',false),undefined);
+ const id=s.transcript('I think I prefer blue.',false),p=calls[0].p;
+ assert.ok(id);assert.equal(s.transcript('I think I prefer blue.',false),id);
+ const claim={...p,recognitionDraft:id};
+ for(const wrong of [{language:'ko'},{soul:'bori'},{context:{}},{voiceTurnId:'wrong'},{messages:[{role:'user',content:'I think I prefer red.'}]}]){
+   assert.equal(shelf.take({...claim,...wrong}),undefined);
+ }
+ const next=s.transcript('I think I prefer red.',true);assert.notEqual(next,id);
+ assert.ok(calls[0].signal.aborted);assert.equal(shelf.take(claim),undefined);
+ s.close();
+ const active={...calls[1].p,recognitionDraft:next};
+ const picked=shelf.take(active);assert.ok(picked);assert.equal(shelf.take(active),undefined);
+ const result=[];await picked.deliver(f=>result.push(f),new AbortController().signal);
+ assert.deepEqual(result,[{type:'delta',text:'A new thought.'}]);
+ const abandoned=shelf.session('en');abandoned.configure({soul:'lumi',history:[]});abandoned.transcript('I think I prefer green.',false);
+ abandoned.close();assert.ok(calls.at(-1).signal.aborted);
+});
 
 test('realtime relay streams partials, revises them, combines VAD segments and submits only confirmed text after finish',async t=>{
  const a=await relay(t),ws=new WebSocket(a.url+'?language=ko',{origin:a.origin});t.after(()=>ws.terminate());const events=[];ws.on('message',raw=>events.push(JSON.parse(raw)));await wait(()=>events.some(e=>e.type==='ready'));
