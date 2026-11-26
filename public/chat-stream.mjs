@@ -64,13 +64,18 @@ function firstPhraseEnd(text,soul){
  return early;
 }
 
-export function createVoiceSentenceReader(soul,onSentence){
+// Give a surprised question its natural lift, then speak the actual thought
+// in the same clip. A standalone question still plays at the end of the turn.
+const reactionQuestion=/^\s*(?:really|is that so|真的吗|真的|是吗|是嘛|정말(?:로)?(?:요)?|진짜(?:로)?(?:요)?|그래요)[?？][?!！？]*\s*/iu;
+export function createVoiceSentenceReader(soul,onSentence,{joinReactions=false}={}){
  let spoken=0;
  return (text,final=false)=>{
   const remaining=text.slice(spoken);
+  const reactionEnd=joinReactions&&spoken===0?(reactionQuestion.exec(remaining)?.[0].length||0):0;
   let consumed=0;
   for(const match of remaining.matchAll(/[。！？!?]+|\.+/gu)){
    const end=match.index+match[0].length;
+   if(reactionEnd&&end<=reactionEnd)continue;
    if(match[0][0]==='.'&&(match[0].length!==1||!sentenceDot(remaining,end)))continue;
    const phrase=remaining.slice(consumed,end).trim();
    if(/[\p{L}\p{N}]/u.test(phrase))onSentence(phrase);
@@ -79,16 +84,16 @@ export function createVoiceSentenceReader(soul,onSentence){
   spoken+=consumed;
   // Queue a pronounceable first phrase while the rest is still arriving.
   if(!final&&spoken===0){
-   const end=firstPhraseEnd(text,soul);
+   const next=firstPhraseEnd(text.slice(reactionEnd),soul),end=next?reactionEnd+next:0;
    if(end){onSentence(text.slice(0,end).trim());spoken=end;}
   }
   if(final&&text.slice(spoken).trim()){const tail=text.slice(spoken).trim();if(/[\p{L}\p{N}]/u.test(tail))onSentence(tail);spoken=text.length;}
  };
 }
 
-export async function readVoiceReply(response,{soul,onText,onSentence}){
+export async function readVoiceReply(response,{soul,onText,onSentence,joinReactions=false}){
  const reader=response.body.getReader(),decoder=new TextDecoder();let pending='',text='',result;
- const sentences=createVoiceSentenceReader(soul,onSentence);
+ const sentences=createVoiceSentenceReader(soul,onSentence,{joinReactions});
  const line=raw=>{
   if(!raw.trim())return;const frame=JSON.parse(raw);if(frame.error)throw conversationServiceError(frame,response.headers);if(result)throw Error('invalid_response');
   if(frame.type==='delta'&&typeof frame.text==='string'){text+=frame.text;if(text.length>10000)throw Error('invalid_response');onText(text);sentences(text);}

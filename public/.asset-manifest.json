@@ -1,45 +1,45 @@
 {
-  "version": "20261126-mobile79",
+  "version": "20261126-mobile80",
   "files": {
     "/index.html": {
       "size": 8078,
-      "sha256": "9378813a8265287a3c7e21aa84f9bacc82afb9d396b8617f8da2f396058f0c2f",
+      "sha256": "0b02b5571171fd634d3f61386dcf569740831b58058c98a2092608e748ac6385",
       "br": {
         "size": 3284,
-        "sha256": "d146f35bd38011068925dc27a9e4ed3e554c35dce22f9c52f1d607aeade3d2bb",
+        "sha256": "73edfc5e74b10fd42a4290c1606813494929f4a435b6cb599c9c9f4f3ae260e7",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 3696,
-        "sha256": "4b9e64963a4922ee09903fcdcd5bd550140ca0886d2454c8fd71ab548055e630",
+        "size": 3695,
+        "sha256": "b5f30356614fa0cec67e9d62cfecbddcbb07fb63f04a488f92c2292f9d4d89ee",
         "suffix": ".gz"
       }
     },
     "/boot.js": {
       "size": 2510,
-      "sha256": "7aa17628c18a77c193fe1ea13771fe2f406c090fba471bb72b841ace2d372391",
+      "sha256": "69e552ca4d8c68fd1a5d6efdf3859aa4a3a3fa2cb23178605e0761efdf55c57f",
       "br": {
         "size": 949,
-        "sha256": "ed01f2dd68e8a69c9c4642c2e41d6ac0433266c25ffb9b75c578e34e20b2a795",
+        "sha256": "e917a293db3b4a35964751d5e6f2638f2bf458a5c9e641852d108560085cd41d",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 1133,
-        "sha256": "d018a1033f81db2b5deb8102ac2ebbdaa7dfc654b051cb3b2fe9ba5b8553c2c6",
+        "size": 1132,
+        "sha256": "a86c238bb7411b93eff055cb39934f322200f183cfed62697ecec99f2ceda366",
         "suffix": ".gz"
       }
     },
     "/app.bundle.js": {
-      "size": 641428,
-      "sha256": "b3f151c404796e948ad37aae67687d61db4d8c2ba9dae7338654928f68fad333",
+      "size": 643323,
+      "sha256": "e55efc7e043bb6c3d1be784e590a9d79579f226a7227b026faaa31cfcfa1138b",
       "br": {
-        "size": 155240,
-        "sha256": "559862ec5fbfd78981d47e987939d434d266da33ed93a1f994e9e3aa9896720b",
+        "size": 155864,
+        "sha256": "f434943fb48a1926e7d10ede6c4e0ff612f03609c578412923e3370e14960919",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 239172,
-        "sha256": "905e7ce8bde57aaeb64edd233cb0fb39a443295b2b124e9dbcb751fea1ba28c7",
+        "size": 239888,
+        "sha256": "0ce1b259b4ce844de79159fc344e38d967845fd9d5331040cd63b862bb115e8c",
         "suffix": ".gz"
       }
     },
@@ -350,8 +350,8 @@
       "sha256": "0d38418424ee07ba73f9238c5e29d216cff2a8cbce14e8ac710007e0f0b96284"
     },
     "/audio/ride-quick/lumi-en-rest.wav": {
-      "size": 113084,
-      "sha256": "660bdd7a692e2390a7faffc760a559979ba8914cbf94050589e88cb7fe1b4226"
+      "size": 186046,
+      "sha256": "7896399f382fa5eeb4bbfacacda123f98897333bfe65ea021d06daf250960ee6"
     },
     "/audio/ride-quick/lumi-en-quiet.wav": {
       "size": 24760,
@@ -362,8 +362,8 @@
       "sha256": "cab6e7a6c08072b9b764c04a425c68f6476214352ead605d46a25ab123e627af"
     },
     "/audio/ride-quick/lumi-ko-rest.wav": {
-      "size": 101690,
-      "sha256": "6d107160f24cb5cb04224a0cadd9171f8a3e2cdbc1ed0dfcd23b91b2edaf6b3f"
+      "size": 201540,
+      "sha256": "0d254b07d61deb91bc8c644e33975233a27d97891217705aa393620e53d014c9"
     },
     "/audio/ride-quick/lumi-ko-quiet.wav": {
       "size": 55620,
@@ -374,8 +374,8 @@
       "sha256": "510719ddb5dd5ea854901b26f9e1ab630f976a96a751f3d4cc36148816b2ce2f"
     },
     "/audio/ride-quick/lumi-zh-rest.wav": {
-      "size": 116876,
-      "sha256": "932c559d609fb1e90acf0aee92df82bb38ca090fb28782161f79fa706549af9b"
+      "size": 216754,
+      "sha256": "32406b3308e7984c36ea5952faa614230390ddc6313cad03f21ee4563269f53d"
     },
     "/audio/ride-quick/lumi-zh-quiet.wav": {
       "size": 24862,
@@ -386,8 +386,8 @@
       "sha256": "a4bff4725686ae1e78e55b71c2d96a998c237c317bd55e915e55bb8ec8640895"
     },
     "/audio/ride-quick/mori-en-rest.wav": {
-      "size": 189178,
-      "sha256": "55917b0bdd62060b6f1324c707ee2c3689939013d21de61fdec7b86678937314"
+      "size": 178340,
+      "sha256": "36aef19d447df381c2401eb10c8eaf2ee9e18bb0de6e69a9da79aa4312b83e6e"
     },
     "/audio/ride-quick/mori-en-quiet.wav": {
       "size": 50658,
@@ -398,8 +398,8 @@
       "sha256": "5c998e70f6e71f6452bb05692dea82b156dc450e428e6a199d19eed4edf0e39e"
     },
     "/audio/ride-quick/mori-ko-rest.wav": {
-      "size": 71196,
-      "sha256": "a9a7b3c0f7fab0d22de86bcbe3c12391f600952d7cb695155ab1ca02b4876edd"
+      "size": 194654,
+      "sha256": "594cb9f17f66887af6dabea9786c5d61be3a3348923c840a4fe6152db0643b18"
     },
     "/audio/ride-quick/mori-ko-quiet.wav": {
       "size": 29218,
@@ -410,8 +410,8 @@
       "sha256": "1e8d59f2f1f2646ab28f333f55cd3e1d502414876ff7a593f07d50ee78c4ae16"
     },
     "/audio/ride-quick/mori-zh-rest.wav": {
-      "size": 71674,
-      "sha256": "54321560aafb98e9f931a5ad1d4603e1f143b83bfaf8ca9b4651aebba69251bf"
+      "size": 147584,
+      "sha256": "99f6c64fb5ba7fadcdd20b91482f6348cf5f3379209bd561487307db591d0d56"
     },
     "/audio/ride-quick/mori-zh-quiet.wav": {
       "size": 64610,
@@ -430,8 +430,8 @@
       "sha256": "ee7b0cf930f4f1187fd0abf02de76fddba549334627fd72df8774c4329b15116"
     },
     "/audio/ride-quick/bori-ko-pace.wav": {
-      "size": 147532,
-      "sha256": "3c06390f5269a261de0fd3458c570ca54f04dca78e95642348cb86f550923360"
+      "size": 170822,
+      "sha256": "79c0f69420862ad0de5c82e7dfafdc362ce18c2c50c45dc5f1b3d1ae8ac7b424"
     },
     "/audio/ride-quick/bori-ko-rest.wav": {
       "size": 223956,

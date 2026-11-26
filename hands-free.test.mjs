@@ -184,7 +184,9 @@ test('temporary chat limits retry the same utterance once, respect delays and ca
   let contexts=0;const a=setup(()=>new Response(JSON.stringify({error:code}),{status:429,headers:code==='service_busy'?{}:{'Retry-After':String(seconds)}}),{getContext:()=>({context:{capture:++contexts}})});
   a.session.start('lumi','ko');a.recognizers[0].hear('다시 물어봐도 돼?');await flush();
   assert.equal(a.session.state,code);assert.equal(a.session.active,true);assert.equal(a.session.announce('A café','en'),false);
-  a.run(seconds*1000);await flush();assert.equal(a.calls.length,2);assert.deepEqual(a.calls[0].body,a.calls[1].body);assert.equal(contexts,1);
+  a.run(seconds*1000);await flush();assert.equal(a.calls.length,2);
+  const [{voiceTurnId:firstId,...first},{voiceTurnId:retryId,...retry}]=a.calls.map(call=>call.body);
+  assert.deepEqual(first,retry);assert.notEqual(firstId,retryId);assert.equal(contexts,1);
   a.run(seconds*1000);assert.equal(a.session.state,'listening');assert.equal(a.calls.length,2);a.session.stop();
  }
  const b=setup(()=>new Response(JSON.stringify({error:'service_busy'}),{status:429}));
@@ -258,9 +260,9 @@ test('only the first spoken phrase claims each eligible voice turn, and a retry 
  const ids=a.calls.map(call=>call.body.firstSpeechId);
  assert.match(ids[0],/^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i);
  assert.notEqual(ids[1],ids[0]);
- assert.deepEqual(voices[0].options,{firstSpeechId:ids[1],firstReplySegment:true});
+ assert.deepEqual(voices[0].options,{voiceTurnId:ids[1],firstSpeechId:ids[1],firstReplySegment:true});
  assert.equal(voices[0].language,'en');assert.equal(voices[0].soul,'bori');
- voices[0].done('ended');assert.equal(voices[1].options,undefined);a.session.stop();
+ voices[0].done('ended');assert.deepEqual(voices[1].options,{voiceTurnId:ids[1]});a.session.stop();
 });
 test('voice turns without usable streaming output and camera queries omit early speech IDs',async()=>{
  for(const [canStream,question,image] of [[false,'How do I pace a long hill?',false],[true,'What do you see?',false],[true,'What do you see?',true]]){

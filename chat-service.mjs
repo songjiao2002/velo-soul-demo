@@ -1,7 +1,7 @@
 import {createVoiceSentenceReader,readProviderChat} from './public/chat-stream.mjs';
 import {getFastOpeningSource} from './public/fast-openings.mjs';
 import {MAX_MESSAGE_LENGTH,MAX_CONTEXT_LENGTH,MAX_CONTEXT_MESSAGES} from './public/conversation-limits.mjs';
-import {deliveryTone,pandaDirection,spokenPunctuation} from './voice-delivery.mjs';
+import {deliveryTone,contextualTone,pandaDirection,spokenPunctuation} from './voice-delivery.mjs';
 import {createVoiceOpeningStream,FirstSpeechStreams,validFirstSpeechId} from './first-speech.mjs';
 import {diaryFormat,diaryPerspective,diaryWordRange} from './public/diary-format.mjs';
 import {validateDeviceMemory,describeDeviceMemory} from './public/device-memory.mjs';
@@ -87,6 +87,10 @@ export async function loadSoulSkills(){
   })));
 }
 
+function guideInLanguage(guide,language){
+  return guide.replace(/^(en|ko|zh) · (.+)$/gm,(_,tag,line)=>tag===language?line:'').replace(/\n{3,}/g,'\n\n');
+}
+
 function conversationPersona(guide){
   const section=guide.split(/(?=^## )/m).find(part=>part.startsWith('## Live conversation'));
   if(!section)throw Error('Missing live conversation character');
@@ -136,7 +140,7 @@ const PANDA_KO_VOICE='qwen-audio-3.1-tts-flash-pandako-9a5d436c173c4bd8ac8b7f7b5
 const PANDA_VOICE='qwen-audio-3.1-tts-flash-soulpanda-78d14264357345dbb7c5a417bfc4d8df';
 function speechRequest(payload,config,tone){
   if(payload.soul==='mori')return {model:'qwen-audio-3.1-tts-flash',input:{text:payload.text,voice:['Korean','Chinese'].includes(payload.language)?PANDA_KO_VOICE:PANDA_VOICE,format:'wav',sample_rate:24000,instruction:`Speak in ${payload.language}. ${payload.language==='Korean'?'Use the same adult male speaker identity as the reference, with a warm low male register and natural Korean pronunciation. ':payload.language==='Chinese'?'Use the same adult male speaker identity as the reference, with a warm low male register and natural Mandarin pronunciation. ':''}Warm, relaxed animated panda voice, preserving the cloned speaker. ${pandaDirection[tone]} No added words, opening sighs, or long pauses.`}};
-  return {model:config.ttsModel,input:{text:spokenPunctuation(payload.text,tone,payload.language),voice:{lumi:'Cherry',bori:'Chelsie'}[payload.soul],language_type:payload.language}};
+  return {model:config.ttsModel,input:{text:spokenPunctuation(payload.text,tone,payload.language,payload.soul),voice:{lumi:'Cherry',bori:'Chelsie'}[payload.soul],language_type:payload.language}};
 }
 
 // Only these exact, public utterances can be retained in this process.
@@ -152,6 +156,22 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
   const transport=fetchImpl===globalThis.fetch&&endpoint.configured&&process.env.NODE_USE_ENV_PROXY!=='1'
     ?createQwenTransport(new URL(endpoint.baseURL).origin):null;
   const speechClips=new Map();
+  // Store only a coarse mood, bound to this one opaque turn, character and
+  // output language. No transcripts, audio, account identifiers or locations.
+  const turnTones=new Map();
+  function rememberTurnTone(id,payload){
+    if(!validFirstSpeechId(id))return;
+    if(turnTones.get(id)?.expires>now())return;
+    turnTones.delete(id);
+    if(turnTones.size>=128)turnTones.delete(turnTones.keys().next().value);
+    turnTones.set(id,{soul:payload.soul,language:payload.language,tone:deliveryTone('',payload.messages.at(-1).content),expires:now()+5*60000});
+  }
+  function speechDelivery(input){
+    const turn=turnTones.get(input?.voiceTurnId);
+    if(turn&&now()>=turn.expires)turnTones.delete(input.voiceTurnId);
+    else if(turn&&turn.soul===input.soul&&turn.language===input.language)return contextualTone(input.text,turn.tone);
+    return deliveryTone(input?.text);
+  }
   function rememberClip(key,bytes){
     if(!key||!bytes.length||bytes.length>maxClipBytes)return;
     speechClips.delete(key);
@@ -239,7 +259,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
         realtimeAsrModelKo:live?(scribe||c.realtimeAsrModel):null,realtimeAsrModelZh:live?(scribe||c.realtimeAsrModel):null,ttsModel:c.ttsModel,skills:SOUL_IDS,
         conversationLimits:{dailyRequests:conversationBudget.maxDaily,requestsPerMinute:conversationBudget.maxMinute,maxConcurrentRequests:cloud.maxActive}};
     },
-    async speechStream(input,{signal,emit,tone=deliveryTone(input?.text)}={}){
+    async speechStream(input,{signal,emit,tone=speechDelivery(input)}={}){
       const payload=validateSpeech(input),config=chatConfig(env);if(!config.configured)throw new ChatError('not_configured',503);
       const request=speechRequest(payload,config,tone),key=commonSpeechKey(input,request,config,'pcm',tone);
       if(key&&await replayClip(key,signal,emit))return;
@@ -253,14 +273,14 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
           if(size+bytes.length>maxClipBytes){recording=null;return;}
           bytes.copy(recording,size);size+=bytes.length;
         };
-        await relaySpeech(response,key?capture:emit,{trimPadding:true,tone:payload.soul==='mori'?'neutral':tone,providerError:qwenFailure});
+        await relaySpeech(response,key?capture:emit,{trimPadding:true,tone,soul:payload.soul,providerError:qwenFailure});
         requestSignal.throwIfAborted();
         if(recording&&size%2===0)rememberClip(key,recording.subarray(0,size));
       }});
     },
     async speech(input,{signal}={}){
       const payload=validateSpeech(input),config=chatConfig(env);if(!config.configured)throw new ChatError('not_configured',503);
-      const tone=deliveryTone(payload.text);
+      const tone=speechDelivery(input);
       const request=speechRequest(payload,config,tone),key=commonSpeechKey(input,request,config,'wav',tone);
       const cached=key&&await replayClip(key,signal);
       if(cached)return cached;
@@ -272,7 +292,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
         const chunks=[];let length=0;for await(const chunk of response.body){length+=chunk.length;if(length>4000000)throw new ChatError('invalid_response',502);chunks.push(chunk);}
         const audio=Buffer.concat(chunks);
         if(audio.length<44||audio.toString('ascii',0,4)!=='RIFF'||audio.toString('ascii',8,12)!=='WAVE')throw new ChatError('invalid_response',502);
-        const output=trimSpeechWave(audio,{tone:payload.soul==='mori'?'neutral':tone});
+        const output=trimSpeechWave(audio,{tone,soul:payload.soul});
         requestSignal.throwIfAborted();
         // Cache only complete, standard-header PCM WAVs. Other valid provider
         // layouts are still returned unchanged through the existing path.
@@ -337,7 +357,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
       const payload=vision?validateVision(input):validateChat(input,now()),config=chatConfig(env);
       if(!config.configured)throw new ChatError('not_configured',503);
       if(payload.voice&&!vision&&!signal?.aborted)transport?.warm();
-      const guide=(await skills)[payload.soul],weather=getWeather(payload.weatherId);
+      const guide=guideInLanguage((await skills)[payload.soul],payload.language),weather=getWeather(payload.weatherId);
       const persona=vision||payload.event?guide:conversationPersona(guide);
       const speaking={
         lumi:'Mori is the most talkative. Follow one odd detail the rider actually mentioned. Let the thought wander one step further when there is room. A quick answer can still be quick.',
@@ -372,7 +392,9 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
             'Handle the rider’s last turn first. Match the requested output language.',
             'When the rider asks a practical question, give a usable answer in your opening words. For a yes-or-no question give your view, or say what it depends on if you lack a necessary fact. Humor comes after the answer if it belongs at all. Examples illustrate a voice; never answer an example in place of the actual rider.',
             'You speak your own side of the conversation. An “I” in a rider message is the rider. Keep their actions theirs, especially when they correct themselves. Contribute your own reaction. If they make a joke, you can play along and end on the funny part. A harmless self-correction needs no tip, evaluation, or dig at the rider.',
-            'Let emotion come through in the spoken wording. Share a small win with a little lift. When they say they are tired or upset, let the words settle. When something is urgent, get straight to it. Everyday talk can stay easy and unmarked. Never write performance directions or name the emotion you are performing.',
+            'React as this particular character to what changed for the rider. On good news, let the first thought show what delights YOU about their achievement. Give them the credit. In a joke, pick up the part that tickled you. A mundane question can sound matter-of-fact. Keep the emotional reaction inside the first meaningful spoken phrase. Skip a standalone “Really?” as a preamble.',
+            'If they feel bad and do not want to explain, accept that boundary and leave them company in one ordinary line. No follow-up, activity, breathing exercise, promise of improvement or need to cheer them up. When they change the subject, follow them. For danger give the important information immediately.',
+            'Use words a friend could actually say aloud. Let small particles, contractions or a change of rhythm occur where natural in this language. Keep weather, scenery and bicycle parts out of figures of speech unless the rider brought them up. Write spoken words only, without stage directions or emotion labels. Voice examples illustrate timing and attitude; make up your own wording for this rider.',
             'Base factual claims on details the rider or the supplied context actually gave. A hill alone tells you nothing about traction, traffic, weather or how the rider feels. Answer a pace question directly without filling in the scene.',
             `If they ask for quiet or decline a suggestion, acknowledge it in ${LANGUAGES[payload.language]} alone (for example: ${{zh:'好。',ko:'알겠어.',en:'Okay.'}[payload.language]}). End the turn. Do not announce quiet mode, microphone changes or other app actions.`,
             ...(payload.messages.some(message=>message.role==='assistant')?['If they say a suggestion you actually made disappointed them, own your suggestion briefly and leave it there.']:[]),
@@ -381,10 +403,15 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
           ].join('\n');
           requestBody.messages[0].content=priorities+'\n\n'+requestBody.messages[0].content;
         }
+        const turnId=!vision&&validFirstSpeechId(input.voiceTurnId)?input.voiceTurnId:null;
+        let remembered=false;
+        const remember=()=>{if(turnId&&!remembered){rememberTurnTone(turnId,payload);remembered=true;}};
         if(onDelta&&!vision)requestBody.stream=true;
-        const data=await complete(requestBody,config,signal,{background:vision||Boolean(payload.event),readResponse:onDelta&&!vision?response=>readProviderChat(response,onDelta,qwenFailure):undefined}),choice=data?.choices?.[0],reply=choice?.message?.content;
+        const forward=turnId&&onDelta?delta=>{if(delta.trim())remember();return onDelta(delta);}:onDelta;
+        const data=await complete(requestBody,config,signal,{background:vision||Boolean(payload.event),readResponse:forward&&!vision?response=>readProviderChat(response,forward,qwenFailure):undefined}),choice=data?.choices?.[0],reply=choice?.message?.content;
         if(typeof reply!=='string'||!reply.trim()||reply.length>MAX_MESSAGE_LENGTH)throw new ChatError('invalid_response',502);
         if(vision)return parseObservation(reply,payload.soul,model);
+        remember();
         return {reply:reply.trim(),soul:payload.soul,provider:'Qwen',model,truncated:choice.finish_reason==='length'};
 
     }
@@ -440,10 +467,11 @@ export function createChatHandler(options={}){
             scan=null;
             // Keep the existing normal path for offline clips and for phrases
             // the player would split or strip before requesting synthesis.
-            if(text.length>540||/[\p{Extended_Pictographic}\uFE0F]/u.test(text)||getFastOpeningSource(text,payload)||!service.canStartFirstSpeech())return;
+            const usesRecordedOpener=!validFirstSpeechId(payload.voiceTurnId)&&getFastOpeningSource(text,payload);
+            if(text.length>540||/[\p{Extended_Pictographic}\uFE0F]/u.test(text)||usesRecordedOpener||!service.canStartFirstSpeech())return;
             const tone=deliveryTone(text,payload.messages?.at(-1)?.content);
             cancelFirst=firstSpeech.start(payload.firstSpeechId,{soul:payload.soul,language:payload.language,text},controller.signal,tone);
-          });
+          },{joinReactions:validFirstSpeechId(payload.voiceTurnId)});
         }
         const opening=createVoiceOpeningStream(payload,text=>{
           if(scan){leadText+=text;scan(leadText);}

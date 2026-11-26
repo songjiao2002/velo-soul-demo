@@ -110,13 +110,36 @@ function speechEdges(){
 // Subtle changes to presence and syllable dynamics for the fixed system voices.
 // Work at the original 24 kHz sample clock. No pitch shifting or lookahead.
 const deliveryTones={
- playful:{level:1.02,presence:.26,accent:.12,fall:0},
- gentle:{level:.96,presence:-.20,accent:-.045,fall:.015},
- serious:{level:1.01,presence:.10,accent:-.075,fall:.075}
+ // Mori leans into a new syllable when something interests her.
+ lumi:{
+  playful:{level:1.02,presence:.26,accent:.12,fall:0},
+  curious:{level:1.00,presence:.13,accent:.095,fall:.02},
+  gentle:{level:.96,presence:-.20,accent:-.045,fall:.015},
+  disappointed:{level:.97,presence:-.12,accent:-.055,fall:.085},
+  serious:{level:1.01,presence:.10,accent:-.075,fall:.075}
+ },
+ // Popo carries more energy into the vowel; the onset is less emphatic.
+ bori:{
+  playful:{level:1.035,presence:.12,accent:.075,fall:-.045},
+  curious:{level:1.015,presence:.065,accent:.06,fall:-.025},
+  gentle:{level:.97,presence:-.14,accent:-.06,fall:-.04},
+  disappointed:{level:.975,presence:-.09,accent:-.03,fall:.06},
+  serious:{level:1.01,presence:.10,accent:-.075,fall:.075}
+ },
+ // The clone may return the same waveform for different directions. Use
+ // restrained syllable accents below a semitone-changing or speed effect.
+ mori:{
+  playful:{level:1.02,presence:.065,accent:.08,fall:-.025},
+  curious:{level:1.005,presence:.045,accent:.05,fall:.015},
+  gentle:{level:.98,presence:-.065,accent:-.05,fall:-.01},
+  disappointed:{level:.965,presence:-.08,accent:-.065,fall:.075},
+  serious:{level:1.015,presence:.075,accent:-.055,fall:.06}
+ }
 };
-function speechTone(tone){
- if(!Object.hasOwn(deliveryTones,tone))return null;
- const {level,presence,accent,fall}=deliveryTones[tone];
+function speechTone(tone,soul){
+ const profile=deliveryTones[soul];
+ if(!profile||!Object.hasOwn(profile,tone))return null;
+ const {level,presence,accent,fall}=profile[tone];
  let low=0,fast=0,slow=0,odd=null;
  return {
   push(pcm){
@@ -143,7 +166,7 @@ function speechTone(tone){
  };
 }
 
-export function trimSpeechWave(wave,{tone='neutral'}={}){
+export function trimSpeechWave(wave,{tone='neutral',soul='lumi'}={}){
  // These paired sizes are the canonical 44-byte streaming header used on the
  // provider's complete HTTP downloads. Mixed or unfamiliar lengths pass through.
  if(wave.length<44||wave.toString('ascii',0,4)!=='RIFF'||wave.toString('ascii',8,12)!=='WAVE')return wave;
@@ -167,7 +190,7 @@ export function trimSpeechWave(wave,{tone='neutral'}={}){
    const pcm=wave.subarray(start),first=firstSound(pcm),last=lastSound(pcm);
    const head=trimLength(first<0&&size>=maxLead?maxLead:first);
    const tail=last<0?0:Math.max(0,Math.min(maxTail,size-last-2-keepTail));
-   const delivery=speechTone(tone);
+   const delivery=speechTone(tone,soul);
    if(!head&&!tail&&!sentinel&&!delivery)return wave;
    const trimmed=wave.subarray(start+head,wave.length-tail);
    const result=Buffer.concat([wave.subarray(0,start),delivery?delivery.push(trimmed):trimmed]);
@@ -182,9 +205,9 @@ export function trimSpeechWave(wave,{tone='neutral'}={}){
 
 // Provider SSE stays on the server. Only bounded PCM and an explicit completion
 // marker reach the browser; credentials, provider URLs and errors never do.
-export async function relaySpeech(response,emit,{trimPadding=false,tone='neutral',providerError=()=>new Error('provider_stream_error')}={}){
+export async function relaySpeech(response,emit,{trimPadding=false,tone='neutral',soul='lumi',providerError=()=>new Error('provider_stream_error')}={}){
  if(!response.body||!response.headers.get('content-type')?.includes('text/event-stream'))throw new Error('invalid_stream');
- const edges=trimPadding?speechEdges():null,delivery=speechTone(tone);
+ const edges=trimPadding?speechEdges():null,delivery=speechTone(tone,soul);
  async function sendPcm(pcm){
   if(!pcm?.length)return;
   if(delivery)pcm=delivery.push(pcm);

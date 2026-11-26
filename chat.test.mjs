@@ -50,6 +50,18 @@ test('Qwen readiness accepts official HTTPS endpoints and never exposes credenti
  for(const url of ['http://dashscope-intl.aliyuncs.com/compatible-mode/v1','https://attacker.test/compatible-mode/v1','https://dashscope-intl.aliyuncs.com.attacker.test/compatible-mode/v1','https://key@dashscope-intl.aliyuncs.com/compatible-mode/v1'])assert.equal(chatConfig({...env,QWEN_BASE_URL:url}).configured,false);
  assert.equal(JSON.stringify(createChatService({env}).status()).includes(env.DASHSCOPE_API_KEY),false);
 });
+test('each live persona receives its own spoken example in the selected language',async()=>{
+ const samples={lumi:['the sticker','是贴纸','스티커였구나'],mori:['voting for the bench','投给长椅','벤치에 한 표'],bori:['I was eyeing it','我也盯上了','나도 찜했는데']};
+ let prompt;
+ const service=createChatService({env,fetchImpl:async(_,options)=>{prompt=JSON.parse(options.body).messages[0].content;return success();}});
+ for(const [soul,examples] of Object.entries(samples)){
+  for(const [i,language] of ['en','zh','ko'].entries()){
+   await service.reply({...input(soul,language),voice:true});
+   assert.ok(prompt.includes(examples[i]));
+   for(const other of Object.values(samples).flat().filter(word=>word!==examples[i]))assert.ok(!prompt.includes(other));
+  }
+ }
+});
 test('client and server preserve all three spoken languages for every persona',()=>{
  for(const [text,language] of [['你好，我有点累','zh'],['오늘 좀 지쳤어','ko'],['Hello, I feel tired','en']]){
   assert.equal(detectInputLanguage(text),language);assert.equal(outputLanguage(language),language);

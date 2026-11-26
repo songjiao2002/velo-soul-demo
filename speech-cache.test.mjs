@@ -59,6 +59,30 @@ test('speech cache keeps personality and language separate, with an exact text k
  await a.speak('Hello!');assert.equal(a.requests.length,4);
 });
 
+test('the same words claim this turn’s delivery, while replaying the same turn uses its own audio',async t=>{
+ const a=setup();t.after(()=>a.player.dispose());await a.player.prepare();
+ const words='Mm.',first=crypto.randomUUID(),next=crypto.randomUUID();
+ for(const id of [first,next,next])await a.speak(words,{language:'en',soul:'mori',voiceTurnId:id,firstSpeechId:id,firstReplySegment:true});
+ assert.deepEqual(a.requests.map(body=>[body.voiceTurnId,body.firstSpeechId]),[[first,first],[next,next]]);
+});
+
+test('a prepared continuation belongs to its own turn even if a packaged or generated clip uses identical words',async t=>{
+ const a=setup();t.after(()=>a.player.dispose());await a.player.prepare();
+ const first=crypto.randomUUID(),next=crypto.randomUUID(),calls=[];
+ const context=a.player.context;
+ context.decodeAudioData=async()=>context.createBuffer(1,480,24000);
+ a.player.fetchImpl=async(url,options)=>{
+  calls.push([url,options.body?JSON.parse(options.body).voiceTurnId:null]);
+  return url==='/api/speech/stream'?response():new Response(new Uint8Array(100),{headers:{'Content-Type':'audio/wav'}});
+ };
+ await a.speak('Ready.',{source:'/intro.wav'});
+ await a.player.preload('Ready.',{voiceTurnId:first});
+ await a.speak('Ready.',{voiceTurnId:next});
+ await a.speak('Ready.',{voiceTurnId:first});
+ await a.speak('Ready.',{source:'/intro.wav',voiceTurnId:next});
+ assert.deepEqual(calls,[['/intro.wav',null],['/api/speech',first],['/api/speech/stream',next]]);
+});
+
 test('missing completion, provider errors and cancellation never populate the speech cache',async t=>{
  for(const failure of ['truncated','provider','cancelled']){
   const a=setup(async()=>response(failure==='provider'?[audioFrame,{error:'provider_quota'}]:failure==='truncated'?[audioFrame]:undefined));

@@ -70,10 +70,10 @@ async function firstSpeechFixture(t,{text='Breezy! ',deferChat=false,ttsFailure=
  return {first,endChat,endTts,receivedWave,calls,chat,post};
 }
 
-function observeOpening(soul,language,settings){
+function observeOpening(soul,language,settings,voiceTurnId){
  const deltas=[],phrases=[];let subtitle='';
  const reader=createVoiceSentenceReader(soul,p=>phrases.push(p));
- const stream=createVoiceOpeningStream({soul,language},delta=>{
+ const stream=createVoiceOpeningStream({soul,language,voiceTurnId},delta=>{
   deltas.push(delta);subtitle+=delta;reader(subtitle);
  },settings);
  return {stream,deltas,phrases,finish:async()=>{await stream.finish();reader(subtitle,true);stream.stop();}};
@@ -95,6 +95,25 @@ test('an unrecorded opening is visible immediately and the shipped reader receiv
   await t.finish();
   assert.equal(t.deltas.join('').trim(),parts.join('').trim());
   assert.equal(t.phrases[0],first);
+ }
+});
+
+test('a turn with its own delivery speaks the emotional opener and its thought together',async()=>{
+ const t=observeOpening('mori','zh',undefined,randomUUID());
+ for(const part of ['嗯','，','我也','替你高兴','。'])await t.stream.push(part);
+ await t.finish();
+ assert.deepEqual(t.phrases,['嗯，我也替你高兴。']);
+});
+
+test('surprise and the first substantive thought share one clip without changing the spoken wording',()=>{
+ for(const [opening,thought] of [['Really?',' That blue is lovely!'],['真的吗？','我喜欢那个颜色。'],['정말로요?',' 그 색이 참 좋아요!']]){
+  const phrases=[],read=createVoiceSentenceReader('bori',part=>phrases.push(part),{joinReactions:true});
+  read(opening);
+  assert.deepEqual(phrases,[]);
+  read(opening+thought);
+  assert.deepEqual(phrases,[opening+thought]);
+  const single=[],standalone=createVoiceSentenceReader('bori',part=>single.push(part),{joinReactions:true});
+  standalone(opening,true);assert.deepEqual(single,[opening]);
  }
 });
 

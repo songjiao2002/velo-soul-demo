@@ -1,7 +1,7 @@
 import {appFetch} from './app-network.mjs';
 import {NativeSpeechPlayer} from './native-speech.mjs';
 import {SpeechMouthClock} from './speech-mouth.mjs';
-import {SpeechAudioCache} from './speech-cache.mjs';
+import {SpeechAudioCache,speechCacheKey,serverVoiceTurnId} from './speech-cache.mjs';
 import {SpeechTempo,characterRate,fasterSpeechBuffer} from './speech-tempo.mjs';
 import {getFastOpeningSource} from './fast-openings.mjs';
 import {RIDE_QUICK_REPLIES} from './ride-quick-replies.mjs';
@@ -18,8 +18,8 @@ export class CloudSpeechPlayer {
  primeRideReplies(soul,language){
   for(const clip of RIDE_QUICK_REPLIES){
    if(clip.soul!==soul||clip.language!==language)continue;
-   const key=JSON.stringify([clip.text,language,soul]),context=this.context;
-   const pending=this.preload(clip.text,{soul,language,source:clip.path+'?v='+BUILD});
+   const source=clip.path+'?v='+BUILD,key=speechCacheKey(clip.text,language,soul,source),context=this.context;
+   const pending=this.preload(clip.text,{soul,language,source});
    const entry=this.preloads.get(key);
    if(this.audioSession?.playbackMode==='media'||!context||!entry||entry.decoded||this.cache.has(key))continue;
    // Decode and render the character's original tempo before the rider finishes.
@@ -35,14 +35,15 @@ export class CloudSpeechPlayer {
   }
  }
  constructor({onMouth,audioSession,Context=globalThis.AudioContext||globalThis.webkitAudioContext,fetchImpl=appFetch,setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{audioSession,Context,fetchImpl,setTimer,clearTimer});this.serial=0;this.cache=new SpeechAudioCache();this.preloads=new Map();this.mouth=onMouth?new SpeechMouthClock({onFrame:onMouth}):null;this.mediaMouthCache=new Map();this.native=new NativeSpeechPlayer({fetchImpl,setTimer,clearTimer,mouth:this.mouth,decode:bytes=>(this.context||audioSession?.context)?.decodeAudioData(bytes)});if(audioSession){audioSession.nativeSpeech??=this.native;audioSession.mediaPlayers?.add(this.native);}}
- preload(text,{language='en',soul='lumi',source}={}){
-  if(this.audioSession?.playbackMode==='media')return this.native.preload(text,{language,soul,source});
-  const key=JSON.stringify([text,language,soul]);if(this.cache.has(key))return Promise.resolve(null);if(this.preloads.has(key))return this.preloads.get(key).promise;
+ preload(text,{language='en',soul='lumi',source,voiceTurnId}={}){
+  if(this.audioSession?.playbackMode==='media')return this.native.preload(text,{language,soul,source,voiceTurnId});
+  const key=speechCacheKey(text,language,soul,source,voiceTurnId);if(this.cache.has(key))return Promise.resolve(null);if(this.preloads.has(key))return this.preloads.get(key).promise;
   const controller=new AbortController(),entry={controller,dynamic:!source};
+  if(source?.startsWith('/audio/intro/')){entry.introKey=speechCacheKey(text,language,soul);entry.source=source;}
   const timer=this.setTimer(()=>controller.abort(),source?3000:8000);
   entry.promise=(async()=>{
    try{
-    const response=await this.fetchImpl(source||'/api/speech',{signal:controller.signal,...(source?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,language,soul})})});
+    const response=await this.fetchImpl(source||'/api/speech',{signal:controller.signal,...(source?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,language,soul,voiceTurnId:serverVoiceTurnId(voiceTurnId)})})});
     return await speechFileBytes(response);
    }catch(error){if(isConversationLimit(error.message))entry.failure=error;return null;}finally{this.clearTimer(timer);}
   })();
@@ -117,12 +118,12 @@ export class CloudSpeechPlayer {
    }
   }finally{cleanup();reader.releaseLock();}
  }
- async speak(text,{language='en',soul='lumi',source,quickReplySource,firstSpeechId,firstReplySegment=false,onState=()=>{}}={}){
+ async speak(text,{language='en',soul='lumi',source,quickReplySource,voiceTurnId,firstSpeechId,firstReplySegment=false,onState=()=>{}}={}){
   this.stop();const serial=this.serial,valid=()=>serial===this.serial,report=(state,detail)=>{if(valid()){this.audioSession?.setPlayback?.(this,['loading','playing'].includes(state));onState(state,detail);}};
   const parts=speechChunks(text);if(!parts.length){report('ended');return;}
   report('loading');
-  const firstSource=firstReplySegment&&!source?(quickReplySource?quickReplySource+'?v='+BUILD:getFastOpeningSource(text,{language,soul})):undefined;
-  if(this.audioSession?.playbackMode==='media')return this.native.speak(parts,{language,soul,source,firstSource,firstSpeechId,report});
+  const firstSource=firstReplySegment&&!source?(quickReplySource?quickReplySource+'?v='+BUILD:voiceTurnId==null?getFastOpeningSource(text,{language,soul}):undefined):undefined;
+  if(this.audioSession?.playbackMode==='media')return this.native.speak(parts,{language,soul,source,firstSource,voiceTurnId,firstSpeechId,report});
   if(!this.context){report('blocked');return;}
   if(this.context.state!=='running'){
    let resumeTimer;
@@ -134,10 +135,16 @@ export class CloudSpeechPlayer {
   try{
    for(const [index,part] of parts.entries()){
     if(!valid())return;
-    const partSource=source||(index===0?firstSource:undefined);
-    const key=JSON.stringify([part,language,soul]);let buffer=this.cache.get(key);
+    let partSource=source||(index===0?firstSource:undefined);
+    // Older introduction callers specify the recording when preloading only.
+    // The lookup is limited to explicit intros and never substitutes for a live turn.
+    if(!partSource&&voiceTurnId==null&&!firstSpeechId){
+     const introKey=speechCacheKey(part,language,soul);
+     partSource=Array.from(this.preloads.values()).find(entry=>entry.introKey===introKey)?.source;
+    }
+    let key=speechCacheKey(part,language,soul,partSource,voiceTurnId),buffer=this.cache.get(key);
     if(!buffer&&(partSource||this.preloads.has(key))){
-     const pending=this.preloads.get(key)?.promise||this.preload(part,{language,soul,source:partSource}),entry=this.preloads.get(key);
+     const pending=this.preloads.get(key)?.promise||this.preload(part,{language,soul,source:partSource,voiceTurnId}),entry=this.preloads.get(key);
      const bytes=await pending;if(!valid())return;
      if(entry?.failure){this.preloads.delete(key);throw entry.failure;}
      if(entry?.decoded)buffer=await entry.decoded;
@@ -145,9 +152,10 @@ export class CloudSpeechPlayer {
      if(!buffer&&bytes){try{buffer=fasterSpeechBuffer(context,await context.decodeAudioData(bytes.slice(0)));}catch{}if(!valid())return;}
      if(buffer)this.cache.set(key,buffer);
     }
+    if(!buffer&&partSource){key=speechCacheKey(part,language,soul,null,voiceTurnId);buffer=this.cache.get(key);}
     if(!buffer){
      fetchTimer=this.timer=this.setTimer(()=>controller.abort(),35000);
-     const response=await this.fetchImpl('/api/speech/stream',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({text:part,language,soul,firstSpeechId:index===0?firstSpeechId:undefined})});
+     const response=await this.fetchImpl('/api/speech/stream',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({text:part,language,soul,voiceTurnId:serverVoiceTurnId(voiceTurnId),firstSpeechId:index===0?firstSpeechId:undefined})});
      await requireSpeechResponse(response);
      if(!valid()){response.body?.cancel().catch(()=>{});return;}
      if(response.headers.get('content-type')?.includes('application/x-ndjson')){

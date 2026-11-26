@@ -1,4 +1,15 @@
 // Session-only decoded audio. Bound both memory and entries on mobile devices.
+let localTurn=0;
+export function newVoiceTurnId(){
+ return globalThis.crypto?.randomUUID?.()||++localTurn;
+}
+export function speechCacheKey(text,language,soul,source,voiceTurnId){
+ // A bundled recording has one fixed performance. Generated speech belongs
+ // to the turn that shaped it, even when the words recur in another turn.
+ return JSON.stringify([text,language,soul,source||null,source?null:voiceTurnId??null]);
+}
+export function serverVoiceTurnId(id){return typeof id==='string'?id:undefined;}
+
 export class SpeechAudioCache {
  constructor({maxBytes=6*1024*1024,maxEntries=8}={}){
   this.maxBytes=maxBytes;this.maxEntries=maxEntries;this.entries=new Map();this.bytes=0;

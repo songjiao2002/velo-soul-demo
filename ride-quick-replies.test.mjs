@@ -1,9 +1,17 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {getRideQuickReply,RIDE_QUICK_REPLIES} from './public/ride-quick-replies.mjs';
+import {contextualRideQuickReply,getRideQuickReply,RIDE_QUICK_REPLIES} from './public/ride-quick-replies.mjs';
 
 const souls=['lumi','mori','bori'];
 const languages=['en','ko','zh'];
+test('a personal exchange gets a contextual response, while a quiet request stays brief',()=>{
+ const options={soul:'mori',language:'zh'},asking='我想歇口气。';
+ const personal={role:'assistant',content:'好，不问。陪你。'};
+ assert.equal(contextualRideQuickReply(asking,options,personal),undefined);
+ assert.equal(contextualRideQuickReply('请先别说话。',options,personal)?.intent,'quiet');
+ const pace=getRideQuickReply('慢慢骑吧。',options);
+ assert.equal(contextualRideQuickReply(asking,options,{role:'assistant',content:pace.text})?.intent,'rest');
+});
 const examples={
   pace:[
     'Should we slow down on this hill?', 'Please, can we cycle a little slower?',

@@ -6,6 +6,7 @@ import {soulPuppet,paintSoulExpression} from './soul-puppet.mjs';
 import {weatherMarkup} from './weather-ui.mjs';
 import {MicrophoneInput,createMicrophoneRecognition} from './microphone-asr.mjs';
 import {CloudSpeechPlayer} from './cloud-speech.mjs';
+import {newVoiceTurnId,serverVoiceTurnId} from './speech-cache.mjs';
 import {HandsFreeConversation,HANDS_FREE_COPY} from './hands-free.mjs';
 import {detectInputLanguage,replyLanguage as chooseReplyLanguage,needsCamera} from './input-language.mjs';
 export {detectInputLanguage} from './input-language.mjs';
@@ -38,13 +39,13 @@ export function renderVoiceTranscript(log,makeMessage,text,confirmed=true){
   log.scrollTop=log.scrollHeight;
 }
 
-export function createSoulChat({audioSession,onOpen=()=>{},onTurn=()=>{},getUILanguage=getLanguage,getInputLanguage=getLanguage,onInputLanguage=()=>{},getContext=()=>({}),speakReply,stopSpeaking,canSpeak=()=>true,canPrepareFirstSpeech,primeReplies,prepareSpeech=()=>{},introduced=new Set(),getOpening=()=>null,onVoiceStart=()=>{},onVoiceIdle=()=>{},onClose=()=>{}}={}){
+export function createSoulChat({audioSession,onOpen=()=>{},onTurn=()=>{},getUILanguage=getLanguage,getInputLanguage=getLanguage,onInputLanguage=()=>{},getContext=()=>({}),speakReply,stopSpeaking,canSpeak=()=>true,canPrepareFirstSpeech,primeReplies,prefetchSpeech,prepareSpeech=()=>{},introduced=new Set(),getOpening=()=>null,onVoiceStart=()=>{},onVoiceIdle=()=>{},onClose=()=>{}}={}){
   const speech=new CloudSpeechPlayer({audioSession});let autoRead=true,shareContext=true;
   const histories={lumi:[],mori:[],bori:[]},lastReplyLanguages={};
   const dialog=document.createElement('dialog');dialog.className='soul-chat';dialog.dataset.noTranslate='';
   dialog.setAttribute('aria-labelledby','chatTitle');document.body.append(dialog);
   let inputLanguage='ko',replyLanguage='ko',recognizer=null;
-  let soul='lumi',language='ko',copy=COPY.ko,configured=false,controller=null,epoch=0,utterance=null,latestReply='';
+  let soul='lumi',language='ko',copy=COPY.ko,configured=false,controller=null,epoch=0,utterance=null,latestReply='',latestPlayback;
   const find=selector=>dialog.querySelector(selector);
   const microphone=new MicrophoneInput({audioSession,onLevel:level=>{const m=find('#chatMicLevel');if(m)m.value=level;}});
   const Recognition=createMicrophoneRecognition({input:microphone,Socket:globalThis.WebSocket,standby:true});let micTimer,chatWakeLock=null;
@@ -70,17 +71,18 @@ export function createSoulChat({audioSession,onOpen=()=>{},onTurn=()=>{},getUILa
     const sensors=getContext(false);find('#chatSensors').textContent=`GPS ${sensors.context?.location?'●':'○'} · CAMERA ${sensors.cameraConnected?'●':'○'}`;
     paintHistory();setStatus(copy.checking);
   }
-  async function open(id){if(!Object.hasOwn(SOULS,id))return;cancel();soul=id;language=getUILanguage();inputLanguage=getInputLanguage();copy=COPY[language]||COPY.ko;configured=false;latestReply=histories[soul].filter(m=>m.role==='assistant').at(-1)?.content||'';replyLanguage=lastReplyLanguages[soul]||detectInputLanguage(latestReply,language);onOpen();setUp();if(!dialog.open)dialog.showModal();const serial=epoch;controller=new AbortController();const statusController=controller;const timeout=setTimeout(()=>statusController.abort(),8000);
+  async function open(id){if(!Object.hasOwn(SOULS,id))return;cancel();soul=id;language=getUILanguage();inputLanguage=getInputLanguage();copy=COPY[language]||COPY.ko;configured=false;latestReply=histories[soul].filter(m=>m.role==='assistant').at(-1)?.content||'';latestPlayback=voiceSession.playbackByMessage.get(histories[soul].at(-1));replyLanguage=lastReplyLanguages[soul]||detectInputLanguage(latestReply,language);onOpen();setUp();if(!dialog.open)dialog.showModal();const serial=epoch;controller=new AbortController();const statusController=controller;const timeout=setTimeout(()=>statusController.abort(),8000);
     try{const r=await appFetch('/api/chat/status',{signal:controller.signal,cache:'no-store'});if(!r.ok)throw new Error();const status=await r.json();if(serial!==epoch||!dialog.open)return;configured=status.configured===true;controls(false);setStatus(configured?copy.ready:copy.not_configured,!configured);}
     catch{if(serial===epoch&&dialog.open){controls(false);setStatus(copy.failed,true);}}
     finally{clearTimeout(timeout);if(serial===epoch)controller=null;}
   }
-  async function send(){const input=find('#chatInput'),text=input.value.trim();if(!text||!configured||controller)return;if(text.length>MAX_MESSAGE_LENGTH){setStatus(copy.long,true);return;}stopSpeech();stopRecognition();prepareSpeech();if(!speakReply)speech.prepare();const requestedLanguage=chooseReplyLanguage(text,inputLanguage,soul);const serial=++epoch,requestSoul=soul,requestCopy=copy;controller=new AbortController();const requestController=controller;const timer=setTimeout(()=>requestController.abort(),35000);controls(true);setStatus(copy.pending);find('#chatLog').append(message('user',text));find('#chatLog').scrollTop=find('#chatLog').scrollHeight;
-    try{const extra=shareContext?getContext(needsCamera(text)):{};const r=await appFetch(extra.image?'/api/chat/scene':'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({soul,language:requestedLanguage,context:extra.context,image:extra.image,messages:conversationMessages(histories[soul],text)})});const data=await r.json();if(serial!==epoch||!dialog.open)return;if(!r.ok)throw conversationServiceError(data,r.headers,'failed');if(typeof data.reply!=='string'||data.soul!==requestSoul)throw new Error('failed');histories[soul].push({role:'user',content:text},{role:'assistant',content:data.reply});histories[soul]=histories[soul].slice(-40);onTurn({soul,user:text,reply:data.reply});latestReply=data.reply;lastReplyLanguages[soul]=replyLanguage=requestedLanguage;input.value='';paintHistory();setStatus(data.truncated?copy.truncated:copy.ready);if(autoRead&&canSpeak())readReply();}
+  async function send(){const input=find('#chatInput'),text=input.value.trim();if(!text||!configured||controller)return;if(text.length>MAX_MESSAGE_LENGTH){setStatus(copy.long,true);return;}stopSpeech();stopRecognition();prepareSpeech();if(!speakReply)speech.prepare();const requestedLanguage=chooseReplyLanguage(text,inputLanguage,soul),voiceTurnId=newVoiceTurnId();const serial=++epoch,requestSoul=soul,requestCopy=copy;controller=new AbortController();const requestController=controller;const timer=setTimeout(()=>requestController.abort(),35000);controls(true);setStatus(copy.pending);find('#chatLog').append(message('user',text));find('#chatLog').scrollTop=find('#chatLog').scrollHeight;
+    try{const extra=shareContext?getContext(needsCamera(text)):{};const r=await appFetch(extra.image?'/api/chat/scene':'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({soul,language:requestedLanguage,voiceTurnId:serverVoiceTurnId(voiceTurnId),context:extra.context,image:extra.image,messages:conversationMessages(histories[soul],text)})});const data=await r.json();if(serial!==epoch||!dialog.open)return;if(!r.ok)throw conversationServiceError(data,r.headers,'failed');if(typeof data.reply!=='string'||data.soul!==requestSoul)throw new Error('failed');const answer={role:'assistant',content:data.reply};latestPlayback={voiceTurnId};voiceSession.playbackByMessage.set(answer,latestPlayback);histories[soul].push({role:'user',content:text},answer);histories[soul]=histories[soul].slice(-40);onTurn({soul,user:text,reply:data.reply});latestReply=data.reply;lastReplyLanguages[soul]=replyLanguage=requestedLanguage;input.value='';paintHistory();setStatus(data.truncated?copy.truncated:copy.ready);if(autoRead&&canSpeak())readReply();}
     catch(error){if(serial!==epoch||!dialog.open)return;paintHistory();const code=requestController.signal.aborted?'timeout':error.message;const label=Object.hasOwn(requestCopy,code)?requestCopy[code]:copy.failed;setStatus(label+retryHint(code,error.retryAfter),true);}
     finally{clearTimeout(timer);if(serial===epoch&&dialog.open){controller=null;controls(false);input.focus();}}
   }
-  const voiceSession=new HandsFreeConversation({Recognition,onTurn,introduced,getOpening,onOpening:(text,lang)=>{latestReply=text;replyLanguage=lang;find('#chatLog').append(message('assistant',text));find('#chatListen').disabled=false;},releaseInput:()=>microphone.release(),getContext:withImage=>shareContext?getContext(withImage):{},stopSpeech,
+  const voiceSession=new HandsFreeConversation({Recognition,onTurn,introduced,getOpening,onOpening:(text,lang)=>{latestPlayback=undefined;latestReply=text;replyLanguage=lang;find('#chatLog').append(message('assistant',text));find('#chatListen').disabled=false;},releaseInput:()=>microphone.release(),getContext:withImage=>shareContext?getContext(withImage):{},stopSpeech,
+    prefetchSpeech:prefetchSpeech||(speakReply?undefined:(text,language,soul,options)=>speech.preload(text,{language,soul,...options})),
     primeReplies:primeReplies||((id,lang)=>speech.primeRideReplies(id,lang)),
     canPrepareFirstSpeech:()=>autoRead&&canSpeak()&&(speakReply?Boolean(canPrepareFirstSpeech?.()):speech.canPrepareFirstSpeech()),
     speak:(text,lang,id,onState,options)=>{if(speakReply)speakReply(text,lang,id,onState,options);else speech.speak(text,{...options,language:lang,soul:id,onState});},
@@ -88,7 +90,7 @@ export function createSoulChat({audioSession,onOpen=()=>{},onTurn=()=>{},getUILa
       if(!voiceSession.active||['starting','listening','reconnecting','audio_reconnecting','speaking_no_interrupt'].includes(state))find('[data-transcript-state="interim"]')?.remove();
       if(state==='listening')setTimeout(onVoiceIdle,350);paintSoulExpression(dialog,state==='speaking'?'talking':['thinking','transcribing','synthesizing'].includes(state)?'thinking':['listening','hearing','quiet'].includes(state)?'listening':'rest');if(!voiceSession.active){chatWakeLock?.release().catch(()=>{});chatWakeLock=null;}if(!dialog.open)return;const c=HANDS_FREE_COPY[language];const button=find('#chatMic');if(button){button.textContent=voiceSession.active?c.stop:c.start;button.setAttribute('aria-pressed',String(voiceSession.active));}dialog.dataset.voiceState=state;setStatus(c[state]||c.failed);const retry=find('#chatAudioRetry');if(retry)retry.hidden=!voiceSession.audioIssue;},
     onTranscript:(text,confirmed)=>{if(dialog.open)renderVoiceTranscript(find('#chatLog'),message,text,confirmed);},
-    onReply:text=>{latestReply=text;lastReplyLanguages[soul]=replyLanguage=chooseReplyLanguage(text,inputLanguage,soul);paintHistory();find('#chatListen').disabled=false;}
+    onReply:(text,playback)=>{latestPlayback=playback;latestReply=text;lastReplyLanguages[soul]=replyLanguage=chooseReplyLanguage(text,inputLanguage,soul);paintHistory();find('#chatListen').disabled=false;}
   });
   voiceSession.histories=histories;
   function recognize(){
@@ -99,11 +101,11 @@ export function createSoulChat({audioSession,onOpen=()=>{},onTurn=()=>{},getUILa
     navigator.wakeLock?.request('screen').then(lock=>{if(voiceSession.active&&!document.hidden){chatWakeLock=lock;lock.addEventListener('release',()=>{if(chatWakeLock===lock)chatWakeLock=null;});}else lock.release().catch(()=>{});}).catch(()=>{});
   }
 
-  function readReply(){prepareSpeech();if(!speakReply)speech.prepare();if(voiceSession.active){voiceSession.announce(latestReply,replyLanguage);return;}stopSpeech();if(!latestReply)return;onOpen();const locale=replyLanguage;const onState=(state,error)=>{
+  function readReply(){prepareSpeech();if(!speakReply)speech.prepare();if(voiceSession.active){voiceSession.announce(latestReply,replyLanguage,undefined,latestPlayback);return;}stopSpeech();if(!latestReply)return;onOpen();const locale=replyLanguage;const onState=(state,error)=>{
     if(!dialog.open)return;
     if(isConversationLimit(state)){setStatus(copy[state]+retryHint(state,error?.retryAfter),true);return;}
     setStatus(state==='playing'?copy.speaking:['blocked','unavailable'].includes(state)?copy.unavailable:copy.ready);
-  };if(speakReply)speakReply(latestReply,locale,soul,onState);else speech.speak(latestReply,{language:locale,soul,onState});}
+  };if(speakReply)speakReply(latestReply,locale,soul,onState,latestPlayback);else speech.speak(latestReply,{...latestPlayback,language:locale,soul,onState});}
   dialog.addEventListener('close',()=>{cancel();onClose();});dialog.addEventListener('cancel',()=>{cancel();onClose();});
   document.addEventListener('visibilitychange',()=>{if(document.hidden&&dialog.open){cancel();paintHistory();controls(false);setStatus(copy.cancelled);}});
   function setInputLanguage(value){
@@ -119,6 +121,6 @@ export function createSoulChat({audioSession,onOpen=()=>{},onTurn=()=>{},getUILa
     stopSpeech();
   }
   function canAnnounceWeather(){return dialog.open&&shareContext&&autoRead&&!voiceSession.audioIssue&&voiceSession.active&&['listening','quiet'].includes(voiceSession.state)&&Date.now()-voiceSession.stateSince>250;}
-  function announceWeather(line,lang){if(!canAnnounceWeather())return false;const ok=voiceSession.announce(line,lang);if(ok){latestReply=line;replyLanguage=lang;find('#chatLog').append(message('assistant',line));find('#chatListen').disabled=false;}return ok;}
+  function announceWeather(line,lang){if(!canAnnounceWeather())return false;const ok=voiceSession.announce(line,lang);if(ok){latestPlayback=undefined;latestReply=line;replyLanguage=lang;find('#chatLog').append(message('assistant',line));find('#chatListen').disabled=false;}return ok;}
   return {forget(id){if(!Object.hasOwn(histories,id))return;if(soul===id){cancel();latestReply='';if(dialog.open)dialog.close();}histories[id]=[];introduced.delete(id);},voiceActive:()=>voiceSession.active,open,setInputLanguage,canAnnounceWeather,announceWeather,isOpen(){return dialog.open;},close(){cancel();if(dialog.open)dialog.close();}};
 }

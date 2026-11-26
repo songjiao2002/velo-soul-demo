@@ -1,8 +1,9 @@
 import {VOICE_PRIVACY} from './voice-privacy.mjs';
 import {readVoiceReply} from './chat-stream.mjs';
+import {newVoiceTurnId,serverVoiceTurnId} from './speech-cache.mjs';
 import {appFetch} from './app-network.mjs';
 import {replyLanguage,needsCamera} from './input-language.mjs';
-import {getRideQuickReply} from './ride-quick-replies.mjs';
+import {contextualRideQuickReply} from './ride-quick-replies.mjs';
 import {COMMUNICATION_LIMIT_COPY,conversationServiceError,isConversationLimit,MAX_MESSAGE_LENGTH,conversationMessages} from './conversation-limits.mjs';
 
 const endConversation=/^(stop listening|stop (the )?(voice )?conversation|停止(语音)?对话|停止聆听|대화\s*멈춰|음성\s*대화\s*(종료|그만))[.!?。！\s]*$/i;
@@ -125,9 +126,10 @@ export class HandsFreeConversation {
   return {url:extra.image?'/api/chat/scene':'/api/chat',body:{voice:true,soul:this.soul,language,messages,context:extra.context,image:extra.image}};
  }
  beginRequest(request,text,controller){
-  const id=request.url==='/api/chat'&&!needsCamera(text)&&this.canPrepareFirstSpeech()?globalThis.crypto?.randomUUID?.():undefined;
-  const response=this.fetchImpl(request.url,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/x-ndjson'},signal:controller.signal,body:JSON.stringify({...request.body,firstSpeechId:id})});
-  return {id,response};
+  const voiceTurnId=newVoiceTurnId();
+  const id=request.url==='/api/chat'&&!needsCamera(text)&&this.canPrepareFirstSpeech()?serverVoiceTurnId(voiceTurnId):undefined;
+  const response=this.fetchImpl(request.url,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/x-ndjson'},signal:controller.signal,body:JSON.stringify({...request.body,voiceTurnId:serverVoiceTurnId(voiceTurnId),firstSpeechId:id})});
+  return {id,voiceTurnId,response};
  }
  discardDraft(){
   if(!this.draft)return;
@@ -138,7 +140,7 @@ export class HandsFreeConversation {
   // last preview. Nothing from this request is shown or played until matched.
   if(this.draft||text.length>512||!substantialPreview(text)||needsCamera(text)||endConversation.test(text)||repeatRequest.test(text))return;
   const language=replyLanguage(text,this.language,this.soul);
-  if(getRideQuickReply(text,{soul:this.soul,language}))return;
+  if(contextualRideQuickReply(text,{soul:this.soul,language},this.histories[this.soul].at(-1)))return;
   try{
    const request=this.requestFor(text,language);
    if(request.body.image)return;
@@ -148,10 +150,13 @@ export class HandsFreeConversation {
    this.draft={...flight,request,controller,text,language,timer:this.setTimer(()=>this.discardDraft(),3000)};
   }catch{/* If preparation is unavailable the confirmed turn uses its usual request. */}
  }
- rememberTurn(text,reply){
-  this.histories[this.soul].push({role:'user',content:text},{role:'assistant',content:reply});
+ playbackByMessage=new WeakMap();
+ rememberTurn(text,reply,playback){
+  const message={role:'assistant',content:reply};
+  this.histories[this.soul].push({role:'user',content:text},message);
+  this.playbackByMessage.set(message,playback);
   this.histories[this.soul]=this.histories[this.soul].slice(-40);
-  this.onTurn({soul:this.soul,user:text,reply});this.onReply(reply);
+  this.onTurn({soul:this.soul,user:text,reply});this.onReply(reply,playback);
  }
  async submit(text,serial,retryRequest=null){
   if(!this.active||serial!==this.epoch)return;
@@ -160,12 +165,13 @@ export class HandsFreeConversation {
   const draft=!retryRequest&&this.draft?.language===language&&confirmedWords(this.draft.text)===confirmedWords(text)?this.draft:null;
   if(draft){this.clearTimer(draft.timer);this.draft=null;}else this.discardDraft();
   const previous=this.histories[this.soul].at(-1);
-  if(previous&&replyLanguage(previous.content)===language&&repeatRequest.test(text)){this.output(previous.content,language,serial);return;}
-  const quick=getRideQuickReply(text,{soul:this.soul,language});
-  if(quick&&(quick.intent==='quiet'||previous?.content!==quick.text)){
+  if(previous&&replyLanguage(previous.content)===language&&repeatRequest.test(text)){this.output(previous.content,language,serial,undefined,undefined,false,this.playbackByMessage?.get(previous));return;}
+  const quick=contextualRideQuickReply(text,{soul:this.soul,language},previous);
+  if(quick){
    draft?.controller.abort();
-   this.rememberTurn(text,quick.text);
-   this.output(quick.text,language,serial,undefined,undefined,false,{firstReplySegment:true,quickReplySource:quick.path});
+   const playback={firstReplySegment:true,quickReplySource:quick.path};
+   this.rememberTurn(text,quick.text,playback);
+   this.output(quick.text,language,serial,undefined,undefined,false,playback);
    return;
   }
   this.setState('thinking');const controller=draft?.controller||new AbortController();this.controller=controller;const timeout=this.setTimer(()=>controller.abort(),35000);
@@ -173,7 +179,7 @@ export class HandsFreeConversation {
   try{
    request??=this.requestFor(text,language);
    const flight=draft||this.beginRequest(request,text,controller);
-   const firstSpeechId=flight.id,response=await flight.response;
+   const firstSpeechId=flight.id,playback={voiceTurnId:flight.voiceTurnId},response=await flight.response;
    const valid=()=>this.active&&serial===this.epoch;
    const streamed=response.ok&&response.headers.get('content-type')?.includes('application/x-ndjson');
    let speaking=false,complete=false,firstReplySegment=true;const queue=[];
@@ -181,7 +187,7 @@ export class HandsFreeConversation {
     const next=queue[0];
     if(speaking&&valid()&&!temporaryLimits.has(this.state)&&next&&!next.prepared&&next.text.length<=540){
      next.prepared=true;
-     this.prefetchSpeech(next.text,language,this.soul);
+     this.prefetchSpeech(next.text,language,this.soul,playback);
     }
    };
    const drain=()=>{
@@ -189,7 +195,7 @@ export class HandsFreeConversation {
     const next=queue.shift();
     if(!next){if(complete)this.finishPlayback(serial);return;}
     speaking=true;
-    const speechOptions=firstReplySegment?{firstReplySegment:true,firstSpeechId}:undefined;
+    const speechOptions=firstReplySegment?{...playback,firstReplySegment:true,firstSpeechId}:playback;
     firstReplySegment=false;
     this.output(next.text,language,serial,()=>{},()=>{speaking=false;drain();},false,speechOptions);
     prepareNext();
@@ -202,9 +208,9 @@ export class HandsFreeConversation {
     else queue.push({text:value,prepared:false});
     if(speaking)prepareNext();else drain();
    };
-   const data=streamed?await readVoiceReply(response,{soul:this.soul,onText:value=>{if(valid()&&value){receivedReply=true;this.onReply(value);}},onSentence:enqueue}):await response.json();if(!valid())return;
+   const data=streamed?await readVoiceReply(response,{soul:this.soul,joinReactions:Boolean(serverVoiceTurnId(flight.voiceTurnId)),onText:value=>{if(valid()&&value){receivedReply=true;this.onReply(value,playback);}},onSentence:enqueue}):await response.json();if(!valid())return;
    if(!response.ok)throw conversationServiceError(data,response.headers,'failed');if(data.soul!==this.soul||typeof data.reply!=='string'||!data.reply.trim())throw new Error('failed');
-   this.rememberTurn(text,data.reply);if(streamed){complete=true;drain();}else this.output(data.reply,language,serial);
+   this.rememberTurn(text,data.reply,playback);if(streamed){complete=true;drain();}else this.output(data.reply,language,serial,undefined,undefined,false,playback);
   }catch(error){
    if(!this.active||serial!==this.epoch)return;
    const next=++this.epoch,reason=error.message;
@@ -232,7 +238,7 @@ export class HandsFreeConversation {
     this.stopInterrupt();this.spokenPhrases=[];this.stopSpeech();this.setState(state);
     this.timer=this.setTimer(()=>{
      if(!this.active||serial!==this.epoch)return;
-     if(!played&&!retried)this.output(text,language,serial,onState,onEnded,true,speechOptions?.firstReplySegment?{firstReplySegment:true}:undefined);
+     if(!played&&!retried)this.output(text,language,serial,onState,onEnded,true,speechOptions?{...speechOptions,firstSpeechId:undefined}:undefined);
      else if(played&&onEnded){this.setState('synthesizing');onEnded();}
      else{
       const next=++this.epoch;this.controller?.abort();this.finishPlayback(next);
@@ -310,7 +316,7 @@ export class HandsFreeConversation {
   this.interruptTimer=this.setTimer(listen,150);
  }
  recover(serial,capture=false){this.disconnect();this.clearTimer(this.timer);if(capture)this.releaseInput();if(++this.retryCount>3){this.stop(capture?'audio-capture':'network');return;}this.setState(capture?'audio_reconnecting':'reconnecting');this.resumeAfter(serial,Math.min(1500*this.retryCount,4500));}
- announce(text,language,onState=()=>{}){if(!this.active||this.isBusy())return false;const serial=++this.epoch;this.disconnect();return this.output(text,language,serial,onState);}
+ announce(text,language,onState=()=>{},playback){if(!this.active||this.isBusy())return false;const serial=++this.epoch;this.disconnect();return this.output(text,language,serial,onState,undefined,false,playback);}
 }
 
 HANDS_FREE_COPY.ko.speaking='소울이 말하는 중 · “잠깐”으로 끊을 수 있어요';

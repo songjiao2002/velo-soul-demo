@@ -2,6 +2,7 @@ import {appFetch} from './app-network.mjs';
 import {isConversationLimit} from './conversation-limits.mjs';
 import {speechFileBytes} from './speech-response.mjs';
 import {characterRate,setMediaTempo} from './speech-tempo.mjs';
+import {speechCacheKey,serverVoiceTurnId} from './speech-cache.mjs';
 // Optional media-element playback for browsers whose Web Audio route is wrong.
 // It uses complete WAV responses, trading first-audio latency for a different
 // playback path. It cannot select Bluetooth when the host app forbids it.
@@ -29,14 +30,14 @@ export class NativeSpeechPlayer {
   if(this.playing){this.audio.pause();this.playing=false;}this.clearSource();
  }
  remember(key,bytes){if(bytes.byteLength>4000000)return;const old=this.cache.get(key);if(old)this.bytes-=old.byteLength;this.cache.delete(key);this.cache.set(key,bytes);this.bytes+=bytes.byteLength;while(this.cache.size>8||this.bytes>8000000){const first=this.cache.keys().next().value;this.bytes-=this.cache.get(first).byteLength;this.cache.delete(first);}}
- preload(text,{language='en',soul='lumi',source}={}){
-  const key=JSON.stringify([source||'',text,language,soul]);if(this.cache.has(key))return Promise.resolve(this.cache.get(key));if(this.preloads.has(key))return this.preloads.get(key).promise;
+ preload(text,{language='en',soul='lumi',source,voiceTurnId}={}){
+  const key=speechCacheKey(text,language,soul,source,voiceTurnId);if(this.cache.has(key))return Promise.resolve(this.cache.get(key));if(this.preloads.has(key))return this.preloads.get(key).promise;
   const controller=new AbortController(),entry={controller,dynamic:!source},timer=this.setTimer(()=>controller.abort(),source?3000:8000);
-  entry.promise=(async()=>{try{const response=await this.fetchImpl(source||'/api/speech',{signal:controller.signal,...(source?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,language,soul})})});const bytes=await speechFileBytes(response);if(controller.signal.aborted)return null;this.remember(key,bytes);return bytes;}catch(error){if(isConversationLimit(error.message))entry.failure=error;return null;}finally{this.clearTimer(timer);if(!entry.failure&&this.preloads.get(key)===entry)this.preloads.delete(key);}})();
+  entry.promise=(async()=>{try{const response=await this.fetchImpl(source||'/api/speech',{signal:controller.signal,...(source?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,language,soul,voiceTurnId:serverVoiceTurnId(voiceTurnId)})})});const bytes=await speechFileBytes(response);if(controller.signal.aborted)return null;this.remember(key,bytes);return bytes;}catch(error){if(isConversationLimit(error.message))entry.failure=error;return null;}finally{this.clearTimer(timer);if(!entry.failure&&this.preloads.get(key)===entry)this.preloads.delete(key);}})();
   this.preloads.set(key,entry);while(this.preloads.size>8){const first=this.preloads.keys().next().value;this.preloads.get(first).controller.abort();this.preloads.delete(first);}return entry.promise;
  }
  cancelPrefetches(){for(const [key,entry]of this.preloads)if(entry.dynamic){entry.controller.abort();this.preloads.delete(key);}}
- async speak(parts,{language,soul,source,firstSource,firstSpeechId,report,allowed=()=>true}){
+ async speak(parts,{language,soul,source,firstSource,voiceTurnId,firstSpeechId,report,allowed=()=>true}){
   this.stop();const serial=this.serial,valid=()=>serial===this.serial;
   if(!this.audio){report('unavailable');return;}const controller=this.controller=new AbortController();
   try{
@@ -57,13 +58,13 @@ export class NativeSpeechPlayer {
       }
      }
     }
-    const key=JSON.stringify([source||'',part,language,soul]);let bytes=this.cache.get(key);
+    const key=speechCacheKey(part,language,soul,source,voiceTurnId);let bytes=this.cache.get(key);
     if(!bytes&&this.preloads.has(key)){
      const entry=this.preloads.get(key);bytes=await entry.promise;if(!valid())return;
      if(entry.failure){this.preloads.delete(key);throw entry.failure;}
     }
     if(!bytes){this.fetchTimer=this.setTimer(()=>controller.abort(),35000);
-     const response=await this.fetchImpl(source||'/api/speech',{signal:controller.signal,...(source?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:part,language,soul,firstSpeechId:index===0?firstSpeechId:undefined})})});
+     const response=await this.fetchImpl(source||'/api/speech',{signal:controller.signal,...(source?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:part,language,soul,voiceTurnId:serverVoiceTurnId(voiceTurnId),firstSpeechId:index===0?firstSpeechId:undefined})})});
      bytes=await speechFileBytes(response);this.clearTimer(this.fetchTimer);this.fetchTimer=null;
      if(!valid())return;if(bytes.byteLength<44||bytes.byteLength>4000000)throw Error('audio');this.remember(key,bytes);
     }

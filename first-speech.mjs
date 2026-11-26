@@ -22,7 +22,7 @@ function firstSelected(soul,text){
   return first;
 }
 
-export function createVoiceOpeningStream({soul,language},emit,{signal,waitMs=320,maxChars=128,setTimer=setTimeout,clearTimer=clearTimeout}={}){
+export function createVoiceOpeningStream({soul,language,voiceTurnId},emit,{signal,waitMs=320,maxChars=128,setTimer=setTimeout,clearTimer=clearTimeout}={}){
   const compound=Object.hasOwn(compounds,language)?compounds[language]:undefined;
   let text='',sent=0,plain=false,holding=false,standaloneDot=false,timer,queued=Promise.resolve(),openingLength=0;
   function write(delta){
@@ -102,7 +102,7 @@ export function createVoiceOpeningStream({soul,language},emit,{signal,waitMs=320
       const bareOpener=!multi&&soul==='mori'&&/^[a-z]/iu.test(word);
       if((!multi&&!interjection.test(word))||!boundary||(!boundary.trim()&&!bareOpener))return flush();
       const phrase=firstSelected(soul,text.slice(0,endWord+boundary.length));
-      if(!phrase||getFastOpeningSource(phrase,{soul,language}))return flush();
+      if(!phrase||(!validFirstSpeechId(voiceTurnId)&&getFastOpeningSource(phrase,{soul,language})))return flush();
       holding=true;openingLength=phrase.length;
       if(hasWholeSentence(text))return flush();
       // Never publish the comma on its own, even when a provider delta starts

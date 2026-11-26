@@ -1592,7 +1592,7 @@ import {conversationLanguageLabel,conversationLanguagePicker} from './encounter-
       URL.revokeObjectURL(s);
     }
   }
-  var se = "20261126-mobile79";
+  var se = "20261126-mobile80";
   var Ns = null, Ni = null, Za = false;
   function ji() {
     Za = true;
@@ -1605,7 +1605,7 @@ import {conversationLanguageLabel,conversationLanguagePicker} from './encounter-
       Ni.mountCharacters();
       return;
     }
-    Ns ??= import("/character-toon.bundle.mjs?v=20261126-mobile79").catch(() => null);
+    Ns ??= import("/character-toon.bundle.mjs?v=20261126-mobile80").catch(() => null);
     Ns.then((module) => {
       if (!Za) return;
       if (module) {
@@ -4697,7 +4697,7 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
 Ft=liveDeviceMedia;
 Qt=liveOutputLanguage;ds=livePlaceFallback;on=liveBikeMemoryLine;
 la=liveWeatherLine;mn=liveWeatherGreeting;
-Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S,primeReplies:(id,lang)=>ue.primeRideReplies(id,lang),canPrepareFirstSpeech:()=>!M?.active&&Z&&ue.canPrepareFirstSpeech()});
+Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S,prefetchSpeech:(text,language,soul,playback)=>ue.preload(text,{language,soul,...playback}),primeReplies:(id,lang)=>ue.primeRideReplies(id,lang),canPrepareFirstSpeech:()=>!M?.active&&Z&&ue.canPrepareFirstSpeech()});
 Tt=LiveSpeech;at=LiveMicrophone;ua=options=>liveRecognition({...options,standby:true});Et=LiveAudioSession;xi=LiveMemory;
 Ga=rideVoiceControlsMarkup;
 fs=paintRideVoiceControls;
@@ -4724,7 +4724,7 @@ kl=function(state){
  syncRideTalk(state);
 };
 wt=class extends LiveConversation {
- constructor(options={}){super({...options,primeReplies:(id,lang)=>ue.primeRideReplies(id,lang),canPrepareFirstSpeech:()=>Z&&ue.canPrepareFirstSpeech(),prefetchSpeech:(text,language,soul)=>ue.preload(text,{language,soul}),stopSpeech:()=>{ue.cancelPrefetches();options.stopSpeech?.();}});}
+ constructor(options={}){super({...options,primeReplies:(id,lang)=>ue.primeRideReplies(id,lang),canPrepareFirstSpeech:()=>Z&&ue.canPrepareFirstSpeech(),prefetchSpeech:(text,language,soul,playback)=>ue.preload(text,{language,soul,...playback}),stopSpeech:()=>{ue.cancelPrefetches();options.stopSpeech?.();}});}
 };
 Ds=liveIntroduction;Kt=liveIntroClip;
 Mi=(text,language='auto')=>liveReplyLanguage(text,language,P);
@@ -5887,7 +5887,7 @@ window.addEventListener('velo:ready',()=>{
       a("unavailable");
       return;
     }
-    ue.speak(i, { language: e, soul: t, ...speechOptions, source: Kt(i, t, e), onState: (n, failure) => {
+    ue.speak(i, { language: e, soul: t, ...speechOptions, source: speechOptions?.voiceTurnId ? undefined : Kt(i, t, e), onState: (n, failure) => {
       n === "playing" && (dt.meet(t), Mn?.render()), _e(document, n === "playing" ? "talking" : n === "loading" ? "thinking" : "listening"), document.body.classList.toggle("voice-playing", n === "playing" || n === "loading"), hi({ loading: "목소리를 준비하고 있어요…", playing: e === "zh" ? "正在播放中文语音" : e === "ko" ? "한국어 목소리 재생 중" : "English voice playing", ended: "다시 듣기로 목소리를 들을 수 있어요.", blocked: "소리를 켜려면 듣기 버튼을 눌러주세요.", unavailable: "소리를 재생하지 못했어요. 다시 듣기를 눌러주세요." }[n] || (liveLimitCopy[S()][n] || "") + liveRetryAfter(S(),failure?.retryAfter)), a(n,failure);
     } });
   }

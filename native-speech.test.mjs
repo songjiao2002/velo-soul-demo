@@ -37,6 +37,14 @@ test('a packaged first phrase on the media route plays once and falls back to it
 test('native speech shares a pending weather preload instead of generating the same greeting twice',async()=>{
  const a=setup();let finish;a.setFetch(()=>new Promise(r=>finish=r));const preloaded=a.player.preload('weather',a.options),spoken=a.player.speak(['weather'],a.options);assert.equal(a.requests.length,1);finish(new Response(new Uint8Array(100)));await preloaded;await spoken;assert.deepEqual(a.states,['playing','ended']);assert.equal(a.requests.length,1);a.player.dispose();a.devices.dispose();
 });
+test('media playback prefetch shares the current turn but does not replace the next turn’s performance',async()=>{
+ const a=setup(),first=crypto.randomUUID(),next=crypto.randomUUID();
+ try{
+  await a.player.preload('Okay.',{...a.options,voiceTurnId:first});
+  for(const voiceTurnId of [first,next,next])await a.player.speak(['Okay.'],{...a.options,voiceTurnId});
+  assert.deepEqual(a.requests.map(([,opt])=>JSON.parse(opt.body).voiceTurnId),[first,next]);
+ }finally{a.player.dispose();a.devices.dispose();}
+});
 
 test('native WAV requests and completed prefetches preserve HTTP and streamed quota failures without another paid call',async()=>{
  for(const prefetch of [false,true]){

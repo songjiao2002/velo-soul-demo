@@ -1,17 +1,17 @@
 const lines={
   lumi:{
-    en:{pace:"Let's slow down. I like having time to look around.",rest:"Let's find a safe spot to take a breather.",quiet:"Got it."},
-    ko:{pace:'천천히 가자. 난 여유 있게 둘러보는 게 좋아.',rest:'쉬기 좋은 안전한 곳을 찾아보자.',quiet:'알겠어.'},
-    zh:{pace:'慢点骑吧，我喜欢有空四处看看。',rest:'找个安全的地方歇一会儿吧。',quiet:'好。'}
+    en:{pace:"Let's slow down. I like having time to look around.",rest:"Let's find a safe spot to stop. I could use a minute to look around.",quiet:"Got it."},
+    ko:{pace:'천천히 가자. 난 여유 있게 둘러보는 게 좋아.',rest:'안전한 데서 잠깐 쉬자. 나도 느긋하게 둘러보고 싶어.',quiet:'알겠어.'},
+    zh:{pace:'慢点骑吧，我喜欢有空四处看看。',rest:'找个安全的地方歇会儿吧。我正想慢慢看看四周呢。',quiet:'好。'}
   },
   mori:{
-    en:{pace:'Slow sounds good to me.',rest:"Somewhere safe, then let's rest.",quiet:'Okay.'},
-    ko:{pace:'천천히 가는 게 좋지.',rest:'안전한 데서 좀 쉬자.',quiet:'응.'},
-    zh:{pace:'慢慢骑，我喜欢。',rest:'找个安全的地方歇会儿。',quiet:'好，听你的。'}
+    en:{pace:'Slow sounds good to me.',rest:"Rest somewhere safe? My specialty.",quiet:'Okay.'},
+    ko:{pace:'천천히 가는 게 좋지.',rest:'안전한 데서 쉬자. 그건 자신 있어.',quiet:'응.'},
+    zh:{pace:'慢慢骑，我喜欢。',rest:'找个安全的地方歇着。这我在行。',quiet:'好，听你的。'}
   },
   bori:{
     en:{pace:"Take it easy. I'm happy at your pace.",rest:"Let's take a break somewhere safe. I'm in.",quiet:'Okay.'},
-    ko:{pace:'천천히 가자. 네 속도가 좋아.',rest:'안전한 데서 잠깐 쉬자. 나도 찬성!',quiet:'응, 알겠어.'},
+    ko:{pace:'천천히 가자. 난 같이 맞춰 가는 게 좋아.',rest:'안전한 데서 잠깐 쉬자. 나도 찬성!',quiet:'응, 알겠어.'},
     zh:{pace:'慢慢来，跟着你的节奏就好。',rest:'找个安全的地方歇歇吧，我也想缓口气。',quiet:'好。'}
   }
 };
@@ -92,4 +92,13 @@ export function rideIntent(transcript){
 export function getRideQuickReply(transcript,{soul,language}={}){
   const intent=rideIntent(transcript);
   if(intent)return RIDE_QUICK_REPLIES.find(reply=>reply.intent===intent&&reply.soul===soul&&reply.language===language);
+}
+
+// Once the rider has shared something personal, let the next answer reflect
+// that exchange. Purely practical turns and requests for quiet can stay local.
+export function contextualRideQuickReply(transcript,options,previous){
+  const clip=getRideQuickReply(transcript,options);
+  if(!clip||!previous||clip.intent==='quiet')return clip;
+  if(previous.role==='assistant'&&previous.content!==clip.text&&RIDE_QUICK_REPLIES.some(
+    other=>other.soul===options.soul&&other.text===previous.content))return clip;
 }
