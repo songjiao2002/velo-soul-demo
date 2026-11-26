@@ -5,6 +5,7 @@ import {createHash} from 'node:crypto';
 import {SpeechAudioCache} from './public/speech-cache.mjs';
 import {CloudSpeechPlayer} from './public/cloud-speech.mjs';
 import {FAST_OPENINGS, getFastOpeningSource} from './public/fast-openings.mjs';
+import {RIDE_QUICK_REPLIES} from './public/ride-quick-replies.mjs';
 import {readVoiceReply} from './public/chat-stream.mjs';
 
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
@@ -90,10 +91,13 @@ test('each packaged opening matches the exact first phrase emitted by the reply 
  assert.equal(combinations.size,9);
 });
 
-test('packaged character openings contain distinct audible PCM and little leading silence',async()=>{
+for(const [name,recordings] of [['openings',FAST_OPENINGS],['quick replies',RIDE_QUICK_REPLIES]]){
+test(`packaged character ${name} contain distinct audible PCM and little leading silence`,async()=>{
+ const manifest=JSON.parse(await readFile(new URL('./public/.asset-manifest.json',import.meta.url),'utf8'));
  const hashes=new Set();
- for(const {path} of FAST_OPENINGS){
+ for(const {path} of recordings){
   const wave=await readFile(new URL(`./public${path}`,import.meta.url));
+  assert.equal(manifest.files[path]?.sha256,createHash('sha256').update(wave).digest('hex'),path);
   assert.equal(wave.toString('ascii',0,4),'RIFF',path);
   assert.equal(wave.toString('ascii',8,16),'WAVEfmt ',path);
   assert.equal(wave.readUInt32LE(4),wave.length-8,path);
@@ -119,3 +123,4 @@ test('packaged character openings contain distinct audible PCM and little leadin
   hashes.add(digest);
  }
 });
+}

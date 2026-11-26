@@ -1,45 +1,45 @@
 {
-  "version": "20261126-mobile77",
+  "version": "20261126-mobile78",
   "files": {
     "/index.html": {
-      "size": 7561,
-      "sha256": "a5e3e26023705e8d5081437e3257219fcfe72d06b806ffe61371cb3c785fe537",
+      "size": 7879,
+      "sha256": "d3defe47fa45abae65457b96c67739e45630c83a2d38b9b52c8114decb55ab96",
       "br": {
-        "size": 2976,
-        "sha256": "cbda5d28394d386bdfc36522dec643ffe11a08611757a1d8840646b4ecb33fa4",
+        "size": 3165,
+        "sha256": "22e0460138c148d8a6de5cd180a58d962d255048989513eaad2270e91d9854af",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 3350,
-        "sha256": "b682882b0356418abffb824640f958a671300e8581fd003896ea42ca9b0c3233",
+        "size": 3556,
+        "sha256": "fc714af7b657d846d6325050f3d2f8be4074cebc8364ee45fa8168c387283905",
         "suffix": ".gz"
       }
     },
     "/boot.js": {
       "size": 2510,
-      "sha256": "06cfc101fc29ac0e15b4ed1dbaf3d51ab574911d6db3c283e3f49c30a4442ec5",
+      "sha256": "417018421c7f2bcf64f6119983bbf6db168b2e9ac89f1a6e3fb4f6a7035e83b5",
       "br": {
         "size": 949,
-        "sha256": "2b58dcb4f01657904004d284276b25b108aa913157c048e349fff16352a1b8a3",
+        "sha256": "b8fa83b321614edd14ec1354d23dca2ed54daf1b4151748d2c2a3f64aa08ab4f",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 1132,
-        "sha256": "7eac3d5ccb6748373ceacf3f41d28cd9d72fcddd3d38756b0d0ff7a1640fcdd3",
+        "size": 1133,
+        "sha256": "5d72b861a64662e07906fd32fd3d1a3be2d7c8d27fd73c14af8e5281a6a5ef47",
         "suffix": ".gz"
       }
     },
     "/app.bundle.js": {
-      "size": 633192,
-      "sha256": "f5f174e4e540fb8dbefbbd89ffab2fe2b1da7f65d2197edd566937df7ae1ecf6",
+      "size": 640177,
+      "sha256": "b4b6057e1b6c037f86ec8208d0f006c5a68580791d5c2ae10de7e306b3d55afd",
       "br": {
-        "size": 152578,
-        "sha256": "da80b1af8581a1999e230124e1c43e8f7e6bc46d8dadd14d53d13f5bd6b3c324",
+        "size": 154854,
+        "sha256": "31d00b8cec7e26893f75468ccfa5faee47eb483d17b68fda975e60bccea06010",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 236432,
-        "sha256": "19919940538f1ddd5e2b57b78d220b0e07761fea0a4ae5a0f12d125a1e256b32",
+        "size": 238732,
+        "sha256": "e85b5f6f5db2b1b018780371ad419607697ee6082e839e10b306926187484d58",
         "suffix": ".gz"
       }
     },
@@ -344,6 +344,114 @@
     "/audio/fast-openings/bori-zh-en-comma.wav": {
       "size": 63164,
       "sha256": "b9a73981fa36fd85813c712d0ab6b6ab92c27af081b00a5782d493ae012b6282"
+    },
+    "/audio/ride-quick/lumi-en-pace.wav": {
+      "size": 147376,
+      "sha256": "0d38418424ee07ba73f9238c5e29d216cff2a8cbce14e8ac710007e0f0b96284"
+    },
+    "/audio/ride-quick/lumi-en-rest.wav": {
+      "size": 113084,
+      "sha256": "660bdd7a692e2390a7faffc760a559979ba8914cbf94050589e88cb7fe1b4226"
+    },
+    "/audio/ride-quick/lumi-en-quiet.wav": {
+      "size": 24760,
+      "sha256": "3f8d9ae21715e158da59c9979f60b8122503c4b77f49ca39c8c470e3f4cc84f9"
+    },
+    "/audio/ride-quick/lumi-ko-pace.wav": {
+      "size": 186170,
+      "sha256": "cab6e7a6c08072b9b764c04a425c68f6476214352ead605d46a25ab123e627af"
+    },
+    "/audio/ride-quick/lumi-ko-rest.wav": {
+      "size": 101690,
+      "sha256": "6d107160f24cb5cb04224a0cadd9171f8a3e2cdbc1ed0dfcd23b91b2edaf6b3f"
+    },
+    "/audio/ride-quick/lumi-ko-quiet.wav": {
+      "size": 55620,
+      "sha256": "5e661c3b16e8729f2557911e8dc0b8c8748782281b6ebed84d2c799195edaf72"
+    },
+    "/audio/ride-quick/lumi-zh-pace.wav": {
+      "size": 162874,
+      "sha256": "510719ddb5dd5ea854901b26f9e1ab630f976a96a751f3d4cc36148816b2ce2f"
+    },
+    "/audio/ride-quick/lumi-zh-rest.wav": {
+      "size": 116876,
+      "sha256": "932c559d609fb1e90acf0aee92df82bb38ca090fb28782161f79fa706549af9b"
+    },
+    "/audio/ride-quick/lumi-zh-quiet.wav": {
+      "size": 24862,
+      "sha256": "c65c23dbfafddc626ba613901dad2dfdce1684121008d756d42923a3fe9160a8"
+    },
+    "/audio/ride-quick/mori-en-pace.wav": {
+      "size": 111446,
+      "sha256": "a4bff4725686ae1e78e55b71c2d96a998c237c317bd55e915e55bb8ec8640895"
+    },
+    "/audio/ride-quick/mori-en-rest.wav": {
+      "size": 189178,
+      "sha256": "55917b0bdd62060b6f1324c707ee2c3689939013d21de61fdec7b86678937314"
+    },
+    "/audio/ride-quick/mori-en-quiet.wav": {
+      "size": 50658,
+      "sha256": "ccb233867b2f39559c68021d99b956da498c28a9854eb47459c53ca0a82abdd3"
+    },
+    "/audio/ride-quick/mori-ko-pace.wav": {
+      "size": 81718,
+      "sha256": "5c998e70f6e71f6452bb05692dea82b156dc450e428e6a199d19eed4edf0e39e"
+    },
+    "/audio/ride-quick/mori-ko-rest.wav": {
+      "size": 71196,
+      "sha256": "a9a7b3c0f7fab0d22de86bcbe3c12391f600952d7cb695155ab1ca02b4876edd"
+    },
+    "/audio/ride-quick/mori-ko-quiet.wav": {
+      "size": 29218,
+      "sha256": "23a36a321e36652181a06e841b8e57d999457444e32e46f6f19a6040be8cf28a"
+    },
+    "/audio/ride-quick/mori-zh-pace.wav": {
+      "size": 80630,
+      "sha256": "1e8d59f2f1f2646ab28f333f55cd3e1d502414876ff7a593f07d50ee78c4ae16"
+    },
+    "/audio/ride-quick/mori-zh-rest.wav": {
+      "size": 71674,
+      "sha256": "54321560aafb98e9f931a5ad1d4603e1f143b83bfaf8ca9b4651aebba69251bf"
+    },
+    "/audio/ride-quick/mori-zh-quiet.wav": {
+      "size": 64610,
+      "sha256": "35868eb8170278813709f5d3528307d7714a6828184884c1e089400856d95d59"
+    },
+    "/audio/ride-quick/bori-en-pace.wav": {
+      "size": 128580,
+      "sha256": "76a608e59d8dc4b7a439a574af952ccf0c8d7ebf79a9d89a680555640ee32003"
+    },
+    "/audio/ride-quick/bori-en-rest.wav": {
+      "size": 166844,
+      "sha256": "eab2ec781228ef11974683f259bc30df7d32ead5cbe8c3e80d697b7fbe4360ab"
+    },
+    "/audio/ride-quick/bori-en-quiet.wav": {
+      "size": 32362,
+      "sha256": "ee7b0cf930f4f1187fd0abf02de76fddba549334627fd72df8774c4329b15116"
+    },
+    "/audio/ride-quick/bori-ko-pace.wav": {
+      "size": 147532,
+      "sha256": "3c06390f5269a261de0fd3458c570ca54f04dca78e95642348cb86f550923360"
+    },
+    "/audio/ride-quick/bori-ko-rest.wav": {
+      "size": 223956,
+      "sha256": "dc8bc6892423663d647125e4860dda024515a5dda2c4da662db394a4ed9ba379"
+    },
+    "/audio/ride-quick/bori-ko-quiet.wav": {
+      "size": 82334,
+      "sha256": "c7dbc97cdffbeecf1e3ceaae86a16e453fec7c454cf86ed92828bff112901833"
+    },
+    "/audio/ride-quick/bori-zh-pace.wav": {
+      "size": 128140,
+      "sha256": "32608c1ed7762d8ed8b41792ae7ff3d4fe7ab8a6c779280e117ecff781b876b5"
+    },
+    "/audio/ride-quick/bori-zh-rest.wav": {
+      "size": 182034,
+      "sha256": "bd42f747ff9cca033d5b6ea3d7253e850e555fa9331520455580aaab76b292f6"
+    },
+    "/audio/ride-quick/bori-zh-quiet.wav": {
+      "size": 21050,
+      "sha256": "cf6c436d38343caf99df0827dff73bae20b16a5c77b08d8704acf3c51633e01f"
     },
     "/vendor/rnnoise/rnnoise.wasm": {
       "size": 152656,

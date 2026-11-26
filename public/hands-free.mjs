@@ -2,11 +2,18 @@ import {VOICE_PRIVACY} from './voice-privacy.mjs';
 import {readVoiceReply} from './chat-stream.mjs';
 import {appFetch} from './app-network.mjs';
 import {replyLanguage,needsCamera} from './input-language.mjs';
+import {getRideQuickReply} from './ride-quick-replies.mjs';
 import {COMMUNICATION_LIMIT_COPY,conversationServiceError,isConversationLimit,MAX_MESSAGE_LENGTH,conversationMessages} from './conversation-limits.mjs';
 
 const endConversation=/^(stop listening|stop (the )?(voice )?conversation|停止(语音)?对话|停止聆听|대화\s*멈춰|음성\s*대화\s*(종료|그만))[.!?。！\s]*$/i;
 const temporaryLimits=new Set(['service_busy','minute_limit','provider_rate_limited','rate_limited']);
 const hardLimits=new Set(['daily_limit','provider_quota']);
+const repeatRequest=/^(repeat that|say that again|再说一次|重复一遍|다시\s*말해)[.!?。！\s]*$/i;
+// Final ASR commonly restores casing, spacing and a closing period. Keep
+// question marks, negation, numbers and interior punctuation significant.
+function confirmedWords(text){
+ return text.normalize('NFC').trim().toLowerCase().replace(/\s+/gu,' ').replace(/[.。]$/u,'');
+}
 function retryDelay(reason,retryAfter){
  const seconds=Number(retryAfter);
  return Number.isFinite(seconds)&&seconds>0?Math.ceil(seconds*1000):reason==='service_busy'?1000:60000;
@@ -44,17 +51,18 @@ export const HANDS_FREE_COPY={
 };
 
 export class HandsFreeConversation {
- constructor({Recognition=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition,fetchImpl=appFetch,getContext=()=>({}),speak=()=>{},canPrepareFirstSpeech=()=>false,prefetchSpeech=()=>{},stopSpeech=()=>{},releaseInput=()=>{},onState=()=>{},onTranscript=()=>{},onReply=()=>{},onTurn=()=>{},getOpening=()=>null,onOpening=()=>{},introduced=new Set(),setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{Recognition,fetchImpl,getContext,speak,canPrepareFirstSpeech,prefetchSpeech,stopSpeech,releaseInput,onState,onTranscript,onReply,onTurn,getOpening,onOpening,introduced,setTimer,clearTimer});this.active=false;this.epoch=0;this.recognizer=null;this.controller=null;this.timer=null;this.state='off';this.histories={lumi:[],mori:[],bori:[]};}
+ constructor({Recognition=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition,fetchImpl=appFetch,getContext=()=>({}),speak=()=>{},canPrepareFirstSpeech=()=>false,prefetchSpeech=()=>{},primeReplies=()=>{},stopSpeech=()=>{},releaseInput=()=>{},onState=()=>{},onTranscript=()=>{},onReply=()=>{},onTurn=()=>{},getOpening=()=>null,onOpening=()=>{},introduced=new Set(),setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{Recognition,fetchImpl,getContext,speak,canPrepareFirstSpeech,prefetchSpeech,primeReplies,stopSpeech,releaseInput,onState,onTranscript,onReply,onTurn,getOpening,onOpening,introduced,setTimer,clearTimer});this.active=false;this.epoch=0;this.recognizer=null;this.controller=null;this.timer=null;this.state='off';this.histories={lumi:[],mori:[],bori:[]};}
  setState(state){this.state=state;this.stateSince=Date.now();this.onState(state,this.active);}
  disconnect(){const r=this.recognizer;this.recognizer=null;if(r){r.onresult=r.onend=r.onerror=r.onspeechstart=r.onspeechend=r.onstart=r.onquiet=r.ontranscribing=r.onaudiorecovering=null;try{r.abort();}catch{}}}
  stopInterrupt(){this.clearTimer(this.interruptTimer);this.interruptTimer=null;this.interruptSpeech=false;this.playbackFinished=false;const r=this.interruptRecognizer;this.interruptRecognizer=null;if(r){r.onresult=r.onend=r.onerror=r.onspeechstart=r.ontranscribing=null;try{r.abort();}catch{}}}
- stop(reason='off'){this.active=false;this.epoch++;this.clearTimer(this.timer);this.controller?.abort();this.controller=null;this.disconnect();this.stopInterrupt();this.spokenPhrases=[];this.monitorLimit=null;this.releaseInput();this.stopSpeech();this.setState(reason);}
- start(soul,language){this.stop();if(!this.Recognition){this.setState('unsupported');return;}this.soul=soul;this.language=language;this.active=true;this.retryCount=0;this.audioIssue=false;this.pendingOpening=this.introduced.has(soul)?null:this.getOpening(soul,language);this.listen();}
+ stop(reason='off'){this.active=false;this.epoch++;this.clearTimer(this.timer);this.discardDraft();this.controller?.abort();this.controller=null;this.disconnect();this.stopInterrupt();this.spokenPhrases=[];this.monitorLimit=null;this.releaseInput();this.stopSpeech();this.setState(reason);}
+ start(soul,language){this.stop();if(!this.Recognition){this.setState('unsupported');return;}this.soul=soul;this.language=language;this.active=true;this.primeReplies(soul,language);this.retryCount=0;this.audioIssue=false;this.pendingOpening=this.introduced.has(soul)?null:this.getOpening(soul,language);this.listen();}
  setLanguage(language){
   if(!['auto','en','ko','zh'].includes(language)||this.language===language)return;
   this.language=language;
   if(!this.active)return;
   this.epoch++;
+  this.primeReplies(this.soul,language);this.discardDraft();
   this.clearTimer(this.timer);
   this.controller?.abort();this.controller=null;
   this.disconnect();this.stopInterrupt();this.stopSpeech();
@@ -65,17 +73,32 @@ export class HandsFreeConversation {
  isBusy(){return this.active&&(temporaryLimits.has(this.state)||['starting','hearing','transcribing','thinking','synthesizing','speaking','reconnecting','audio_reconnecting'].includes(this.state));}
  resumeAfter(serial,delay=500){this.clearTimer(this.timer);this.timer=this.setTimer(()=>{if(this.active&&serial===this.epoch)this.listen();},delay);}
  listen(){
-  if(!this.active)return;this.disconnect();const serial=this.epoch;let r;try{r=new this.Recognition();}catch{this.stop('unsupported');return;}this.recognizer=r;
+  if(!this.active)return;this.discardDraft();this.disconnect();const serial=this.epoch;let r;try{r=new this.Recognition();}catch{this.stop('unsupported');return;}this.recognizer=r;
   r.inputLanguage=this.language;r.lang={en:'en-US',ko:'ko-KR',zh:'zh-CN'}[this.language]||'en-US';r.continuous=false;r.interimResults=true;r.maxAlternatives=1;
   const valid=()=>this.active&&this.epoch===serial&&this.recognizer===r;
-  let finalText='',submitted=false,started=false;
+  let finalText='',submitted=false,started=false,primedAutoLanguage;
   const send=()=>{if(!valid()||submitted)return;submitted=true;this.disconnect();this.clearTimer(this.timer);if(finalText)this.submit(finalText,serial);else this.resumeAfter(serial,1000);};
   r.onstart=()=>{if(valid()){started=true;this.clearTimer(this.timer);if(this.pendingOpening?.text){const opening=this.pendingOpening;this.pendingOpening=null;this.onOpening(opening.text,opening.language);this.output(opening.text,opening.language,serial,state=>{if(state==='playing')this.introduced.add(this.soul);});return;}this.setState('listening');this.timer=this.setTimer(()=>{if(valid()){this.disconnect();this.resumeAfter(serial);}},45000);}};
   r.onspeechstart=()=>{if(valid()){this.clearTimer(this.timer);this.setState('hearing');}};
-  r.ontranscribing=()=>{if(valid()){this.clearTimer(this.timer);this.setState('transcribing');}};
+  r.ontranscribing=endpoint=>{if(valid()){this.clearTimer(this.timer);this.setState('transcribing');if(endpoint?.text)this.prepareDraft(endpoint.text);}};
   r.onaudiorecovering=()=>{if(valid()){this.clearTimer(this.timer);this.setState('audio_reconnecting');}};
   r.onquiet=()=>{if(valid())this.setState('quiet');};
-  r.onresult=e=>{if(!valid())return;let interim='';const finals=[];for(const result of Array.from(e.results)){const text=result[0]?.transcript||'';if(result.isFinal)finals.push(text);else interim+=text;}finalText=finals.join(' ').trim();if(finalText.length>MAX_MESSAGE_LENGTH)return this.recognitionError(serial,{error:'utterance_too_long'});this.onTranscript(finalText||interim,Boolean(finalText));if(finalText){this.retryCount=0;send();}};
+  r.onresult=e=>{
+   if(!valid())return;
+   let interim='';const finals=[];
+   for(const result of Array.from(e.results)){
+    const text=result[0]?.transcript||'';
+    if(result.isFinal)finals.push(text);else interim+=text;
+   }
+   finalText=finals.join(' ').trim();
+   if(finalText.length>MAX_MESSAGE_LENGTH)return this.recognitionError(serial,{error:'utterance_too_long'});
+   if(this.language==='auto'&&interim&&substantialPreview(interim)){
+    const language=replyLanguage(interim,this.language);
+    if(primedAutoLanguage!==language){this.primeReplies(this.soul,language);primedAutoLanguage=language;}
+   }
+   this.onTranscript(finalText||interim,Boolean(finalText));
+   if(finalText){this.retryCount=0;send();}
+  };
   r.onspeechend=()=>{if(valid())try{r.stop();}catch{send();}};
   r.onend=send;
   r.onerror=e=>{if(valid())this.recognitionError(serial,e);};
@@ -83,6 +106,7 @@ export class HandsFreeConversation {
   this.setState('starting');try{this.timer=this.setTimer(()=>{if(valid()&&!started)this.stop('start_timeout');},startTimeout);r.start();}catch{this.stop('denied');}
  }
  recognitionError(serial,event){
+  this.discardDraft();
   const reason=event.error;
   this.disconnect();this.clearTimer(this.timer);
   if(temporaryLimits.has(reason)){this.setState(reason);this.resumeAfter(serial,retryDelay(reason,event.retryAfter));}
@@ -92,22 +116,60 @@ export class HandsFreeConversation {
   else if(reason==='audio-capture'||['network','asr_timeout','timeout','provider_unavailable','invalid_response'].includes(reason))this.recover(serial,reason==='audio-capture');
   else this.stop(['not-allowed','service-not-allowed'].includes(reason)?'denied':'network');
  }
+ requestFor(text,language){
+  const extra=this.getContext(needsCamera(text)),messages=conversationMessages(this.histories[this.soul],text);
+  return {url:extra.image?'/api/chat/scene':'/api/chat',body:{voice:true,soul:this.soul,language,messages,context:extra.context,image:extra.image}};
+ }
+ beginRequest(request,text,controller){
+  const id=request.url==='/api/chat'&&!needsCamera(text)&&this.canPrepareFirstSpeech()?globalThis.crypto?.randomUUID?.():undefined;
+  const response=this.fetchImpl(request.url,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/x-ndjson'},signal:controller.signal,body:JSON.stringify({...request.body,firstSpeechId:id})});
+  return {id,response};
+ }
+ discardDraft(){
+  if(!this.draft)return;
+  this.clearTimer(this.draft.timer);this.draft.controller.abort();this.draft=null;
+ }
+ prepareDraft(text){
+  // Called once after local end-of-speech, while the recognizer confirms its
+  // last preview. Nothing from this request is shown or played until matched.
+  if(this.draft||text.length>512||!substantialPreview(text)||needsCamera(text)||endConversation.test(text)||repeatRequest.test(text))return;
+  const language=replyLanguage(text,this.language,this.soul);
+  if(getRideQuickReply(text,{soul:this.soul,language}))return;
+  try{
+   const request=this.requestFor(text,language);
+   if(request.body.image)return;
+   const controller=new AbortController();
+   const flight=this.beginRequest(request,text,controller);
+   flight.response.catch(()=>{});
+   this.draft={...flight,request,controller,text,language,timer:this.setTimer(()=>this.discardDraft(),3000)};
+  }catch{/* If preparation is unavailable the confirmed turn uses its usual request. */}
+ }
+ rememberTurn(text,reply){
+  this.histories[this.soul].push({role:'user',content:text},{role:'assistant',content:reply});
+  this.histories[this.soul]=this.histories[this.soul].slice(-40);
+  this.onTurn({soul:this.soul,user:text,reply});this.onReply(reply);
+ }
  async submit(text,serial,retryRequest=null){
   if(!this.active||serial!==this.epoch)return;
   if(endConversation.test(text)){this.stop();return;}
   const language=replyLanguage(text,this.language,this.soul);
+  const draft=!retryRequest&&this.draft?.language===language&&confirmedWords(this.draft.text)===confirmedWords(text)?this.draft:null;
+  if(draft){this.clearTimer(draft.timer);this.draft=null;}else this.discardDraft();
   const previous=this.histories[this.soul].at(-1);
-  if(previous&&replyLanguage(previous.content)===language&&/^(repeat that|say that again|再说一次|重复一遍|다시\s*말해)[.!?。！\s]*$/i.test(text)){this.output(previous.content,language,serial);return;}
-  this.setState('thinking');const controller=new AbortController();this.controller=controller;const timeout=this.setTimer(()=>controller.abort(),35000);
-  let request=retryRequest,receivedReply=false;
+  if(previous&&replyLanguage(previous.content)===language&&repeatRequest.test(text)){this.output(previous.content,language,serial);return;}
+  const quick=getRideQuickReply(text,{soul:this.soul,language});
+  if(quick&&(quick.intent==='quiet'||previous?.content!==quick.text)){
+   draft?.controller.abort();
+   this.rememberTurn(text,quick.text);
+   this.output(quick.text,language,serial,undefined,undefined,false,{firstReplySegment:true,quickReplySource:quick.path});
+   return;
+  }
+  this.setState('thinking');const controller=draft?.controller||new AbortController();this.controller=controller;const timeout=this.setTimer(()=>controller.abort(),35000);
+  let request=retryRequest||draft?.request,receivedReply=false;
   try{
-   if(!request){
-    const extra=this.getContext(needsCamera(text)),messages=conversationMessages(this.histories[this.soul],text);
-    request={url:extra.image?'/api/chat/scene':'/api/chat',body:{voice:true,soul:this.soul,language,messages,context:extra.context,image:extra.image}};
-   }
-   // A retry gets its own ID. Only the player for this turn may claim the audio.
-   const firstSpeechId=request.url==='/api/chat'&&!needsCamera(text)&&this.canPrepareFirstSpeech()?globalThis.crypto?.randomUUID?.():undefined;
-   const response=await this.fetchImpl(request.url,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/x-ndjson'},signal:controller.signal,body:JSON.stringify({...request.body,firstSpeechId})});
+   request??=this.requestFor(text,language);
+   const flight=draft||this.beginRequest(request,text,controller);
+   const firstSpeechId=flight.id,response=await flight.response;
    const valid=()=>this.active&&serial===this.epoch;
    const streamed=response.ok&&response.headers.get('content-type')?.includes('application/x-ndjson');
    let speaking=false,complete=false,firstReplySegment=true;const queue=[];
@@ -138,8 +200,7 @@ export class HandsFreeConversation {
    };
    const data=streamed?await readVoiceReply(response,{soul:this.soul,onText:value=>{if(valid()&&value){receivedReply=true;this.onReply(value);}},onSentence:enqueue}):await response.json();if(!valid())return;
    if(!response.ok)throw conversationServiceError(data,response.headers,'failed');if(data.soul!==this.soul||typeof data.reply!=='string'||!data.reply.trim())throw new Error('failed');
-   this.histories[this.soul].push({role:'user',content:text},{role:'assistant',content:data.reply});this.histories[this.soul]=this.histories[this.soul].slice(-40);
-   this.onTurn({soul:this.soul,user:text,reply:data.reply});this.onReply(data.reply);if(streamed){complete=true;drain();}else this.output(data.reply,language,serial);
+   this.rememberTurn(text,data.reply);if(streamed){complete=true;drain();}else this.output(data.reply,language,serial);
   }catch(error){
    if(!this.active||serial!==this.epoch)return;
    const next=++this.epoch,reason=error.message;

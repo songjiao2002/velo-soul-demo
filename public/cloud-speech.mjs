@@ -4,6 +4,8 @@ import {SpeechMouthClock} from './speech-mouth.mjs';
 import {SpeechAudioCache} from './speech-cache.mjs';
 import {SpeechTempo,characterRate,fasterSpeechBuffer} from './speech-tempo.mjs';
 import {getFastOpeningSource} from './fast-openings.mjs';
+import {RIDE_QUICK_REPLIES} from './ride-quick-replies.mjs';
+import {BUILD} from './build-version.mjs';
 import {conversationServiceError,isConversationLimit} from './conversation-limits.mjs';
 import {requireSpeechResponse,speechFileBytes} from './speech-response.mjs';
 // Dynamic replies use real audio, independent of installed speechSynthesis voices.
@@ -13,6 +15,11 @@ export function speechChunks(text,limit=540){
  return parts;
 }
 export class CloudSpeechPlayer {
+ primeRideReplies(soul,language){
+  for(const clip of RIDE_QUICK_REPLIES){
+   if(clip.soul===soul&&clip.language===language)this.preload(clip.text,{soul,language,source:clip.path+'?v='+BUILD});
+  }
+ }
  constructor({onMouth,audioSession,Context=globalThis.AudioContext||globalThis.webkitAudioContext,fetchImpl=appFetch,setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{audioSession,Context,fetchImpl,setTimer,clearTimer});this.serial=0;this.cache=new SpeechAudioCache();this.preloads=new Map();this.mouth=onMouth?new SpeechMouthClock({onFrame:onMouth}):null;this.mediaMouthCache=new Map();this.native=new NativeSpeechPlayer({fetchImpl,setTimer,clearTimer,mouth:this.mouth,decode:bytes=>(this.context||audioSession?.context)?.decodeAudioData(bytes)});if(audioSession){audioSession.nativeSpeech??=this.native;audioSession.mediaPlayers?.add(this.native);}}
  preload(text,{language='en',soul='lumi',source}={}){
   if(this.audioSession?.playbackMode==='media')return this.native.preload(text,{language,soul,source});
@@ -96,11 +103,11 @@ export class CloudSpeechPlayer {
    }
   }finally{cleanup();reader.releaseLock();}
  }
- async speak(text,{language='en',soul='lumi',source,firstSpeechId,firstReplySegment=false,onState=()=>{}}={}){
+ async speak(text,{language='en',soul='lumi',source,quickReplySource,firstSpeechId,firstReplySegment=false,onState=()=>{}}={}){
   this.stop();const serial=this.serial,valid=()=>serial===this.serial,report=(state,detail)=>{if(valid()){this.audioSession?.setPlayback?.(this,['loading','playing'].includes(state));onState(state,detail);}};
   const parts=speechChunks(text);if(!parts.length){report('ended');return;}
   report('loading');
-  const firstSource=firstReplySegment&&!source?getFastOpeningSource(text,{language,soul}):undefined;
+  const firstSource=firstReplySegment&&!source?(quickReplySource?quickReplySource+'?v='+BUILD:getFastOpeningSource(text,{language,soul})):undefined;
   if(this.audioSession?.playbackMode==='media')return this.native.speak(parts,{language,soul,source,firstSource,firstSpeechId,report});
   if(!this.context){report('blocked');return;}
   if(this.context.state!=='running'){

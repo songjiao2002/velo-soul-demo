@@ -38,7 +38,7 @@ export function renderVoiceTranscript(log,makeMessage,text,confirmed=true){
   log.scrollTop=log.scrollHeight;
 }
 
-export function createSoulChat({audioSession,onOpen=()=>{},onTurn=()=>{},getUILanguage=getLanguage,getInputLanguage=getLanguage,onInputLanguage=()=>{},getContext=()=>({}),speakReply,stopSpeaking,canSpeak=()=>true,canPrepareFirstSpeech,prepareSpeech=()=>{},introduced=new Set(),getOpening=()=>null,onVoiceStart=()=>{},onVoiceIdle=()=>{},onClose=()=>{}}={}){
+export function createSoulChat({audioSession,onOpen=()=>{},onTurn=()=>{},getUILanguage=getLanguage,getInputLanguage=getLanguage,onInputLanguage=()=>{},getContext=()=>({}),speakReply,stopSpeaking,canSpeak=()=>true,canPrepareFirstSpeech,primeReplies,prepareSpeech=()=>{},introduced=new Set(),getOpening=()=>null,onVoiceStart=()=>{},onVoiceIdle=()=>{},onClose=()=>{}}={}){
   const speech=new CloudSpeechPlayer({audioSession});let autoRead=true,shareContext=true;
   const histories={lumi:[],mori:[],bori:[]},lastReplyLanguages={};
   const dialog=document.createElement('dialog');dialog.className='soul-chat';dialog.dataset.noTranslate='';
@@ -81,6 +81,7 @@ export function createSoulChat({audioSession,onOpen=()=>{},onTurn=()=>{},getUILa
     finally{clearTimeout(timer);if(serial===epoch&&dialog.open){controller=null;controls(false);input.focus();}}
   }
   const voiceSession=new HandsFreeConversation({Recognition,onTurn,introduced,getOpening,onOpening:(text,lang)=>{latestReply=text;replyLanguage=lang;find('#chatLog').append(message('assistant',text));find('#chatListen').disabled=false;},releaseInput:()=>microphone.release(),getContext:withImage=>shareContext?getContext(withImage):{},stopSpeech,
+    primeReplies:primeReplies||((id,lang)=>speech.primeRideReplies(id,lang)),
     canPrepareFirstSpeech:()=>autoRead&&canSpeak()&&(speakReply?Boolean(canPrepareFirstSpeech?.()):speech.canPrepareFirstSpeech()),
     speak:(text,lang,id,onState,options)=>{if(speakReply)speakReply(text,lang,id,onState,options);else speech.speak(text,{...options,language:lang,soul:id,onState});},
     onState:state=>{

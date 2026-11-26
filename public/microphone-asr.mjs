@@ -437,7 +437,10 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
     async stop() {
       if (!this.active || this.finalizing) return;
       if (!this.speech || this.voiced < 120) { this.abort(); this.onerror?.({error:'no-speech'}); return; }
-      this.finalizing = true; input.detach(this); this.onspeechend?.(); this.ontranscribing?.();
+      const freshPreview=this.parts.length===1&&!this.confirmedText&&this.part?.stream&&!this.part.stream.closed&&
+        this.clearVoiceMs>=160&&this.backgroundPause>=180&&this.voiced-this.previewVoiced<=160;
+      this.finalizing = true; input.detach(this); this.onspeechend?.();
+      this.ontranscribing?.(freshPreview?{text:this.part.preview}:undefined);
       clearTimer(this.captureTimer);this.captureTimer=null;
       return this.sealPart(this.part);
     }

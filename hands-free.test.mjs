@@ -3,6 +3,43 @@ import assert from 'node:assert/strict';
 import {HandsFreeConversation} from './public/hands-free.mjs';
 import {createVoiceSentenceReader} from './public/chat-stream.mjs';
 const flush=()=>new Promise(r=>setImmediate(r));
+test('a complete routine request uses the recorded answer only after final recognition and remembers the exchange',()=>{
+ const turns=[],audio=[],primed=[];
+ const a=setup(undefined,{primeReplies:(...args)=>primed.push(args),onTurn:turn=>turns.push(turn),
+   speak:(text,language,soul,onState,options)=>audio.push({text,language,soul,options})});
+ a.session.start('bori','en');
+ const mic=a.recognizers[0],text='Could we take a break?';
+ mic.onresult({results:[{0:{transcript:text},isFinal:false}]});
+ mic.ontranscribing({text});
+ assert.equal(audio.length,0);assert.equal(a.calls.length,0);
+ mic.hear(text);
+ assert.equal(a.calls.length,0);assert.equal(turns.length,1);
+ assert.equal(turns[0].reply,audio[0].text);
+ assert.match(audio[0].options.quickReplySource,/bori-en-rest\.wav$/);
+ assert.deepEqual(primed,[['bori','en']]);assert.equal(a.session.histories.bori.length,2);
+ a.session.stop();
+});
+test('an endpoint draft stays silent and is shared only by the matching confirmed turn',async()=>{
+ for(const [ending,requests] of [['I like orange.',1],['I like purple.',2],['I like orange?',2]]){
+  const turns=[];
+  const a=setup(undefined,{getContext:()=>({}),onTurn:turn=>turns.push(turn)});
+  a.session.start('bori','en');const mic=a.recognizers[0];
+  mic.ontranscribing({text:'I like orange'});await flush();
+  assert.equal(a.calls.length,1);assert.equal(a.voices.length,0);assert.equal(turns.length,0);
+  mic.hear(ending);await flush();
+  assert.equal(a.calls.length,requests);assert.equal(a.calls[0].signal.aborted,requests===2);
+  assert.equal(turns.length,1);assert.equal(turns[0].user,ending);assert.equal(a.voices.length,1);
+  a.session.stop();
+ }
+});
+test('cancelled drafts never speak and visual questions never start from interim text',async()=>{
+ const a=setup(undefined,{getContext:()=>({})});a.session.start('bori','en');
+ const mic=a.recognizers[0];mic.ontranscribing({text:'What can you see?'});assert.equal(a.calls.length,0);
+ mic.ontranscribing({text:'Tell me a story about trees'});assert.equal(a.calls.length,1);
+ a.session.setLanguage('ko');await flush();
+ assert.ok(a.calls[0].signal.aborted);assert.equal(a.voices.length,0);
+ a.session.stop();
+});
 function setup(fetchImpl,options={}){
  const recognizers=[],calls=[],voices=[],states=[],timers=new Map();let timerId=0,stops=0;
  class Recognition{constructor(){recognizers.push(this);}start(){this.active=true;this.onstart?.();}abort(){this.active=false;}stop(){this.active=false;this.onend?.();}hear(text){this.onspeechstart?.();this.onresult?.({results:[{0:{transcript:text},isFinal:true}]});}}
@@ -216,7 +253,7 @@ test('only the first spoken phrase claims each eligible voice turn, and a retry 
  const a=setup(()=>++attempts===1?new Response(JSON.stringify({error:'service_busy'}),{status:429}):new Response(frames,{headers:{'Content-Type':'application/x-ndjson'}}),{
   getContext:()=>({}),canPrepareFirstSpeech:()=>true,speak:(text,language,soul,done,options)=>voices.push({text,language,soul,done,options})
  });
- a.session.start('bori','en');a.recognizers[0].hear('Can we slow down?');await flush();
+ a.session.start('bori','en');a.recognizers[0].hear('How do I pace a long hill?');await flush();
  a.run(1000);await flush();
  const ids=a.calls.map(call=>call.body.firstSpeechId);
  assert.match(ids[0],/^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i);
@@ -226,7 +263,7 @@ test('only the first spoken phrase claims each eligible voice turn, and a retry 
  voices[0].done('ended');assert.equal(voices[1].options,undefined);a.session.stop();
 });
 test('voice turns without usable streaming output and camera queries omit early speech IDs',async()=>{
- for(const [canStream,question,image] of [[false,'Can we slow down?',false],[true,'What do you see?',false],[true,'What do you see?',true]]){
+ for(const [canStream,question,image] of [[false,'How do I pace a long hill?',false],[true,'What do you see?',false],[true,'What do you see?',true]]){
   const a=setup(null,{canPrepareFirstSpeech:()=>canStream,getContext:()=>image?{image:'frame'}:{}});
   a.session.start('bori','en');a.recognizers[0].hear(question);await flush();
   assert.equal(Object.hasOwn(a.calls[0].body,'firstSpeechId'),false);a.session.stop();

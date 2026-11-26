@@ -1592,7 +1592,7 @@ import {conversationLanguageLabel,conversationLanguagePicker} from './encounter-
       URL.revokeObjectURL(s);
     }
   }
-  var se = "20261126-mobile77";
+  var se = "20261126-mobile78";
   var Ns = null, Ni = null, Za = false;
   function ji() {
     Za = true;
@@ -1605,7 +1605,7 @@ import {conversationLanguageLabel,conversationLanguagePicker} from './encounter-
       Ni.mountCharacters();
       return;
     }
-    Ns ??= import("/character-toon.bundle.mjs?v=20261126-mobile77").catch(() => null);
+    Ns ??= import("/character-toon.bundle.mjs?v=20261126-mobile78").catch(() => null);
     Ns.then((module) => {
       if (!Za) return;
       if (module) {
@@ -4697,7 +4697,7 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
 Ft=liveDeviceMedia;
 Qt=liveOutputLanguage;ds=livePlaceFallback;on=liveBikeMemoryLine;
 la=liveWeatherLine;mn=liveWeatherGreeting;
-Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S,canPrepareFirstSpeech:()=>!M?.active&&Z&&ue.canPrepareFirstSpeech()});
+Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S,primeReplies:(id,lang)=>ue.primeRideReplies(id,lang),canPrepareFirstSpeech:()=>!M?.active&&Z&&ue.canPrepareFirstSpeech()});
 Tt=LiveSpeech;at=LiveMicrophone;ua=options=>liveRecognition({...options,standby:true});Et=LiveAudioSession;xi=LiveMemory;
 Ga=rideVoiceControlsMarkup;
 fs=paintRideVoiceControls;
@@ -4724,7 +4724,7 @@ kl=function(state){
  syncRideTalk(state);
 };
 wt=class extends LiveConversation {
- constructor(options={}){super({...options,canPrepareFirstSpeech:()=>Z&&ue.canPrepareFirstSpeech(),prefetchSpeech:(text,language,soul)=>ue.preload(text,{language,soul}),stopSpeech:()=>{ue.cancelPrefetches();options.stopSpeech?.();}});}
+ constructor(options={}){super({...options,primeReplies:(id,lang)=>ue.primeRideReplies(id,lang),canPrepareFirstSpeech:()=>Z&&ue.canPrepareFirstSpeech(),prefetchSpeech:(text,language,soul)=>ue.preload(text,{language,soul}),stopSpeech:()=>{ue.cancelPrefetches();options.stopSpeech?.();}});}
 };
 Ds=liveIntroduction;Kt=liveIntroClip;
 Mi=(text,language='auto')=>liveReplyLanguage(text,language,P);
