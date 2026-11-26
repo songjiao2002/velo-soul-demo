@@ -1,8 +1,8 @@
 import WebSocket from 'ws';
+import {MAX_MESSAGE_LENGTH as maxTextLength} from './public/conversation-limits.mjs';
 
 const maxAudioBytes = 512000;
 const maxBufferedBytes = 131072;
-const maxTextLength = 1000;
 
 function scribeError(type) {
   if (['auth_error', 'unaccepted_terms'].includes(type)) return 'provider_auth';

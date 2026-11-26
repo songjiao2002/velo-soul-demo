@@ -31,15 +31,15 @@
     },
     "/app.bundle.js": {
       "size": 633192,
-      "sha256": "177f2f5cac62da64ba9dbc55f9df85733c6f26d6fa29755d0a01101fe60de876",
+      "sha256": "f5f174e4e540fb8dbefbbd89ffab2fe2b1da7f65d2197edd566937df7ae1ecf6",
       "br": {
-        "size": 152547,
-        "sha256": "cde35bb0f37b0552392a321be534002baf963b37d1d9c7712992480616b4e46e",
+        "size": 152578,
+        "sha256": "da80b1af8581a1999e230124e1c43e8f7e6bc46d8dadd14d53d13f5bd6b3c324",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 236419,
-        "sha256": "b206452a3f199b6dc512a480864ccd405b74b44472268f89b7097f121d25c0a2",
+        "size": 236432,
+        "sha256": "19919940538f1ddd5e2b57b78d220b0e07761fea0a4ae5a0f12d125a1e256b32",
         "suffix": ".gz"
       }
     },
