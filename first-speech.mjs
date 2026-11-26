@@ -22,6 +22,46 @@ function firstSelected(soul,text){
   return first;
 }
 
+const surpriseWords={
+  zh:['真的啊','真的呀','真的嘛','真的吗','真的假的','是吗','是嘛'],
+  ko:['정말이야','정말이에요','정말로요','정말요','진짜예요','진짜야','진짜요','정말','진짜'],
+  en:['oh really','is that so','for real','really']
+};
+const divider=/^\s*[，,。.!！？?—–…~～][\s，,。.!！？?—–…~～]*/u;
+
+// A shipped player can split "真的啊" before the next token supplies the
+// comma. Hold only this small family of possible prefixes. If the rider asked
+// a question, the reaction may itself answer it. Preserve it in that case.
+export function createSpokenLead(payload,emit){
+  const line=payload.messages?.at(-1)?.content?.trim()||'';
+  const words=validFirstSpeechId(payload.voiceTurnId)&&!/[?？][”’"']*$/u.test(line)?surpriseWords[payload.language]:null;
+  let pending='',removed='',decided=!Array.isArray(words);
+  function release(text){decided=true;pending='';if(text)return emit(text);}
+  return {
+    push(delta){
+      if(decided)return emit(delta);
+      pending+=delta;
+      const current=pending.trimStart().toLowerCase();
+      if(!current||words.some(word=>word.startsWith(current.trimEnd())))return pending.length<96?undefined:release(pending);
+      for(const word of words){
+        if(!current.startsWith(word))continue;
+        const rest=current.slice(word.length),separator=divider.exec(rest);
+        if(!separator)continue;
+        const next=rest.slice(separator[0].length);
+        if(!next&&pending.length<96)return;
+        if(/^[\p{L}\p{N}]/u.test(next)){
+          const end=pending.length-pending.trimStart().length+word.length+separator[0].length;
+          removed=pending.slice(0,end).trimStart();
+          return release(pending.slice(end));
+        }
+      }
+      return release(pending);
+    },
+    finish(){if(!decided)return release(pending);},
+    reply(original){return removed&&original.startsWith(removed)?original.slice(removed.length):original;}
+  };
+}
+
 export function createVoiceOpeningStream({soul,language,voiceTurnId},emit,{signal,waitMs=320,maxChars=128,setTimer=setTimeout,clearTimer=clearTimeout}={}){
   const compound=Object.hasOwn(compounds,language)?compounds[language]:undefined;
   let text='',sent=0,plain=false,holding=false,standaloneDot=false,timer,queued=Promise.resolve(),openingLength=0;

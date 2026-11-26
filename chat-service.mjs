@@ -2,7 +2,7 @@ import {createVoiceSentenceReader,readProviderChat} from './public/chat-stream.m
 import {getFastOpeningSource} from './public/fast-openings.mjs';
 import {CHAT_REQUEST_BYTES} from './public/conversation-limits.mjs';
 import {deliveryTone,contextualTone,pandaDirection,spokenPunctuation} from './voice-delivery.mjs';
-import {createVoiceOpeningStream,FirstSpeechStreams,validFirstSpeechId} from './first-speech.mjs';
+import {createSpokenLead,createVoiceOpeningStream,FirstSpeechStreams,validFirstSpeechId} from './first-speech.mjs';
 import {diaryFormat,diaryPerspective,diaryWordRange} from './public/diary-format.mjs';
 import {validateDeviceMemory,describeDeviceMemory} from './public/device-memory.mjs';
 import {loadDiarySkills,validateDiary,diaryRequest,diaryResult,diaryPhotoRequest,diaryPhotoResult,diaryFallback} from './diary-service.mjs';
@@ -610,15 +610,18 @@ export function createChatHandler(options={}){
           if(inline)await startInline();
           return emit({type:'delta',text});
         },{signal:controller.signal});
+        const spokenLead=createSpokenLead(payload,text=>opening.push(text));
         try{
           const reply=await service.reply(payload,{signal:controller.signal,onDelta:async(text,delivery)=>{
-            if(!delivery?.recorded)return opening.push(text);
+            if(!delivery?.recorded)return spokenLead.push(text);
             // One complete sentence per recording. Whitespace gives deployed
             // English readers the lookahead needed to recognize a final dot.
             scan=null;
             if(inline){inlineText=text;await startInline();}
             return emit({type:'delta',text:text+' '});
           }});
+          await spokenLead.finish();
+          reply.reply=spokenLead.reply(reply.reply);
           await opening.finish();
           if(scan&&leadText.trim()===reply.reply.trim())scan(leadText,true);
           if(inline)await startInline();

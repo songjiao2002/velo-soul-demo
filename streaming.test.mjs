@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import {randomUUID} from 'node:crypto';
-import {createVoiceOpeningStream,FirstSpeechStreams} from './first-speech.mjs';
+import {createSpokenLead,createVoiceOpeningStream,FirstSpeechStreams} from './first-speech.mjs';
 import {createVoiceSentenceReader,readVoiceReply} from './public/chat-stream.mjs';
 import {relaySpeech,trimSpeechWave} from './speech-stream.mjs';
 import {createChatHandler,createChatService} from './chat-service.mjs';
@@ -186,6 +186,48 @@ test('surprise and the first substantive thought share one clip without changing
   assert.deepEqual(phrases,[opening+thought]);
   const single=[],standalone=createVoiceSentenceReader('bori',part=>single.push(part),{joinReactions:true});
   standalone(opening,true);assert.deepEqual(single,[opening]);
+ }
+});
+
+test('only a redundant introductory surprise is skipped, with no wait for the following sentence to end',async()=>{
+ const id=randomUUID();
+ for(const [language,prefix,body] of [
+  ['zh','真的啊，','那会儿我跟着松了口气。'],['zh','真的呀？','听得我都有点得意。'],
+  ['en','Oh really? ','I kept my first ticket too.'],['ko','진짜야? ','나도 같이 기쁘네.']
+ ]){
+  let result='';const lead=createSpokenLead({language,voiceTurnId:id,messages:[{role:'user',content:'Hi.'}]},d=>{result+=d;});
+  for(const char of prefix)await lead.push(char);
+  assert.equal(result,'');
+  await lead.push(body[0]);assert.equal(result,body[0]);
+  await lead.push(body.slice(1));await lead.finish();assert.equal(result,body);assert.equal(lead.reply(prefix+body),body);
+ }
+ for(const [language,original,rider,idForTurn] of [
+  ['zh','真的啊？','刚赢了。',id],['zh','真的呀，她是这么说的。','真的吗？',id],
+  ['zh','真的好漂亮。','那张车票真漂亮。',id],['en','Really old paper can last.','I kept that ticket.',id],
+  ['ko','진짜로 예뻐.','내 표를 찾았어.',id],['en','Oh really?','It was mine.',id],
+  ['zh','真的啊，那我懂了。','我明白了。',undefined]
+ ]){
+  let result='';const lead=createSpokenLead({language,voiceTurnId:idForTurn,messages:[{role:'user',content:rider}]},d=>{result+=d;});
+  for(const char of original)await lead.push(char);await lead.finish();
+  assert.equal(result,original);assert.equal(lead.reply(original),original);
+ }
+});
+
+test('mobile80 and mobile81 hear the actual thought as the first clip and keep exactly the same caption and final reply', {timeout:5000},async t=>{
+ const thought='那会儿我心跳都快跟着稳了。';
+ for(const inlineFirstSpeech of [false,true]){
+  const f=await firstSpeechFixture(t,{text:['真','的','啊','，',...thought]});
+  const id=randomUUID(),req={soul:'lumi',language:'zh',firstSpeechId:id,voiceTurnId:id,inlineFirstSpeech,voice:true,messages:[{role:'user',content:'我过弯时放松了。'}]};
+  const response=await f.post('/api/chat',req);
+  let caption,inline;const sentences=[];
+  f.endTts.resolve();
+  const reply=await readVoiceReply(response,{soul:'lumi',joinReactions:true,onText:value=>{caption=value;},onSentence:text=>sentences.push(text),onFirstSpeech:voice=>{inline=voice;}});
+  assert.equal(caption,thought);assert.equal(reply.reply,thought);assert.deepEqual(sentences,[thought]);assert.deepEqual(f.calls,[thought]);
+  if(inlineFirstSpeech){assert.equal(inline.text,thought);assert.match(await (await inline.audio).text(),/"done":true/);}
+  else{
+   const r=await f.post('/api/speech/stream',{firstSpeechId:id,voiceTurnId:id,soul:req.soul,language:'zh',text:thought});
+   assert.match(await r.text(),/"done":true/);assert.deepEqual(f.calls,[thought]);
+  }
  }
 });
 
