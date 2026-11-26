@@ -1,45 +1,45 @@
 {
-  "version": "20261126-mobile82",
+  "version": "20261126-mobile83",
   "files": {
     "/index.html": {
       "size": 8078,
-      "sha256": "af6c5f5cd82fcb2fb595b58d29ae837fd2ddcc473072acd99140fed947a1192d",
+      "sha256": "d4402e2d0def39d137ebf74e233f003e8d3523ff6343a698bbda84eb34f00fce",
       "br": {
-        "size": 3283,
-        "sha256": "fcdd01dd9161716296f47107ad86eb911fc2409c792a23e7ed538fb633d40c6d",
+        "size": 3284,
+        "sha256": "7429698a24fe7200d826da399d4ac404e2c1a54f2f19603b9f2ac1ab94ca1e66",
         "suffix": ".br"
       },
       "gzip": {
         "size": 3695,
-        "sha256": "8730157e62ac5ac75bfb1aa4ca200dfe4696538a8ac7ed509074137d14d80093",
+        "sha256": "d6477cd59051768acbc6b85840d75d7cfc9a38d8595f3953f99cefbef36fdad0",
         "suffix": ".gz"
       }
     },
     "/boot.js": {
       "size": 2510,
-      "sha256": "a40c7511cf605ea2e78633f09c13e955b122c5631669511d09043df16028a9d5",
+      "sha256": "9282747d31fda03e39ae5f7d89424a077f565d3f8b711f30066f6b214b3e651c",
       "br": {
         "size": 949,
-        "sha256": "c290ff37628f77ace650c44fcdaf9606cb20af4c1e39c772a3ab4959af7b6089",
+        "sha256": "707d8c89c7f3020afbb7923e86dd64b39aeb050e5657491c7da6bdce31367968",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 1132,
-        "sha256": "be7eb4601de22c85a63381bcc180771838773f40858b0d748e97007a22de98cb",
+        "size": 1133,
+        "sha256": "3a9c5215e230ec73a2842f1298842ba3abbc97960af37bdbab300db9ad169b4c",
         "suffix": ".gz"
       }
     },
     "/app.bundle.js": {
-      "size": 648477,
-      "sha256": "fd0ecf2f69de0240d46bf7a96c001060edcdfe0ae19ae5265f6e7ae367a8bdb1",
+      "size": 649908,
+      "sha256": "4696668aa6043ace12f4dc513f969f38c30a11c38a11815317814a756604ba3b",
       "br": {
-        "size": 157405,
-        "sha256": "d75dcaa4614f2a97393679ee8ae1c432707c35f4d13baafbb3632f6d80eab6ef",
+        "size": 157910,
+        "sha256": "338aa68768cbf9aafdc066ad7dbc5c41aa5f3873f0fc4f52a95f5716c6109a3b",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 241569,
-        "sha256": "f8c41cb637302a0d988477fca2a394e8298e320004eb5911c3891de37419fe64",
+        "size": 242011,
+        "sha256": "46fb355cf84a9500f92a4d4380656a6929c064137dec3de54c47d3b085330af8",
         "suffix": ".gz"
       }
     },

@@ -191,6 +191,20 @@ function joinSegments(left,right,overlap){
   if(!left||!right)return left||right;
   let insideWord=false;
   if(overlap){
+    // Prefer the overlapping recognition when it repeats the preceding words
+    // and revises a cut-off syllable. Without that anchor, keep the syllable,
+    // except for the observed 喜 / 心里 acoustic confusion at this boundary.
+    const fragment=left.match(/([，,])([\p{Script=Han}])—+$/u);
+    if(fragment){
+      const before=left.slice(0,fragment.index);
+      const anchor=before.match(/[\p{Script=Han}]{2}$/u)?.[0];
+      const replayed=anchor&&right.slice(0,10).includes(anchor);
+      const protectedWord=/[不没沒未无無别別非勿莫甭零〇一二两兩三四五六七八九十百千万萬亿億]/u.test(fragment[2]);
+      if(!protectedWord&&!right.startsWith(fragment[2])&&(replayed||(fragment[2]==='喜'&&/^心[里裡裏]/u.test(right)))){
+        left=before+fragment[1];
+      }
+    }
+    left=left.replace(/—+$/u,'');
     const tokens=/[\p{Script=Han}\p{Script=Hangul}]|[\p{Script=Latin}\p{N}]+(?:['’][\p{Script=Latin}]+)*/gu;
     const end=[...left.matchAll(tokens)].slice(-12),start=[...right.matchAll(tokens)].slice(0,12);
     for(let n=Math.min(end.length,start.length);n>0;n--){
@@ -248,6 +262,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
     }
     resetCapture(){
       if(!this.active||this.finalizing)return;
+      this.clearEndpointWatch();
       this.standby?.close();this.standby=null;
       this.discardParts();this.chunks=[];this.preroll=[];this.total=this.quiet=this.voiced=0;this.filter=null;this.rate=null;
       this.previewEndPause=0;this.backgroundPause=0;
@@ -306,14 +321,14 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
             part.routine=Boolean(rideIntent(text));
             this.showPreview();
             this.considerPreview();
-            if(this.active&&this.previewEndPause&&this.backgroundPause>=this.endOfTurnPause())this.stop();
+            if(this.active&&this.previewEndPause&&this.backgroundPause>=this.endOfTurnPause())this.acousticEnd();
           },
           onFinal:(text,id)=>{
             part.stream=null;
             edge(text,id);
             if(!this.active||!part.sealed||part.discarded)return;
             if(text.trim())this.completePart(part,text);
-            else this.transcribe(part);
+            else {if(this.endpointWatch===part)this.stop();this.transcribe(part);}
           },
           onUnavailable:(error,retryAfter)=>{
             part.stream=null;
@@ -323,7 +338,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
             // wait or stop without uploading the same recording a second time.
             if(isConversationLimit(error))return this.fail(error,retryAfter);
             streamDisabledUntil=now()+(['provider_auth','not_configured'].includes(error)?60000:5000);
-            if(part.sealed)this.transcribe(part);
+            if(part.sealed){if(this.endpointWatch===part)this.stop();this.transcribe(part);}
           }});
       }
     }
@@ -363,6 +378,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
       }
       const ms=data.length/rate*1000;
       const {audio,rms,noiseOnly,midRms,speechBandChanging}=this.filter(data);
+      const watchOnset=this.inputLanguage==='zh'&&this.onturncandidate&&this.earlyPart&&!this.part?.hasFreshSpeech;
       let recentOnset=false;
       const factory=createDetector||input.detectorFactory;
       let localVoice;
@@ -377,7 +393,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
             recentOnset=ageAfterOnset<.36;
             this.detectorPreroll=null;
           }
-          localVoice=this.detector?.observe(data,rate,this.speech);
+          localVoice=this.detector?.observe(data,rate,this.speech&&!watchOnset);
           if(!this.detector&&input.detectorPending){
             this.detectorPreroll??=[];
             this.detectorPreroll.push(data);
@@ -428,15 +444,27 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
         return;
       }
       this.chunks.push(audio); this.total += ms;
-      if(continuing&&!this.part.hasFreshSpeech){
+      // During a provisional endpoint, the first syllable of a continuation
+      // must pass the new-speech gate, including its motor-noise rejection.
+      let freshOnset=continuing;
+      if(watchOnset){
+        if(localVoice)freshOnset=localVoice.onset&&audible;
+        else{
+          this.part.freshVoiceMs=loud&&speechBandChanging?(this.part.freshVoiceMs||0)+ms:0;
+          freshOnset=!input.detectorPending&&this.part.freshVoiceMs>=120;
+        }
+      }
+      if(freshOnset&&!this.part.hasFreshSpeech){
+        if(watchOnset){this.clearEndpointWatch();this.onturncontinued?.();}
         this.part.hasFreshSpeech=true;this.openStream();this.stream?.writeBuffered(this.chunks,rate);
       }else this.stream?.write(audio,rate);
-      if(continuing&&this.quiet>=80){
+      const speechProgress=watchOnset?freshOnset:continuing;
+      if(speechProgress&&this.quiet>=80){
         this.previewEndPause=0;
-        if(this.earlyPart||this.part.preparedText)this.onturncontinued?.();
+        if(!watchOnset&&(this.earlyPart||this.part.preparedText))this.onturncontinued?.();
       }
-      this.quiet = continuing ? 0 : this.quiet + ms;
-      if(continuing){
+      this.quiet = speechProgress ? 0 : this.quiet + ms;
+      if(speechProgress){
         this.voiced+=ms;
         if(rms>=Math.max(.009,this.noise*3)&&midRms>=Math.max(.0012,this.midNoise*3)){
           this.clearVoiceMs+=ms;this.lastClearVoice=this.voiced;
@@ -446,13 +474,13 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
       const audioOnly=!awaitingContinuation&&(!this.stream||this.stream.closed);
       const nearBackground=audioOnly ? rms<=.0008&&midRms<=.00035
         : rms<=Math.max(.0015,this.noise*1.4)&&midRms<=Math.max(.00045,this.midNoise*1.4);
-      this.backgroundPause=!continuing&&nearBackground?this.backgroundPause+ms:0;
+      this.backgroundPause=!speechProgress&&nearBackground?this.backgroundPause+ms:0;
       // Stale words, a soft trailing syllable, or elevated street noise cannot shorten the pause.
       const preparing=this.considerPreview();
       const clearEnding=this.previewEndPause>0&&this.voiced-this.previewVoiced<=160&&this.backgroundPause>=this.endOfTurnPause();
       const clearAudioEnd=audioOnly&&this.clearVoiceMs>=360&&this.voiced-this.lastClearVoice<=80&&this.backgroundPause>=Math.max(460,this.statementPause||0);
       const endPause = this.voiced <= 220 ? 360 : 540;
-      if(clearEnding||clearAudioEnd||this.quiet>=endPause)this.stop();
+      if(clearEnding||clearAudioEnd||this.quiet>=endPause)this.acousticEnd();
       else if(!this.earlyPart&&(this.part.routine||preparing)&&this.stream&&!this.stream.closed&&
         this.backgroundPause>=180&&this.clearVoiceMs>=180&&this.voiced-this.lastClearVoice<=80&&this.voiced-this.previewVoiced<=160){
         // Ask ASR to finalize the first clause, but keep listening through the
@@ -467,7 +495,7 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
       // there is no pause, overlap the last 400 ms so a word can span the cut.
       const carry=[];
       let samples=0;
-      if(this.backgroundPause<180){
+      if(this.backgroundPause<180||(keepEndPause&&this.inputLanguage==='zh'&&this.onturncandidate)){
         const target=Math.round(this.rate*.4);
         for(let i=this.chunks.length-1;i>=0&&samples<target;i--){
           const chunk=this.chunks[i],length=Math.min(chunk.length,target-samples);
@@ -500,10 +528,30 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
         this.confirmedText=joinSegments(this.confirmedText,next.text,next.overlap);
       }
       if(this.finalizing&&!this.parts.length)this.deliver(this.confirmedText);
+      else if(this.endpointWatch===part&&!/—+$/u.test(part.text))this.stop();
       else this.showPreview();
+    }
+    clearEndpointWatch(){
+      clearTimer(this.endpointTimer);this.endpointTimer=null;this.endpointWatch=null;
+    }
+    acousticEnd(){
+      if(this.endpointWatch)return;
+      // Scribe can commit a cut-off syllable after a Mandarin clause that
+      // looked complete locally. Keep capturing through that existing commit.
+      // A complete final closes immediately unless fresh speech has resumed.
+      const source=this.part?.hasFreshSpeech?this.part:this.earlyPart;
+      if(this.inputLanguage!=='zh'||!this.onturncandidate||!source||
+         (!source.stream&&!source.done)||(source.done&&!/—+$/u.test(source.text)))return this.stop();
+      this.endpointWatch=source;
+      this.endpointTimer=setTimer(()=>{if(this.endpointWatch===source)this.stop();},900);
+      if(source===this.part){
+        this.earlyPart=source;
+        this.rotatePart(true);
+      }
     }
     async stop() {
       if (!this.active || this.finalizing) return;
+      this.clearEndpointWatch();
       if (!this.speech || this.voiced < 120) { this.abort(); this.onerror?.({error:'no-speech'}); return; }
       const freshPreview=this.parts.length===1&&!this.confirmedText&&this.part?.stream&&!this.part.stream.closed&&
         this.clearVoiceMs>=160&&this.backgroundPause>=180&&this.voiced-this.previewVoiced<=160;
@@ -542,6 +590,6 @@ export function createMicrophoneRecognition({input = new MicrophoneInput(), crea
       this.parts=[];this.part=null;this.earlyPart=null;this.confirmedText='';
     }
     fail(error,retryAfter) { this.abort(); this.onerror?.({error,retryAfter}); }
-    abort() { this.active = false; this.standby?.close();this.standby=null;this.discardParts();this.releaseDetector();input.detach(this);clearTimer(this.captureTimer);this.captureTimer=null;this.chunks=[];this.preroll=[]; }
+    abort() { this.active = false; this.clearEndpointWatch();this.standby?.close();this.standby=null;this.discardParts();this.releaseDetector();input.detach(this);clearTimer(this.captureTimer);this.captureTimer=null;this.chunks=[];this.preroll=[]; }
   };
 }

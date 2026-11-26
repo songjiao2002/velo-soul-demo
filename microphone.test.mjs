@@ -159,6 +159,62 @@ test('routine speech can finalize in the cloud during a breath without answering
   assert.equal(sockets.length,continues?2:1);
  }
 });
+
+function mandarinEndpoint(t,{early=false}={}){
+  const sockets=[],finals=[],uploads=[];
+  const input={onLevel(){},attach:async r=>{input.receiver=r;},detach:r=>{if(input.receiver===r)input.receiver=null;}};
+  let ended=0,continued=0,motor=false;
+  class Socket{
+    constructor(){this.readyState=1;this.bufferedAmount=0;sockets.push(this);}
+    send(data){if(typeof data==='string')this.finish=JSON.parse(data).type==='finish';}
+    close(){this.readyState=3;}
+    event(type,text){this.onmessage?.({data:JSON.stringify({type,text})});}
+  }
+  const detector=()=>({observe(data){const audible=Math.abs(data[3])>.001;return {onset:audible&&!motor,continuing:audible};},destroy(){}});
+  const R=createMicrophoneRecognition({input,Socket,createDetector:detector,location:new URL('https://ride.test'),
+    fetchImpl:async(_,opts)=>{uploads.push(opts.body);return Response.json({text:'我刚才握着车把。'});}});
+  const r=new R();r.inputLanguage='zh';r.onturncandidate=()=>early;r.onturncontinued=()=>continued++;
+  r.onspeechend=()=>{ended++;r.stop();};
+  r.onresult=e=>{if(e.results[0].isFinal)finals.push(e.results[0][0].transcript);};
+  const voice=Float32Array.from({length:320},(_,i)=>.08*Math.sin(2*Math.PI*210*i/16000));
+  const quiet=new Float32Array(320);
+  function feed(ms,sound=false){for(let i=0;i<ms;i+=20)input.receiver?.samples(sound?voice:quiet,16000);}
+  r.start();t.after(()=>r.abort());feed(650,true);
+  sockets[0].event('partial','刚才过弯时，我双手一直握着车把。');
+  return {r,sockets,finals,uploads,input,feed,get ended(){return ended;},get continued(){return continued;},motor(){motor=true;}};
+}
+
+test('a cut-off Mandarin commit keeps the rest of the same utterance and corrects only the cut-off syllable',t=>{
+  for(const [first,second,expected] of [
+    ['我双手一直握着车把，喜——','心里没那么紧张了。','我双手一直握着车把，心里没那么紧张了。'],
+    ['我双手一直握着车把，不——','想松手。','我双手一直握着车把，不想松手。'],
+    ['我想买，三——','个就够了。','我想买，三个就够了。'],
+    ['我一直握着车把，兔——','车把，突然放松了。','我一直握着车把，突然放松了。'],
+    ['我说的是开心，开心——','得很。','我说的是开心，开心得很。']
+  ]){
+    const a=mandarinEndpoint(t);a.feed(620);
+    assert.ok(a.sockets[0].finish);assert.equal(a.ended,0);
+    a.sockets[0].event('final',first);assert.deepEqual(a.finals,[]);
+    a.feed(400,true);assert.equal(a.sockets.length,2);assert.equal(a.continued,1);
+    a.feed(600);a.sockets[1].event('final',second);
+    assert.deepEqual(a.finals,[expected]);assert.equal(a.ended,1);assert.equal(a.input.receiver,null);
+  }
+});
+
+test('a clean Mandarin final ends immediately, motor carryover opens no second stream, and stop and failed streams release capture',async t=>{
+  const full='我双手一直握着车把。';
+  const clean=mandarinEndpoint(t);clean.feed(600);clean.sockets[0].event('final',full);
+  assert.deepEqual(clean.finals,[full]);assert.equal(clean.ended,1);assert.equal(clean.input.receiver,null);
+  const noise=mandarinEndpoint(t,{early:true});noise.feed(240);
+  assert.ok(noise.sockets[0].finish);noise.sockets[0].event('final',full);noise.motor();noise.feed(1200,true);
+  assert.deepEqual(noise.finals,[full]);assert.equal(noise.sockets.length,1);assert.equal(noise.continued,0);
+  const stopped=mandarinEndpoint(t);stopped.feed(600);stopped.r.stop();assert.equal(stopped.input.receiver,null);
+  stopped.sockets[0].event('final',full);assert.deepEqual(stopped.finals,[full]);
+  const aborted=mandarinEndpoint(t);aborted.feed(600);aborted.r.abort();aborted.sockets[0].event('final',full);
+  assert.equal(aborted.input.receiver,null);assert.deepEqual(aborted.finals,[]);
+  const failed=mandarinEndpoint(t);failed.feed(600);failed.sockets[0].event('error');
+  assert.equal(failed.input.receiver,null);await flush();assert.equal(failed.uploads.length,1);assert.deepEqual(failed.finals,['我刚才握着车把。']);
+});
 test('a real ending at a segment boundary uses only one upload, and a route change discards a pending segment',async()=>{
  const resolvers=[],a=recorder(()=>new Promise(resolve=>resolvers.push(resolve))),r=new a.Recognition(),finals=[];
  r.onresult=e=>{if(e.results[0].isFinal)finals.push(e.results[0][0].transcript);};
