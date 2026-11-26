@@ -3,6 +3,7 @@ import {EventEmitter} from 'node:events';
 import {test} from 'node:test';
 import WebSocket from 'ws';
 import {relayScribeRealtime} from './scribe-realtime.mjs';
+import {createRecognitionDrafts} from './recognition-drafts.mjs';
 import {createMicrophoneRecognition} from './public/microphone-asr.mjs';
 
 class Socket extends EventEmitter {
@@ -49,6 +50,77 @@ test('Scribe binds speculative captions only after real microphone data and pres
  assert.equal(ctx.length,1);
  assert.deepEqual(calls,[['오늘 정말 뿌듯했어.',false],['오늘 정말 뿌듯했어.',true]]);
  assert.deepEqual(s.client.sent.at(-1),{type:'final',text:'오늘 정말 뿌듯했어.',draftId:'prepared-turn'});
+});
+
+function pendingTurns(t, language = 'en') {
+  const starts = [];
+  const shelf = createRecognitionDrafts(async (payload, signal) => { starts.push({payload, signal}); });
+  const {client, upstream} = session(t, language, shelf.session(language));
+  upstream.receive({message_type:'session_started'});
+  client.receive({type:'reply_context', soul:'mori', history:[]});
+  client.audio(Buffer.alloc(6400, 5));
+  function preview(text, probability) {
+    upstream.receive({message_type:'partial_transcript', text, turn_probability:probability});
+    return client.sent.at(-1);
+  }
+  return {client, upstream, preview, starts, shelf};
+}
+
+test('near-zero Scribe scores preserve the captions and both early attempts while invalidating revised words', t => {
+  const {preview, starts} = pendingTurns(t);
+  const before = 'What name would you give a bell?';
+  const wrong = 'What name would you give a bell that sounds like a spoon?';
+  const complete = 'What name would you give a bell that sounds like a spoon tapping a mug?';
+  for (const [words,p] of [[before,0],[wrong,.01],[wrong,0]]) {
+    assert.deepEqual(preview(words,p), {type:'partial',text:words});
+  }
+  assert.equal(starts.length,0);
+  const first = preview(wrong,.28).draftId;
+  assert.ok(first);
+  assert.equal(preview(wrong,0).draftId,first);
+  assert.equal(starts[0].signal.aborted,false);
+  assert.deepEqual(preview(complete,.01),{type:'partial',text:complete});
+  assert.ok(starts[0].signal.aborted);
+  const second = preview(complete,.39).draftId;
+  assert.ok(second);
+  assert.notEqual(second,first);
+  assert.deepEqual(starts.map(start=>start.payload.messages.at(-1).content),[wrong,complete]);
+  assert.equal(preview('Could you pick something completely different?',.6).draftId,undefined);
+});
+
+test('a correct but near-zero last Scribe preview can still be claimed on final or prepared after local finish', async t => {
+  const words = '我过弯以前总怕，今天竟然敢放松一点了。';
+  for (const afterFinish of [false,true]) {
+    const {upstream,client,preview,starts,shelf} = pendingTurns(t,'zh');
+    assert.deepEqual(preview(words,0),{type:'partial',text:words});
+    assert.equal(starts.length,0);
+    client.receive({type:'finish'});
+    const prepared = afterFinish && preview(words,.01).draftId;
+    if (afterFinish) { assert.ok(prepared); assert.equal(starts.length,1); }
+    upstream.receive({message_type:'committed_transcript',text:words,turn_probability:0});
+    const {type,text,draftId} = client.sent.at(-1);
+    assert.equal(type,'final');
+    assert.equal(text,words);
+    assert.ok(draftId);
+    if (afterFinish) assert.equal(draftId,prepared);
+    const entry = shelf.take({recognitionDraft:draftId,firstSpeechId:draftId,voiceTurnId:draftId,
+      inlineFirstSpeech:true,soul:'mori',language:'zh',messages:[{role:'user',content:words}]});
+    assert.ok(entry);
+    await entry.deliver(()=>{},new AbortController().signal);
+    assert.equal(starts.length,1);
+  }
+});
+
+test('only exact numeric 0 and .01 defer Scribe previews, and provider commits bypass the hint', t => {
+  const words = 'I want to name my bell Jellybean.';
+  for (const value of [undefined,null,'0.01',-.1,.005,.02,.9,1.1]) {
+    const {preview} = pendingTurns(t);
+    assert.ok(preview(words,value).draftId);
+  }
+  const {client,upstream} = pendingTurns(t);
+  upstream.receive({message_type:'committed_transcript',text:words,turn_probability:0});
+  assert.equal(client.sent.at(-1).type,'partial');
+  assert.ok(client.sent.at(-1).draftId);
 });
 
 test('Mandarin previews preserve a breath inside a time clause and leave complete and final utterances intact',t=>{

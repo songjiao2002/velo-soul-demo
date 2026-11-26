@@ -30,7 +30,7 @@ export function createRecognitionDrafts(generate,canPrepare=()=>true) {
            request.history.some((m,i)=>m?.role!==(i%2?'assistant':'user')||typeof m.content!=='string'||!m.content.trim()))return;
         setup={soul:request.soul,history:request.history,context:request.context};
       },
-      transcript(text,final){
+      transcript(text,final,allowNewDraft=true){
         if(!setup||finalized)return;
         if(final)finalized=true;
         const words=confirmedWords(text);
@@ -38,7 +38,7 @@ export function createRecognitionDrafts(generate,canPrepare=()=>true) {
         if(!final)lastUnticketedWords=undefined;
         if(current?.words===words&&!current.signal.aborted)return current.id;
         cancel();
-        if(!eligible(text,final)||waiting.size>=24||(!final&&attempts>=2)||!canPrepare()){
+        if((!final&&(!allowNewDraft||attempts>=2))||!eligible(text,final)||waiting.size>=24||!canPrepare()){
           if(!final)lastUnticketedWords=words;
           return;
         }

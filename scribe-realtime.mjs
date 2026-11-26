@@ -37,7 +37,7 @@ export function relayScribeRealtime(client, {language, apiKey, connect, release,
     release();
     if (upstream && upstream.readyState !== WebSocket.CLOSED) upstream.terminate();
   }
-  function send(event) {
+  function send(event, allowNewDraft = true) {
     if (client.readyState !== WebSocket.OPEN || client.bufferedAmount > maxBufferedBytes) {
       client.terminate();
       cleanup();
@@ -45,7 +45,7 @@ export function relayScribeRealtime(client, {language, apiKey, connect, release,
     }
     if(draft){
       if(event.type==='ready')event.prepareReply=true;
-      else if(audioBytes>=5120&&(event.type==='partial'||event.type==='final'))event.draftId=draft.transcript(event.text,event.type==='final');
+      else if(audioBytes>=5120&&(event.type==='partial'||event.type==='final'))event.draftId=draft.transcript(event.text,event.type==='final',allowNewDraft);
     }
     client.send(JSON.stringify(event));
     return true;
@@ -124,7 +124,10 @@ export function relayScribeRealtime(client, {language, apiKey, connect, release,
     const text = [confirmed, event.text.trim()].filter(Boolean).join(' ');
     if (Buffer.byteLength(text,'utf8') > TRANSCRIPT_FRAME_BYTES) return fail('invalid_response');
     if (type === 'partial_transcript') {
-      send({type:'partial', text:interimTranscript(text,language)});
+      // A near-zero end-of-turn score is common on punctuated mid-sentence
+      // captions. Reserve the two early generations until the turn takes shape.
+      const continuing = event.turn_probability === 0 || event.turn_probability === 0.01;
+      send({type:'partial', text:interimTranscript(text,language)}, finishing || !continuing);
       return;
     }
     if (++segments > 40) return fail('invalid_response');
