@@ -140,6 +140,6 @@ Lumi 留意天气中的小发现；Mori 关心舒适节奏；Bori 联系安全�
 
 ## 流式转录（20261018-stream1）
 
-正式服务的英文、韩文听写使用 Scribe v3 Live，中文和 Auto 使用千问。临时字幕会随说话更新，整句确认后才发送给对话模型。可设 QWEN_ASR_REALTIME_MODEL 更换流式模型，QWEN_REALTIME_ASR=off 关闭；/api/transcribe 和 QWEN_ASR_MODEL 保留作断线回退。每次有声音的识别连接与聊天、TTS共用原演示额度；静默等待不建立上游连接。
+启用 ElevenLabs 时，英文、韩文和新版客户端明确选择的普通话使用 Scribe v3 Live。Auto、旧版中文及未启用 ElevenLabs 的服务继续使用千问。最新字幕可在本地判断停顿后用于预先准备回答，确认听写后才播放。QWEN_ASR_REALTIME_MODEL 指定千问实时模型，QWEN_REALTIME_ASR=off 关闭实时识别。断线后客户端保留当前录音，通过 /api/transcribe 和 QWEN_ASR_MODEL 回退到千问识别。
 
 此次目标是边说边显示转录，并提前传输和处理音频。完整回答仍需确认句末、模型处理和声音合成，不保证零延迟，也不把样本首字时间当成手机整轮延迟。

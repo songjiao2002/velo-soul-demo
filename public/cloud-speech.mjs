@@ -17,7 +17,21 @@ export function speechChunks(text,limit=540){
 export class CloudSpeechPlayer {
  primeRideReplies(soul,language){
   for(const clip of RIDE_QUICK_REPLIES){
-   if(clip.soul===soul&&clip.language===language)this.preload(clip.text,{soul,language,source:clip.path+'?v='+BUILD});
+   if(clip.soul!==soul||clip.language!==language)continue;
+   const key=JSON.stringify([clip.text,language,soul]),context=this.context;
+   const pending=this.preload(clip.text,{soul,language,source:clip.path+'?v='+BUILD});
+   const entry=this.preloads.get(key);
+   if(this.audioSession?.playbackMode==='media'||!context||!entry||entry.decoded||this.cache.has(key))continue;
+   // Decode and render the character's original tempo before the rider finishes.
+   // Playback can join this same promise if the microphone starts on a cold page.
+   entry.decoded=pending.then(async bytes=>{
+    if(!bytes||this.preloads.get(key)!==entry)return null;
+    const audio=await context.decodeAudioData(bytes.slice(0));
+    if(this.context!==context||this.preloads.get(key)!==entry)return null;
+    const buffer=fasterSpeechBuffer(context,audio);
+    this.cache.set(key,buffer);
+    return buffer;
+   }).catch(()=>null);
   }
  }
  constructor({onMouth,audioSession,Context=globalThis.AudioContext||globalThis.webkitAudioContext,fetchImpl=appFetch,setTimer=(...args)=>globalThis.setTimeout(...args),clearTimer=(...args)=>globalThis.clearTimeout(...args)}={}){Object.assign(this,{audioSession,Context,fetchImpl,setTimer,clearTimer});this.serial=0;this.cache=new SpeechAudioCache();this.preloads=new Map();this.mouth=onMouth?new SpeechMouthClock({onFrame:onMouth}):null;this.mediaMouthCache=new Map();this.native=new NativeSpeechPlayer({fetchImpl,setTimer,clearTimer,mouth:this.mouth,decode:bytes=>(this.context||audioSession?.context)?.decodeAudioData(bytes)});if(audioSession){audioSession.nativeSpeech??=this.native;audioSession.mediaPlayers?.add(this.native);}}
@@ -126,7 +140,9 @@ export class CloudSpeechPlayer {
      const pending=this.preloads.get(key)?.promise||this.preload(part,{language,soul,source:partSource}),entry=this.preloads.get(key);
      const bytes=await pending;if(!valid())return;
      if(entry?.failure){this.preloads.delete(key);throw entry.failure;}
-     if(bytes){try{buffer=fasterSpeechBuffer(context,await context.decodeAudioData(bytes.slice(0)));}catch{}if(!valid())return;}
+     if(entry?.decoded)buffer=await entry.decoded;
+     if(!valid())return;
+     if(!buffer&&bytes){try{buffer=fasterSpeechBuffer(context,await context.decodeAudioData(bytes.slice(0)));}catch{}if(!valid())return;}
      if(buffer)this.cache.set(key,buffer);
     }
     if(!buffer){

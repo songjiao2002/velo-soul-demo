@@ -12,7 +12,11 @@ const repeatRequest=/^(repeat that|say that again|再说一次|重复一遍|다�
 // Final ASR commonly restores casing, spacing and a closing period. Keep
 // question marks, negation, numbers and interior punctuation significant.
 function confirmedWords(text){
- return text.normalize('NFC').trim().toLowerCase().replace(/\s+/gu,' ').replace(/[.。]$/u,'');
+ const words=text.normalize('NFC').trim().toLowerCase().replace(/\s+/gu,' ').replace(/[.。]$/u,'');
+ // A recognizer may add just the question mark to an explicit question.
+ if(/^(?:what|why|when|where|how|which|who|should we|can we|could you)\b/iu.test(words)||
+    /(?:吗|么|나요|까요)[?？]?$/u.test(words))return words.replace(/[?？]$/u,'');
+ return words;
 }
 function retryDelay(reason,retryAfter){
  const seconds=Number(retryAfter);

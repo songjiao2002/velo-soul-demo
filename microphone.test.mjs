@@ -134,6 +134,30 @@ test('live ASR moves to the next segment without ending the turn or talking over
  feed(600,quiet);sockets[1].event('final','slow please.');
  assert.deepEqual(finals,['Slow slow please.']);
 });
+test('routine speech can finalize in the cloud during a breath without answering over a correction',()=>{
+ for(const continues of [true,false]){
+  const sockets=[],finals=[];
+  class Socket{
+   constructor(){this.readyState=1;this.bufferedAmount=0;sockets.push(this);}
+   send(data){if(typeof data==='string'&&JSON.parse(data).type==='finish')this.committed=true;}
+   close(){this.readyState=3;}
+   event(type,text){this.onmessage({data:JSON.stringify({type,text})});}
+  }
+  const input={onLevel(){},attach:async()=>{},detach(){}};
+  const R=createMicrophoneRecognition({input,Socket,location:new URL('https://ride.test'),setTimer:()=>1,clearTimer(){},fetchImpl:()=>assert.fail('no batch retry')});
+  const r=new R();r.start();r.onresult=e=>{if(e.results[0].isFinal)finals.push(e.results[0][0].transcript);};
+  const voice=Float32Array.from({length:320},(_,i)=>.08*Math.sin(2*Math.PI*185*i/16000)),quiet=new Float32Array(320);
+  const feed=(ms,frame)=>{for(let n=0;n<ms;n+=20)r.samples(frame,16000);};
+  feed(640,voice);sockets[0].event('partial','Can we take a break?');feed(220,quiet);
+  assert.ok(sockets[0].committed);assert.equal(r.finalizing,undefined);
+  sockets[0].event('final','Can we take a break?');assert.deepEqual(finals,[]);
+  if(continues){feed(480,voice);assert.equal(sockets.length,2);}
+  feed(600,quiet);
+  if(continues)sockets[1].event('final','Actually, keep going.');
+  assert.deepEqual(finals,[continues?'Can we take a break? Actually, keep going.':'Can we take a break?']);
+  assert.equal(sockets.length,continues?2:1);
+ }
+});
 test('a real ending at a segment boundary uses only one upload, and a route change discards a pending segment',async()=>{
  const resolvers=[],a=recorder(()=>new Promise(resolve=>resolvers.push(resolve))),r=new a.Recognition(),finals=[];
  r.onresult=e=>{if(e.results[0].isFinal)finals.push(e.results[0][0].transcript);};

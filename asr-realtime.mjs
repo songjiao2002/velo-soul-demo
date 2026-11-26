@@ -69,7 +69,9 @@ export function attachRealtimeAsr(server,{env=process.env,reserve,connect=(url,o
   if(req.method!=='GET'||req.headers.upgrade?.toLowerCase()!=='websocket'||!/^\s*13\s*$/.test(req.headers['sec-websocket-version']||'')||! /^[+/0-9A-Za-z]{22}==$/.test(req.headers['sec-websocket-key']||''))return reject(400);
   const language=url.searchParams.get('language')||'auto';if(!['ko','en','zh','auto'].includes(language))return reject(400);
   const config=chatConfig(env);
-  const useScribe=config.scribeApiKey&&(language==='en'||language==='ko');
+  // Older Mandarin clients describe a Qwen-only route in their privacy notice.
+  const scribeMandarin=language==='zh'&&url.searchParams.get('provider')==='scribe';
+  const useScribe=config.scribeApiKey&&(language==='en'||language==='ko'||scribeMandarin);
   if(env.QWEN_REALTIME_ASR==='off'||(!useScribe&&!config.configured))return reject(503);
   const route=useScribe?null:qwenRoute(config,language);
   if(standby&&waitingClients>=32)return reject(429);

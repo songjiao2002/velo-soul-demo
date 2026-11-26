@@ -23,10 +23,10 @@ class Upstream extends EventEmitter{
  event(event){this.emit('message',Buffer.from(JSON.stringify(event)));}
  terminate(){this.readyState=3;this.emit('close');}
 }
-async function relay(t,model='qwen3-asr-flash-realtime'){
+async function relay(t,model='qwen3-asr-flash-realtime',env={}){
  let upstream,options,endpoint,active=0;
  const app=http.createServer((req,res)=>res.end());
- attachRealtimeAsr(app,{env:{DASHSCOPE_API_KEY:'secret-test-value',QWEN_ASR_REALTIME_MODEL:model},reserve:()=>{active++;let done=false;return ()=>{if(!done){done=true;active--;}};},connect:(url,opts)=>{endpoint=url;options=opts;return upstream=new Upstream();}});
+ attachRealtimeAsr(app,{env:{DASHSCOPE_API_KEY:'secret-test-value',QWEN_ASR_REALTIME_MODEL:model,...env},reserve:()=>{active++;let done=false;return ()=>{if(!done){done=true;active--;}};},connect:(url,opts)=>{endpoint=url;options=opts;return upstream=new Upstream();}});
  await new Promise(r=>app.listen(0,'127.0.0.1',r));
  t.after(()=>new Promise(r=>app.close(r)));
  const origin='http://127.0.0.1:'+app.address().port;
@@ -113,17 +113,37 @@ test('live ASR status respects language defaults, explicit model settings, provi
  const models=env=>{
   const status=createChatService({env}).status();
   assert.ok(!JSON.stringify(status).includes('secret-provider-key'));
-  return [status.realtimeAsrModel,status.realtimeAsrModelEn,status.realtimeAsrModelKo];
+  return [status.realtimeAsrModel,status.realtimeAsrModelEn,status.realtimeAsrModelKo,status.realtimeAsrModelZh];
  };
  const streaming='qwen-audio-3.1-asr-flash-streaming',message='qwen-audio-3.1-asr-flash-message',legacy='qwen3-asr-flash-realtime';
- assert.deepEqual(models({}),[streaming,message,streaming]);
- assert.deepEqual(models({QWEN_ASR_REALTIME_MODEL:legacy}),[legacy,legacy,legacy]);
- assert.deepEqual(models({QWEN_ASR_REALTIME_MODEL:legacy,QWEN_ASR_REALTIME_MODEL_EN:message}),[legacy,message,legacy]);
- assert.deepEqual(models({VELO_ASR_PROVIDER:'elevenlabs',ELEVENLABS_API_KEY:' '}),[streaming,message,streaming]);
- assert.deepEqual(models({ELEVENLABS_API_KEY:'secret-provider-key'}),[streaming,message,streaming]);
+ assert.deepEqual(models({}),[streaming,message,streaming,streaming]);
+ assert.deepEqual(models({QWEN_ASR_REALTIME_MODEL:legacy}),[legacy,legacy,legacy,legacy]);
+ assert.deepEqual(models({QWEN_ASR_REALTIME_MODEL:legacy,QWEN_ASR_REALTIME_MODEL_EN:message}),[legacy,message,legacy,legacy]);
+ assert.deepEqual(models({VELO_ASR_PROVIDER:'elevenlabs',ELEVENLABS_API_KEY:' '}),[streaming,message,streaming,streaming]);
+ assert.deepEqual(models({ELEVENLABS_API_KEY:'secret-provider-key'}),[streaming,message,streaming,streaming]);
  const scribe={VELO_ASR_PROVIDER:'elevenlabs',ELEVENLABS_API_KEY:'secret-provider-key'};
- assert.deepEqual(models(scribe),[streaming,'scribe_v3_live','scribe_v3_live']);
- assert.deepEqual(models({...scribe,QWEN_REALTIME_ASR:'off'}),[null,null,null]);
+ assert.deepEqual(models(scribe),[streaming,'scribe_v3_live','scribe_v3_live','scribe_v3_live']);
+ assert.deepEqual(models({...scribe,QWEN_REALTIME_ASR:'off'}),[null,null,null,null]);
+});
+
+test('selected Mandarin uses Scribe on live and activated standby; legacy Mandarin and Auto keep Qwen',async t=>{
+ const configured={VELO_ASR_PROVIDER:'elevenlabs',ELEVENLABS_API_KEY:'test-only'};
+ for(const [query,standby,env,scribe] of [
+  ['language=zh&provider=scribe',false,configured,true],
+  ['language=zh&provider=scribe',true,configured,true],
+  ['language=zh',false,configured,false],
+  ['language=auto&provider=scribe',false,configured,false],
+  ['language=zh&provider=scribe',false,{},false],
+ ]){
+  const a=await relay(t,undefined,env),url=standby?a.url.replace('/live','/standby'):a.url;
+  const ws=new WebSocket(url+'?'+query,{origin:a.origin});t.after(()=>ws.terminate());
+  await once(ws,'open');
+  if(standby){assert.equal(a.upstream,undefined);ws.send(JSON.stringify({type:'start'}));}
+  await wait(()=>a.upstream);
+  assert.equal(new URL(a.endpoint).hostname,scribe?'api.elevenlabs.io':'dashscope-intl.aliyuncs.com');
+  if(scribe)assert.equal(new URL(a.endpoint).searchParams.get('language_code'),'zh');
+  ws.close();await wait(()=>a.active===0);
+ }
 });
 
 test('realtime rejects cross-origin requests before spending quota and enforces PCM bounds',async t=>{
@@ -205,6 +225,18 @@ test('prepared client stays silent, activates once with its first audio, and fal
    assert.equal(a.sockets.length,1);assert.equal(idle.sent[0],'{"type":"start"}');
    assert.ok(idle.sent[1] instanceof Uint8Array);assert.equal(idle.sent.filter(v=>typeof v==='string').length,1);
   }
+  r.abort();
+ }
+});
+
+test('only an explicit Mandarin selection negotiates Scribe on standby and live reconnect',async()=>{
+ for(const selected of ['zh','auto',undefined]){
+  const a=client(Date.now,true),r=new a.Recognition();r.inputLanguage=selected;r.lang='zh-CN';r.start();await tick();
+  const standby=a.sockets[0];assert.equal(new URL(standby.url).searchParams.get('provider'),selected==='zh'?'scribe':null);
+  standby.open();standby.close();standby.onclose?.();a.feed(.1,300);
+  const live=new URL(a.sockets[1].url);assert.equal(live.pathname,'/api/transcribe/live');
+  assert.equal(live.searchParams.get('provider'),selected==='zh'?'scribe':null);
+  assert.equal(live.searchParams.get('language'),selected??'zh');
   r.abort();
  }
 });

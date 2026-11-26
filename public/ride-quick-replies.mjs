@@ -71,7 +71,7 @@ const korean={
     /^(?:우리)?(?:잠깐|잠시)?조용히(?:타자|달리자|탈까|달릴까)$/u
   ]
 };
-function rideIntent(transcript){
+export function rideIntent(transcript){
   if(typeof transcript!=='string'||transcript.length>140)return;
   let text=transcript.normalize('NFKC').replace(/[’‘]/gu,"'").trim().toLowerCase()
     .replace(/[.!?。！？]+$/u,'').trim().replace(/\s+/gu,' ');

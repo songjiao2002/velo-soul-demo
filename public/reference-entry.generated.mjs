@@ -1592,7 +1592,7 @@ import {conversationLanguageLabel,conversationLanguagePicker} from './encounter-
       URL.revokeObjectURL(s);
     }
   }
-  var se = "20261126-mobile78";
+  var se = "20261126-mobile79";
   var Ns = null, Ni = null, Za = false;
   function ji() {
     Za = true;
@@ -1605,7 +1605,7 @@ import {conversationLanguageLabel,conversationLanguagePicker} from './encounter-
       Ni.mountCharacters();
       return;
     }
-    Ns ??= import("/character-toon.bundle.mjs?v=20261126-mobile78").catch(() => null);
+    Ns ??= import("/character-toon.bundle.mjs?v=20261126-mobile79").catch(() => null);
     Ns.then((module) => {
       if (!Za) return;
       if (module) {

@@ -236,7 +236,7 @@ export function createChatService({env=process.env,fetchImpl=fetch,now=Date.now,
       const scribe=c.scribeApiKey?'scribe_v3_live':null;
       return {configured:c.configured,provider:'Qwen',model:c.model,visionModel:c.visionModel,asrModel:c.asrModel,
         realtimeAsrModel:live?c.realtimeAsrModel:null,realtimeAsrModelEn:live?(scribe||c.realtimeAsrModelEn):null,
-        realtimeAsrModelKo:live?(scribe||c.realtimeAsrModel):null,ttsModel:c.ttsModel,skills:SOUL_IDS,
+        realtimeAsrModelKo:live?(scribe||c.realtimeAsrModel):null,realtimeAsrModelZh:live?(scribe||c.realtimeAsrModel):null,ttsModel:c.ttsModel,skills:SOUL_IDS,
         conversationLimits:{dailyRequests:conversationBudget.maxDaily,requestsPerMinute:conversationBudget.maxMinute,maxConcurrentRequests:cloud.maxActive}};
     },
     async speechStream(input,{signal,emit,tone=deliveryTone(input?.text)}={}){

@@ -107,15 +107,18 @@ test('Scribe signals fallback on provider errors, malformed transcripts, and a l
   assert.ok(!s.client.sent.some(e=>e.type==='final'));
 });
 
-test('a Scribe quota failure uses one Qwen HTTP fallback for the retained utterance', async () => {
+for(const [language,expected] of [['en','Wait here.'],['zh','在这里等。']]){
+test(`a ${language} Scribe quota failure uses one Qwen HTTP fallback for the retained utterance`, async () => {
   const client=new Socket(), upstream=new Socket(), input={attach:async()=>{}, detach(){}, onLevel(){}};
   const uploads=[], results=[];
   class BrowserSocket {
     readyState=WebSocket.OPEN;
     bufferedAmount=0;
-    constructor() {
+    constructor(url) {
       client.send=raw=>this.onmessage?.({data:raw});
-      relayScribeRealtime(client,{language:'en',apiKey:'example',connect:()=>upstream,release(){}});
+      assert.equal(new URL(url).searchParams.get('language'),language);
+      if(language==='zh')assert.equal(new URL(url).searchParams.get('provider'),'scribe');
+      relayScribeRealtime(client,{language,apiKey:'example',connect:()=>upstream,release(){}});
       queueMicrotask(()=>{this.onopen?.();upstream.receive({message_type:'session_started'});});
     }
     send(data) {
@@ -126,10 +129,10 @@ test('a Scribe quota failure uses one Qwen HTTP fallback for the retained uttera
   }
   const Recognition=createMicrophoneRecognition({
     input,Socket:BrowserSocket,location:new URL('https://localhost/'),
-    fetchImpl:async(path,options)=>{uploads.push({path,body:options.body});return Response.json({text:'Wait here.'});}
+    fetchImpl:async(path,options)=>{uploads.push({path,body:options.body});return Response.json({text:expected});}
   });
   const instance=new Recognition();
-  instance.inputLanguage='en';
+  instance.inputLanguage=language;
   instance.onresult=e=>{if(e.results[0].isFinal)results.push(e.results[0][0].transcript);};
   try {
     instance.start();
@@ -142,11 +145,12 @@ test('a Scribe quota failure uses one Qwen HTTP fallback for the retained uttera
     instance.samples(voice,16000);
     await instance.stop();
     assert.equal(uploads.length,1);
-    assert.equal(uploads[0].path,'/api/transcribe?language=en');
+    assert.equal(uploads[0].path,'/api/transcribe?language='+language);
     assert.ok(uploads[0].body.length>1000);
-    assert.deepEqual(results,['Wait here.']);
+    assert.deepEqual(results,[expected]);
   } finally { instance.abort(); }
 });
+}
 
 test('Scribe limits malformed, post-finish and excess audio, provider backpressure and client cancellation', t => {
   for (const action of [

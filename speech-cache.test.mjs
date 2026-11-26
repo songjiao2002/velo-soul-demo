@@ -9,6 +9,23 @@ import {RIDE_QUICK_REPLIES} from './public/ride-quick-replies.mjs';
 import {readVoiceReply} from './public/chat-stream.mjs';
 
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
+test('quick replies are decoded once while listening and can start from the ready audio buffer',async t=>{
+ const a=setup();t.after(()=>a.player.dispose());await a.player.prepare();
+ const role='mori',language='zh';
+ let downloads=0,decodes=0;
+ a.player.fetchImpl=async path=>{
+  assert.ok(path.startsWith('/audio/ride-quick/'));downloads++;
+  const data=await readFile(new URL('./public'+path.split('?')[0],import.meta.url));
+  return new Response(data,{headers:{'Content-Type':'audio/wav'}});
+ };
+ a.player.context.decodeAudioData=async()=>{decodes++;return a.player.context.createBuffer(1,480,24000);};
+ a.player.primeRideReplies(role,language);
+ await Promise.all([...a.player.preloads.values()].map(entry=>entry.decoded));
+ assert.equal(downloads,3);assert.equal(decodes,3);
+ const clip=RIDE_QUICK_REPLIES.find(item=>item.soul===role&&item.language===language);
+ await a.speak(clip.text,{soul:role,language,quickReplySource:clip.path,firstReplySegment:true});
+ assert.equal(downloads,3);assert.equal(decodes,3);
+});
 const pcm=Buffer.from([0,64,0,192,0,32,0,224]);
 const audioFrame={audio:pcm.toString('base64'),rate:24000};
 const response=(frames=[audioFrame,{done:true}])=>new Response(frames.map(f=>JSON.stringify(f)+'\n').join(''),{headers:{'Content-Type':'application/x-ndjson'}});
