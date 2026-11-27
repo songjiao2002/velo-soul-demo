@@ -4760,12 +4760,16 @@ function bindRideMicTextChat(doc,win,open){
    event.preventDefault();
    if(!event.repeat){cancel();open();}
  },true);
- doc.addEventListener('click',event=>{
-   if(!suppressClick||mic(event)!==suppressClick||event.detail===0)return;
-   event.preventDefault();
-   event.stopImmediatePropagation();
-   suppressClick=null;
- },true);
+ // Touch browsers can retarget the release to the newly opened dialog. Consume
+ // its compatibility events so it cannot blur the composer or press a dialog button.
+ for(const type of ['mousedown','click']){
+   doc.addEventListener(type,event=>{
+     if(!suppressClick||event.detail===0)return;
+     event.preventDefault();
+     event.stopImmediatePropagation();
+     if(type==='click')suppressClick=null;
+   },true);
+ }
 }
 bindRideMicTextChat(document,window,openRideTextChat);
 kl=function(state){

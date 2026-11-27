@@ -37,6 +37,35 @@ test('the camera has the reference microphone and pause buttons, including on a 
  assert.ok(languages>=0&&startup>languages,'all ride settings must exist before a direct camera launch');
 });
 
+test('holding the ride mic opens typing once, handles a retargeted tap, and preserves normal and cancelled presses',async()=>{
+ const entry=await readFile(new URL('./public/reference-entry.generated.mjs',import.meta.url),'utf8');
+ const start=entry.indexOf('function bindRideMicTextChat('),end=entry.indexOf('bindRideMicTextChat(document,window,',start);
+ assert.ok(start>=0&&end>start);
+ const bind=runInNewContext('('+entry.slice(start,end).trim()+')');
+ const handlers=new Map(),doc={addEventListener:(type,fn)=>handlers.set(type,fn)};
+ let timer=null,opened=0;
+ const win={addEventListener(){},setTimeout(fn){timer=fn;return 1;},clearTimeout(){timer=null;}};
+ bind(doc,win,()=>opened++);
+ const button={isConnected:true},mic={closest:()=>button},dialog={closest:()=>null};
+ const emit=(type,options={})=>{
+  let blocked=false;
+  handlers.get(type)({target:mic,pointerId:1,button:0,isPrimary:true,clientX:10,clientY:10,detail:1,
+   preventDefault(){},stopImmediatePropagation(){blocked=true;},...options});
+  return blocked;
+ };
+ emit('pointerdown');emit('pointerup');assert.equal(timer,null);assert.equal(emit('click'),false);
+ for(const [type,options] of [['pointercancel',{}],['pointermove',{clientX:40}]]){
+  emit('pointerdown');emit(type,options);assert.equal(timer,null);assert.equal(opened,0);
+ }
+ emit('pointerdown');timer();emit('contextmenu');emit('pointerup',{target:dialog});
+ assert.equal(opened,1);
+ assert.equal(emit('mousedown',{target:dialog}),true);
+ assert.equal(emit('click',{target:dialog}),true);
+ emit('pointerdown');emit('pointerup');assert.equal(emit('click'),false);
+ emit('keydown',{key:'F10',shiftKey:true});emit('keydown',{key:'F10',shiftKey:true,repeat:true});
+ assert.equal(opened,2);assert.equal(emit('click',{detail:0}),false);
+});
+
 test('all companions open the stock encounter settings and share the four ride language choices',async()=>{
  const [entry,index]=await Promise.all(['reference-entry.generated.mjs','index.html'].map(file=>readFile(new URL('./public/'+file,import.meta.url),'utf8')));
  const encounter=entry.slice(entry.indexOf('  var dr ='),entry.indexOf('  var Xn ='));

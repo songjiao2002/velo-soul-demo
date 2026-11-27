@@ -30,16 +30,16 @@
       }
     },
     "/app.bundle.js": {
-      "size": 651359,
-      "sha256": "a3c891b814ebf615c94417927562c5c573326fe0abba4044a2aaf828cc34275c",
+      "size": 651392,
+      "sha256": "d722ad64d7405855a522ce549e42582fbc02eaa808aecc27fd88577be03cf592",
       "br": {
-        "size": 158476,
-        "sha256": "c8229f87d385c7729c55bbc997c99ce74e24dac1554229fe8aaf495acb842cbc",
+        "size": 158488,
+        "sha256": "d120b653c34eb7ba4dd87e835063f814bcf094891aca3ef69c97d57197a05873",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 242657,
-        "sha256": "5f3728d8916a7c3ee6cb1d7c0738494c29b678499c2702bc7e5dc23d18de7c71",
+        "size": 242673,
+        "sha256": "8f821949ec91e750759245521d31bf1cf2d3b34da7e81921f385bc3f3fc0b89e",
         "suffix": ".gz"
       }
     },

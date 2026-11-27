@@ -225,4 +225,7 @@ window.addEventListener('velo:ready',()=>{
    inputTapped=false;settings.removeAttribute('data-all-voice-languages');
    voiceLabel.setAttribute('aria-expanded','false');
  });
- liveIdlePurr=new LivePurr({session:He,canPlay:()=>P==='mori'&&Z&&!document.hidden&&!!M?.active&&['listening','quiet'].includes(M.state)&&!V.isOpen()&&!document.bo
+ liveIdlePurr=new LivePurr({session:He,canPlay:()=>P==='mori'&&Z&&!document.hidden&&!!M?.active&&['listening','quiet'].includes(M.state)&&!V.isOpen()&&!document.body.classList.contains('voice-playing')});
+ const timer=setInterval(()=>liveIdlePurr.tick(),250);
+ window.addEventListener('pagehide',()=>{clearInterval(timer);liveIdlePurr.stop();},{once:true});
+},{once:true});
