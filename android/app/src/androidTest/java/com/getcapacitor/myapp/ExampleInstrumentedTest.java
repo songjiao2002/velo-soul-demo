@@ -111,7 +111,7 @@ public class ExampleInstrumentedTest {
         js("document.querySelector('[data-diary-open]').click()");
         awaitTrue("document.body.dataset.screen === 'diary' && !!document.querySelector('#diaryText')");
         assertEquals("3",js("document.querySelectorAll('#diaryText p').length"));
-        assertEquals("true",js("!/(?:you|your)\\b/i.test(document.querySelector('#diaryText').textContent)"));
+        assertEquals("true",js("document.querySelector('.diary-entry').dataset.diaryId === 'lulu-example' && document.querySelector('#diaryText p').textContent.startsWith('Lulu here. There’s no hurry to close this day.') && document.querySelector('#diaryText p:nth-child(2)').textContent.startsWith('Even without many words')"));
         js("document.querySelector('.diary-translation summary').click();document.querySelector('[data-diary-language=zh]').click()");
         awaitTrue("document.querySelector('#diaryText').lang === 'zh'");
         js("document.querySelector('.diary-back').click()");
