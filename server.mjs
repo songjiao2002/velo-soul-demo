@@ -66,6 +66,14 @@ export const server = http.createServer(async (req, res) => {
       res.setHeader('Cache-Control','no-store');
       return send(410,'<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>QR expired · VELO SOUL</title><body style="font-family:system-ui;padding:32px;max-width:540px;margin:auto;background:#faf8f2"><h1>This QR code has expired</h1><p>这个二维码已作废，请使用小组提供的新码。<br>만료된 QR 코드예요. 새 코드를 스캔해 주세요.</p><p>Please scan one of the new companion codes.</p><a href="/download.html">Update VELO SOUL · 更新 App</a></body></html>',types['.html']);
     }
+    if (pathname === '/ride' || pathname === '/ride/') {
+      res.writeHead(307, {'Location':'/' + requestURL.search, 'Cache-Control':'no-store'});
+      return res.end();
+    }
+    if (pathname === '/index.html') {
+      res.setHeader('Content-Security-Policy', "base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'");
+      res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    }
     if (pathname === '/healthz') return send(200, '{"status":"ok","app":"velo-soul"}', types['.json']);
     const qrMatch = pathname.match(/^\/qr-(lumi|mori|bori)\.(svg|png)$/);
     if (qrMatch) {

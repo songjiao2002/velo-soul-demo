@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
+import {runInNewContext} from 'node:vm';
 import {createShutterGesture,rememberScan,readScanHistory,mobileScanner,mobileDiaryEntry} from './public/mobile-flow.mjs';
 import {rideTalkPanel,paintRideTalk,rideVoiceStatus,rideTextChatLabel} from './public/ride-voice-controls.mjs';
 import {HANDS_FREE_COPY} from './public/hands-free.mjs';
 import {COMMUNICATION_LIMIT_COPY} from './public/conversation-limits.mjs';
-import {encounterScreen,conversationLanguageLabel} from './public/encounter-screen.mjs';
 test('shutter short press captures once, hold finishes once, cancellation does neither',()=>{
  let task,photo=0,finish=0;const gesture=createShutterGesture({capture:()=>photo++,finish:()=>finish++,setTimer:fn=>(task=fn,1),clearTimer:()=>task=null});
  gesture.begin();gesture.end();gesture.end();assert.equal(photo,1);assert.equal(finish,0);
@@ -25,29 +25,39 @@ test('diary renders escaped paragraphs and original notes without duplicating it
  assert.match(html,/&lt;title&gt;/);assert.match(html,/<p>First<\/p><p>Second<\/p>/);assert.doesNotMatch(html,/<script>/);assert.equal((html.match(/class="diary-entry-cover"/g)||[]).length,1);
 });
 
-test('both ride scenes use the conversation controls, including on a direct camera launch',async()=>{
+test('the camera has the reference microphone and pause buttons, including on a direct camera launch',async()=>{
  const entry=await readFile(new URL('./public/reference-entry.generated.mjs',import.meta.url),'utf8');
  const view=entry.slice(entry.indexOf('  function Jo(riding)'),entry.indexOf('  function ze('));
- assert.match(view,/rideTalkPanel\(language/);
- for(const mode of ['camera','map'])assert.ok(view.includes(`data-scene-mode="${mode}"`));
- assert.match(entry,/case "ride-voice-toggle":\s*ct = false; Sl\(\)/);
+ for(const control of ['pause','mic'])assert.ok(view.includes('cameraControlMarkup("'+control+'")'));
+ assert.doesNotMatch(view,/rideTalkPanel|ride-text-chat/);
+ assert.match(entry,/case "companion-mic":\s*toggleCameraMicrophone\(\)/);
+ assert.match(entry,/case "companion-pause":\s*toggleCameraPause\(\)/);
  assert.match(entry,/case "ride-text-chat":\s*openRideTextChat\(\)/);
- assert.ok(entry.includes('Ga=rideVoiceControlsMarkup;')&&entry.includes('fs=paintRideVoiceControls;'));
  const languages=entry.indexOf('const rideLanguages ='), startup=entry.indexOf('\n  Vo();');
  assert.ok(languages>=0&&startup>languages,'all ride settings must exist before a direct camera launch');
 });
 
-test('every companion offers the same saved conversation language at the encounter and during the ride',async()=>{
- const entry=await readFile(new URL('./public/reference-entry.generated.mjs',import.meta.url),'utf8');
- assert.ok(entry.includes('${conversationLanguagePicker(locale,yi())}'));
- assert.ok(entry.includes('if(M?.active)M.setLanguage(language);'));
- for(const id of ['lumi','mori','bori'])for(const language of ['zh','ko','en','auto']){
-  const html=encounterScreen({id,language:'en',voiceLanguage:language,puppet:'',reviews:''});
-  const picker=html.match(/<label[^>]*class="language-picker encounter-language"[\s\S]*?<\/label>/)?.[0];
-  assert.ok(picker);
-  assert.ok(picker.includes(conversationLanguageLabel.en));
-  assert.deepEqual([...picker.matchAll(/<option value="([^"]+)"/g)].map(match=>match[1]),['auto','en','ko','zh']);
-  assert.equal(picker.match(/value="([^"]+)" selected>/)?.[1],language);
+test('all companions open the stock encounter settings and share the four ride language choices',async()=>{
+ const [entry,index]=await Promise.all(['reference-entry.generated.mjs','index.html'].map(file=>readFile(new URL('./public/'+file,import.meta.url),'utf8')));
+ const encounter=entry.slice(entry.indexOf('  var dr ='),entry.indexOf('  var Xn ='));
+ const settings=entry.slice(entry.indexOf('  function bl()'),entry.indexOf('  function Jo(riding)'));
+ const table=entry.match(/const rideLanguages = .*?;/)[0];
+ const picker=index.match(/<select id="voiceSelect"[^>]*>(.*?)<\/select>/s)[1];
+ const values=['auto','en','ko','zh'];
+ assert.deepEqual([...picker.matchAll(/<option value="([^"]+)"/g)].map(m=>m[1]),values);
+ assert.match(index,/<span id="voiceSelectLabel" role="button" tabindex="0"/);
+ assert.match(entry,/case "settings":\s*p\("appSettingsDialog"\)\.showModal\(\)/);
+ assert.match(entry,/if\(M\?\.active\)M\.setLanguage\(language\)/);
+ for(const id of ['lumi','mori','bori']){
+  const companion={en:id,name:id,greeting:{en:'Hello'},story:{en:'A ride'}};
+  const html=runInNewContext(encounter+'\nZn({id,puppet:""});',{id,ne:{[id]:companion}});
+  assert.match(html,/<div class="encounter-toolbar">[\s\S]*?data-action="settings"/);
+ }
+ for(const language of values){
+  const html=runInNewContext(table+settings+'\nbl();',{S:()=>'en',Ao:{en:{}},yi:()=>language});
+  const options=[...html.matchAll(/name="ride-language" value="([^"]+)"\s*(checked)?/g)];
+  assert.deepEqual(options.map(match=>match[1]),values);
+  assert.deepEqual(options.filter(match=>match[2]).map(match=>match[1]),[language]);
  }
 });
 

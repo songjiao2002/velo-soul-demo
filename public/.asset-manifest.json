@@ -1,45 +1,45 @@
 {
-  "version": "20261126-mobile83",
+  "version": "20261127-mobile84",
   "files": {
     "/index.html": {
-      "size": 8078,
-      "sha256": "d4402e2d0def39d137ebf74e233f003e8d3523ff6343a698bbda84eb34f00fce",
+      "size": 8887,
+      "sha256": "642ad5df0889f37ec6094d871192c32c42ce5dc395dd14e6b0c97dd1e33c7c08",
       "br": {
-        "size": 3284,
-        "sha256": "7429698a24fe7200d826da399d4ac404e2c1a54f2f19603b9f2ac1ab94ca1e66",
+        "size": 3435,
+        "sha256": "c3941f5b6b621668e96e394a1e38d1053eb73e391ff5c7fdce2dca43bab8b924",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 3695,
-        "sha256": "d6477cd59051768acbc6b85840d75d7cfc9a38d8595f3953f99cefbef36fdad0",
+        "size": 4129,
+        "sha256": "b823513dc7c5b9a9b66dd0ada83c50dcecfd0b27bfaeb484ff85e3d03352c9ea",
         "suffix": ".gz"
       }
     },
     "/boot.js": {
-      "size": 2510,
-      "sha256": "9282747d31fda03e39ae5f7d89424a077f565d3f8b711f30066f6b214b3e651c",
+      "size": 2904,
+      "sha256": "0d016368b8003fe1d29c2e4e12214d796008a59a327a60653ab23eb21abd0268",
       "br": {
-        "size": 949,
-        "sha256": "707d8c89c7f3020afbb7923e86dd64b39aeb050e5657491c7da6bdce31367968",
+        "size": 1110,
+        "sha256": "5919f5e9abf32e274506a6effa6bd991ce0535e9cf7eddc67774e6229f2b3c1a",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 1133,
-        "sha256": "3a9c5215e230ec73a2842f1298842ba3abbc97960af37bdbab300db9ad169b4c",
+        "size": 1298,
+        "sha256": "324f928106b924a3988931f02a92a84343920498a9930ed2b73f61dfa053705e",
         "suffix": ".gz"
       }
     },
     "/app.bundle.js": {
-      "size": 649918,
-      "sha256": "01ec566667817bc9034df5f9d24ee8a3b03fb1ae6339e9a462f72a3bd09896e1",
+      "size": 651359,
+      "sha256": "a3c891b814ebf615c94417927562c5c573326fe0abba4044a2aaf828cc34275c",
       "br": {
-        "size": 157915,
-        "sha256": "32a9ed91f8c2e558d0d67c9be1d46980d82d41859d75163ce7947a2ae8cfa96e",
+        "size": 158476,
+        "sha256": "c8229f87d385c7729c55bbc997c99ce74e24dac1554229fe8aaf495acb842cbc",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 242011,
-        "sha256": "b18e68cc1f42ad2f6bea0d8783a8bcc2055062f77e4d74659b58038fc758b7f6",
+        "size": 242657,
+        "sha256": "5f3728d8916a7c3ee6cb1d7c0738494c29b678499c2702bc7e5dc23d18de7c71",
         "suffix": ".gz"
       }
     },
@@ -72,30 +72,30 @@
       }
     },
     "/screen.css": {
-      "size": 36443,
-      "sha256": "df3c32b90a96ff33ae32c825bedc57305b80416934c512b4abd5d6572ed03503",
+      "size": 40281,
+      "sha256": "93e5e1510e148ea12e275e1a71f592c1ffbbb246dec40aea2b6dabf82b3ec3d5",
       "br": {
-        "size": 7156,
-        "sha256": "e26203176abc685e0afd18151ff54e29ebd9d14797d2bc3464ae3f84625400c1",
+        "size": 7855,
+        "sha256": "61a20ce394466d19fba116959c0063034821c1418b333beabe24d2f28a8b1078",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 7569,
-        "sha256": "6ab0d1cde60ec50300d81c8b11f7c13054ac89242f4111594a500d324bb87bbf",
+        "size": 8308,
+        "sha256": "7eb82b355565857d737f89b6b4458f5318e7e7e4a8178edd6f296222aac59ee9",
         "suffix": ".gz"
       }
     },
     "/native-layout.css": {
-      "size": 2196,
-      "sha256": "c63ca84a546c5b1fb555190a95d038a0b8e663f5a2238b6f2764bb2a6ec07a56",
+      "size": 1521,
+      "sha256": "a39a939831bdeff5887d526568cf66326bacfd07a3e0a0950942421e232b6763",
       "br": {
-        "size": 768,
-        "sha256": "43336d012e96961e47edddc548ba89f39eb386033bac5fd2e00089008719f626",
+        "size": 576,
+        "sha256": "7643d394f01ebba3b20488d3ef17e0b8f243ebf9a65b5fd59f56d1e8b4e85570",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 865,
-        "sha256": "3139fb1c461571dc51dd281356c64993207cb8bd07343df26381cd8c39761967",
+        "size": 656,
+        "sha256": "4277cb6c822dc417a4c2de72c567e033414ccf9f8bcc7b6611b2034fd13c0093",
         "suffix": ".gz"
       }
     },
@@ -114,16 +114,16 @@
       }
     },
     "/character-toon.bundle.mjs": {
-      "size": 604312,
-      "sha256": "3cac21dc854bc155a2b7777f6a7746104ee9bf4a8fa958868c77f858b79471d5",
+      "size": 604384,
+      "sha256": "dfab02720c34f40305a9b4621a0b7283d924b383284568316940ff143536e8db",
       "br": {
-        "size": 143107,
-        "sha256": "94f3468a832b1834e954d0b84530cbe79fbe31371f0edd498939960075f13a20",
+        "size": 143129,
+        "sha256": "90978ab36a9b8112c378c60fe3e67a1209c7617830886b657ed7dfda9a9f53de",
         "suffix": ".br"
       },
       "gzip": {
-        "size": 158229,
-        "sha256": "4ce898ba85b940bfd37c977f7f38ed3c68bfd9b47e138ec98dad7e970a39277d",
+        "size": 158252,
+        "sha256": "a6383cf52eb5b00ac44336e273b4a4a98ec1859177194eb2108b97238abc0442",
         "suffix": ".gz"
       }
     },

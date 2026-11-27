@@ -12,10 +12,45 @@ let base;
 before(async()=>{await new Promise(r=>server.listen(0,'127.0.0.1',r));base='http://127.0.0.1:'+server.address().port;});
 after(()=>new Promise(r=>server.close(r)));
 
-test('invalid request targets cannot crash API dispatch; pages cannot be framed',async()=>{
+test('invalid request targets cannot crash API dispatch; the public entry cannot be framed',async()=>{
  const status=await new Promise((resolve,reject)=>{const req=http.request(base,{path:'http://['},res=>{res.resume();resolve(res.statusCode);});req.on('error',reject);req.end();});
  assert.equal(status,400);const health=await fetch(base+'/healthz');assert.equal(health.status,200);
  const home=await fetch(base+'/');assert.equal(home.headers.get('x-frame-options'),'DENY');assert.match(home.headers.get('content-security-policy'),/frame-ancestors 'none'/);
+});
+
+test('only the app document allows the desktop preview to embed it on the same origin',async()=>{
+ const outer=await fetch(base+'/device-preview.html'),inner=await fetch(base+'/index.html');
+ assert.equal(outer.status,200);
+ assert.equal(outer.headers.get('x-frame-options'),'DENY');
+ assert.match(outer.headers.get('content-security-policy'),/frame-ancestors 'none'/);
+ assert.equal(inner.headers.get('x-frame-options'),'SAMEORIGIN');
+ assert.match(inner.headers.get('content-security-policy'),/frame-ancestors 'self';/);
+ const search='?bike=lumi&qr='+QR_IDS.lumi+'&view=camera&language=ko',hash='#camera';
+ const alias=await fetch(base+'/ride/'+search,{redirect:'manual'});
+ assert.equal(alias.status,307);assert.equal(alias.headers.get('location'),'/'+search);
+ const iframe={};let outerRoute;
+ const html=await outer.text(),script=html.match(/<script>([\s\S]*?)<\/script>/)[1];
+ vm.runInNewContext(script,{location:{search,hash},document:{getElementById:()=>iframe},history:{replaceState:(_state,_title,path)=>{outerRoute=path;}}});
+ assert.equal(outerRoute,'/'+search+hash);
+ assert.equal(iframe.src,'/index.html'+search+hash);
+ assert.equal((await fetch(base+iframe.src)).status,200);
+});
+
+test('a large browser opens the device frame while phones, native apps and its iframe keep the ride document',async()=>{
+ const documentHTML=await (await fetch(base+'/index.html')).text();
+ const source=Array.from(documentHTML.matchAll(/<script>([\s\S]*?)<\/script>/g),match=>match[1]).find(code=>code.includes('/device-preview.html'));
+ assert.ok(source,'The served app must contain its layout bootstrap');
+ function layout({mobile=false,native=false,framed=false}={}){
+   const media={matches:mobile,addEventListener(){}},window={matchMedia:()=>media,Capacitor:{isNativePlatform:()=>native}};
+   window.top=framed?{}:window;
+   const result={};
+   vm.runInNewContext(source,{window,document:{documentElement:{classList:{toggle:(name,value)=>{result[name]=value;}}}},location:{protocol:'https:',search:'?diary=a%2Fb',hash:'#record',replace:path=>{result.path=path;}}});
+   return result;
+ }
+ assert.deepEqual(layout({mobile:true}),{'mobile-layout':true});
+ assert.deepEqual(layout({native:true}),{'mobile-layout':true});
+ assert.deepEqual(layout({framed:true}),{});
+ assert.deepEqual(layout(),{'mobile-layout':false,path:'/device-preview.html?diary=a%2Fb#record'});
 });
 
 test('final UI, camera modules and decoder use executable MIME and camera policy',async()=>{

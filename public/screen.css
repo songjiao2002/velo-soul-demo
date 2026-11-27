@@ -1087,8 +1087,8 @@ dialog.ride-settings-panel {
   display: block;
   width: min(52vw, 180px) !important;
   height: min(54vw, 187px) !important;
-  left: 50% !important;
-  top: 48% !important;
+  left: 22% !important;
+  top: 70% !important;
   animation: none !important;
   transform: none !important;
   translate: -50% -50%;
@@ -1157,4 +1157,126 @@ dialog.ride-settings-panel {
   body[data-screen="journal"] .journal,
   body[data-screen="diary"] .journal,
   .companions-page { padding-inline: 18px; }
+}
+
+/* Hide the simulated system chrome when the actual phone provides it. */
+html.mobile-layout { --screen-top: 0px; --screen-bottom: 10px; }
+.mobile-layout :is(.status-bar, .gesture-area) { display: none; }
+.mobile-layout .camera-fullscreen .camera-top { padding-top: 10px; }
+.mobile-layout .camera-fullscreen .scene-map-layer .maplibregl-ctrl-top-right { top: 56px; }
+.mobile-layout .encounter-stage { padding-bottom: 0; }
+.mobile-layout .encounter-portrait { height: clamp(135px, 38dvh, 310px); }
+.mobile-layout .encounter-portrait .welcome-puppet { width: min(100%, 240px, 35dvh) !important; }
+.mobile-layout .scan-home {
+  min-height: calc(100dvh - 53px - var(--screen-bottom) - var(--tab-height) - 8px);
+}
+.mobile-layout :is(.app-settings-dialog, .ride-settings-panel, .diary-delete-dialog) {
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+}
+
+/* Companion controls share the existing camera surface and shutter. */
+.camera-fullscreen .camera-control {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 11px;
+  border: 1px solid #e4e4e4;
+  border-radius: 50%;
+  background: #ffffffd9;
+  color: #242424;
+  box-shadow: 0 2px 8px #0000000a;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  transition: background .2s, color .2s, transform .2s;
+}
+.camera-fullscreen .camera-control[aria-pressed="true"] {
+  border-color: #242424;
+  background: #242424;
+  color: #fff;
+}
+.camera-fullscreen .camera-control:active { transform: scale(.92); }
+.camera-control svg {
+  display: block;
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.camera-fullscreen .camera-live-caption {
+  left: calc(40% - 12px);
+  right: calc(6% + 12px);
+  bottom: 35%;
+  max-height: min(25dvh, 190px);
+  padding: 0 0 12px;
+  overflow: visible;
+  isolation: isolate;
+  text-align: left;
+  text-shadow: none;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #242424;
+}
+.camera-fullscreen .camera-live-caption p {
+  display: none;
+  max-height: min(23dvh, 172px);
+  margin: 0;
+  padding: 12px 14px;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+}
+body.voice-playing .camera-fullscreen #cameraCaption:not(:empty) { display: block; }
+body.voice-playing .camera-fullscreen .camera-live-caption:has(#cameraCaption:not(:empty))::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 12px;
+  border-radius: 18px;
+  background: #f8f8f8;
+}
+body.voice-playing .camera-fullscreen .camera-live-caption:has(#cameraCaption:not(:empty))::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  bottom: 0;
+  left: 18px;
+  width: 24px;
+  height: 20px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 20'%3E%3Cpath d='M0 0H24C15 4 10 14 1 19C4 12 5 6 0 0Z' fill='%23f8f8f8'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+}
+.camera-control-status {
+  position: absolute;
+  z-index: 10;
+  right: 18px;
+  bottom: calc(var(--ride-bottom) + 85px);
+  left: 18px;
+  margin: 0;
+  text-align: center;
+  color: #555;
+  font-size: 11px;
+  line-height: 1.45;
+  pointer-events: none;
+}
+.camera-control-status:empty { display: none; }
+.camera-fullscreen[data-companion-paused="true"] .camera-live-caption { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .camera-fullscreen .camera-control { transition: none; }
+}
+
+.camera-fullscreen .camera-live-caption #cameraCaption {
+  color: #242424;
+  text-shadow: none;
+}
+.camera-fullscreen[data-companion-paused="true"] .soul-overlay * { animation-play-state: paused !important; }
+
+/* The camera scene reveals the 3D character after its first rendered frame. */
+.camera-fullscreen .soul-overlay [data-character-toon] > .soul-flat {
+  visibility: hidden;
 }

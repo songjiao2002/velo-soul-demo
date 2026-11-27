@@ -1,6 +1,16 @@
 // Keep the server-delivered scanner surface visible until the interactive app
 // is ready. A failed module load must never leave an unexplained empty screen.
 (function () {
+  const frame = window.frameElement;
+  if (frame?.classList.contains('ride')) {
+    const syncLayout = () => {
+      const mode = frame.ownerDocument.defaultView.getComputedStyle(frame).getPropertyValue('--ride-layout').trim();
+      document.documentElement.classList.toggle('mobile-layout', mode === 'mobile');
+    };
+    syncLayout();
+    window.addEventListener('resize', syncLayout);
+  }
+
   var notice = document.getElementById('startupNotice');
   var message = document.getElementById('startupMessage');
   var retry = document.getElementById('startupRetry');
@@ -36,7 +46,7 @@
   });
   // One classic bundle avoids a chain of module requests and partial versions.
   var script = document.createElement('script');
-  script.src = '/app.bundle.js?v=20261126-mobile83';
+  script.src = '/app.bundle.js?v=20261127-mobile84';
   // A retry must also bypass a partially cached script, not only the HTML.
   var reload = Number(new URL(window.location.href).searchParams.get('reload'));
   if (Number.isSafeInteger(reload) && reload > 0) script.src += '&reload=' + reload;

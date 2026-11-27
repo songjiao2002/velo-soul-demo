@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Preview VELO SOUL on a Galaxy S25 Ultra screen.">
+  <meta name="theme-color" content="#f4f4f6">
+  <title>VELO SOUL · Galaxy S25 Ultra</title>
+  <link rel="stylesheet" href="/device-preview.css">
+</head>
+<body>
+  <main class="device" aria-label="Galaxy S25 Ultra screen preview">
+    <div class="display">
+      <iframe id="veloRideFrame" class="ride" title="VELO SOUL" allow="camera; microphone; geolocation; clipboard-write"></iframe>
+    </div>
+  </main>
+  <script>
+    const route = location.search + location.hash;
+    history.replaceState(null, '', '/' + route);
+    document.getElementById('veloRideFrame').src = '/index.html' + route;
+  </script>
+</body>
+</html>

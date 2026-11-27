@@ -1573,14 +1573,14 @@
     Za = true;
     Os();
     if (!document.querySelector("[data-character-toon]")) return;
-    const pending = document.querySelectorAll(":is(.diary-summary-cover, .diary-entry-cover, .companion-profile-art, .encounter-portrait, .ride-rating-cover) [data-character-toon]:not([data-toon-state])");
+    const pending = document.querySelectorAll(":is(.diary-summary-cover, .diary-entry-cover, .companion-profile-art, .encounter-portrait, .ride-rating-cover, .camera-fullscreen .soul-overlay) [data-character-toon]:not([data-toon-state])");
     for (const model of pending) model.dataset.toonState = globalThis.WebGL2RenderingContext ? "loading" : "fallback";
     if (!globalThis.WebGL2RenderingContext) return;
     if (Ni) {
       Ni.mountCharacters();
       return;
     }
-    Ns ??= import("/ride/character-toon.bundle.mjs?v=left-front").catch(() => null);
+    Ns ??= import("/ride/character-toon.bundle.mjs?v=companion-pause-20261126").catch(() => null);
     Ns.then((module) => {
       if (!Za) return;
       if (module) {
@@ -4688,6 +4688,85 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
     });
   }
   var ie = (i) => String(i ?? "").replace(/[&<>"']/g, (e) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[e]), M = null, ct = false, Pt = null, oe = null, rt = null, je = "", pe = "off", Ma = "lumi", ht = [], ye = false, Qe = null, P = "lumi", D = "home", ve = null, ee = "off", ci = null, Mo, el, tl = 0, y = null, j = null, de = null, li = 0, Z = true, G = null, xe = new Ui({ onChange: (i) => Xt(document, i, S()) }), il = setInterval(() => xe.tick(), 250), Cn = new sa(), ce = new oa(Cn), pi = new xt({ getLanguage: S }), Ue = new Xi({ getLanguage: S, getPoints: () => y?.route?.length ? y.route : oe && oe.accuracy <= 60 ? [oe] : [], isCameraLive: () => ee === "live" });
+  const rideLanguages = [["auto", "Auto"], ["en", "English"], ["ko", "한국어"], ["zh", "中文"]];
+  let cameraPaused = false;
+  let resumeCameraListening = false;
+  const cameraControlIcons = {
+    pause: '<path d="M9 6v12M15 6v12"/>',
+    play: '<path d="m9 5 10 7-10 7Z"/>',
+    mic: '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/>',
+    micOff: '<path d="m3 3 18 18M9 9v3a3 3 0 0 0 5 2M9 5a3 3 0 0 1 6 1v4M5 10v2a7 7 0 0 0 12 5M19 10v2M12 19v3M8 22h8"/>'
+  };
+  const cameraControlCopy = {
+    en: { pause: "Pause companion", play: "Resume companion", mic: "Turn microphone on", micOff: "Turn microphone off", paused: "Companion paused", listening: "Microphone on", off: "Microphone off", unavailable: "Voice conversation is unavailable. An online voice service must be connected.", denied: "Microphone access was denied. Allow it in your browser settings to try again." },
+    ko: { pause: "친구 잠시 멈추기", play: "친구 다시 시작", mic: "마이크 켜기", micOff: "마이크 끄기", paused: "잠시 쉬고 있어요", listening: "마이크 켜짐", off: "마이크 꺼짐", unavailable: "음성 대화를 사용하려면 온라인 음성 서비스를 연결해주세요.", denied: "마이크 권한이 없어요. 브라우저 설정에서 허용한 후 다시 시도해주세요." },
+    zh: { pause: "暂停伙伴", play: "继续伙伴", mic: "开启麦克风", micOff: "关闭麦克风", paused: "伙伴已暂停", listening: "麦克风已开启", off: "麦克风已关闭", unavailable: "语音对话暂不可用，需要连接在线语音服务。", denied: "麦克风权限被拒绝，请在浏览器设置中允许后重试。" }
+  };
+  function cameraControlMarkup(kind) {
+    const copy = cameraControlCopy[S()];
+    const active = kind === "pause" ? !cameraPaused : !!M?.active;
+    const icon = kind === "pause" ? active ? "pause" : "play" : active ? "mic" : "micOff";
+    const label = kind === "pause" ? active ? copy.pause : copy.play : active ? copy.micOff : copy.mic;
+    return `<button type="button" class="camera-control camera-control-${kind}" data-action="companion-${kind}" aria-label="${label}" title="${label}" aria-pressed="${active}" data-no-translate><svg viewBox="0 0 24 24" aria-hidden="true">${cameraControlIcons[icon]}</svg></button>`;
+  }
+  function syncCameraControls() {
+    for (const kind of ["pause", "mic"]) {
+      const button = document.querySelector(`[data-action="companion-${kind}"]`);
+      if (!button) continue;
+      const template = document.createElement("template");
+      template.innerHTML = cameraControlMarkup(kind);
+      const updated = template.content.firstElementChild;
+      for (const attribute of ["aria-label", "title", "aria-pressed"]) button.setAttribute(attribute, updated.getAttribute(attribute));
+      button.innerHTML = updated.innerHTML;
+    }
+    const scene = document.querySelector(".camera-fullscreen");
+    if (scene) scene.dataset.companionPaused = String(cameraPaused);
+    const status = p("cameraControlStatus");
+    if (!status) return;
+    const copy = cameraControlCopy[S()];
+    if (cameraPaused) status.textContent = copy.paused;
+    else if (["denied", "audio_capture"].includes(M?.state)) status.textContent = copy.denied;
+    else if (M?.state && !["off", "starting", "listening", "hearing", "quiet", "thinking", "transcribing", "synthesizing", "speaking"].includes(M.state)) status.textContent = "";
+    else status.textContent = M?.active ? M.state === "starting" ? { en: "Connecting microphone…", ko: "마이크 연결 중…", zh: "正在连接麦克风…" }[S()] : copy.listening : "";
+  }
+  function toggleCameraPause() {
+    cameraPaused = !cameraPaused;
+    Z = !cameraPaused;
+    if (cameraPaused) {
+      resumeCameraListening = !!M?.active;
+      ct = false;
+      M?.stop();
+      ae?.stop();
+      We();
+      Ce();
+    } else if (resumeCameraListening) {
+      resumeCameraListening = false;
+      qt();
+    } else if (G) {
+      if (G.dynamicLanguage) ze(G.line, G.dynamicLanguage);
+      else Ca(G.line, G.key, G.id || P);
+    }
+    syncCameraControls();
+  }
+  async function toggleCameraMicrophone() {
+    if (M?.active) {
+      M.stop();
+      syncCameraControls();
+      return;
+    }
+    const response = await Q("/api/chat/status", { cache: "no-store" });
+    const service = await response.json();
+    if (!service.configured) {
+      const status = p("cameraControlStatus");
+      if (status) status.textContent = "";
+      return;
+    }
+    cameraPaused = false;
+    resumeCameraListening = false;
+    Z = true;
+    qt();
+    syncCameraControls();
+  }
   var al = (i) => `${Math.floor(i / 60).toString().padStart(2, "0")}:${Math.floor(i % 60).toString().padStart(2, "0")}`, nl = '<span class="wave" aria-hidden="true"><span></span><span></span><span></span><span></span></span>';
   function he(i) {
     p("toast").textContent = i, p("toast").classList.add("show"), clearTimeout(Mo), Mo = setTimeout(() => p("toast").classList.remove("show"), 4200);
@@ -4713,7 +4792,7 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
     He.setPlayback(xa, false), _e(document, "rest"), ue.stop(), xa.stop(), tl++, clearTimeout(el), document.body.classList.remove("voice-playing");
   }
   function Ca(i, e, t = P) {
-    if (M?.stop(), Ce(), Ma = t, G = { line: i, key: e, id: t }, !Z) {
+    if (M?.stop(), Ce(), Ma = t, G = { line: i, key: e, id: t }, p("cameraCaption") && (p("cameraCaption").textContent = Fe(i, W)), !Z) {
       hi("목소리를 쉬고 있어요.");
       return;
     }
@@ -4857,6 +4936,9 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
     return `<div class="camera-view ${e ? "scanning" : ""}" id="cameraView"><video id="cameraVideo" autoplay playsinline muted aria-label="실시간 후면 카메라"></video><div class="camera-placeholder"><div class="camera-empty"><span class="camera-icon">${e ? "⌗" : "◎"}</span><b>${e ? "자전거의 QR을 비춰주세요" : "당신의 세상으로 초대해요"}</b><p>${e ? "카메라를 켜고 세 소울의 QR 코드 중 하나를 화면 안에 담아주세요." : "카메라를 켜면 화면 위로 소울이 나타나요."}</p></div></div><span class="camera-label" id="cameraLabel">CAMERA OFF</span>${e ? '<div class="scan-target" aria-hidden="true"></div>' : `<div class="soul-portal" aria-hidden="true"><i></i><i></i><i></i><span>✦</span><span>✧</span><span>·</span></div><div class="soul-overlay ${P}" id="soulOverlay" data-ride-direction="${i === "ride" ? "forward" : "portrait"}">${Mt(P)}</div>`}<span class="ar-hint">${e ? "VELO SOUL 전용 QR 인식" : "화면 위의 작은 동반자 · 드래그로 돌려보기"}</span></div>${e ? '<aside id="cameraRecovery" class="camera-recovery" data-no-translate hidden></aside>' : ""}`;
   }
   function qo() {
+    cameraPaused = false;
+    resumeCameraListening = false;
+    Z = true;
     ht = [];
     Qe = null;
     const started = Date.now();
@@ -4880,6 +4962,7 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
     wireCameraShutter(p("capturePhoto"));
     Aa();
     Se();
+    Ca(B[P].hello, "hello");
     ve.start();
   }
   function wireCameraShutter(shutter) {
@@ -4890,7 +4973,7 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
     };
     const finishPress = (startedAt) => {
       if (performance.now() - startedAt < holdMs || !y || D !== "camera") return;
-      requestRideFinish();
+      ul();
     };
     shutter.addEventListener("pointerdown", (event) => {
       if (!event.isPrimary || event.button !== 0) return;
@@ -4946,7 +5029,7 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
   function Tn() {
     xe.enter(P), ee === "requesting" && (ve?.stop(), ee = "off", p("cameraStart").disabled = false, p("cameraStart").textContent = "카메라 켜기");
     let i = p("cameraView");
-    i.classList.remove("awakened"), i.offsetWidth, i.classList.add("awakened"), p("cameraLabel").textContent = ee === "live" ? "● LIVE CAMERA" : "CAMERA-FREE PREVIEW", Z = true, M?.active || Ca(B[P].hello, "hello"), p("cameraStatus").textContent = ee === "live" ? "카메라 화면 위에 소울이 나타났어요." : "카메라 없는 애니메이션 미리보기예요.";
+    i.classList.remove("awakened"), i.offsetWidth, i.classList.add("awakened"), p("cameraLabel").textContent = ee === "live" ? "● LIVE CAMERA" : "CAMERA-FREE PREVIEW", !cameraPaused && !M?.active && G?.key !== "hello" && Ca(B[P].hello, "hello"), p("cameraStatus").textContent = ee === "live" ? "카메라 화면 위에 소울이 나타났어요." : "카메라 없는 애니메이션 미리보기예요.";
   }
   var wa = false;
   function Pn() {
@@ -5029,6 +5112,9 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
   }
   function Fo(i = false) {
     if (p("rideCameraModal")) return;
+    cameraPaused = false;
+    resumeCameraListening = false;
+    Z = true;
     M?.active || Ce(), We();
     let e = document.createElement("div");
     e.id = "rideCameraModal", e.className = "ride-camera-modal camera-fullscreen", e.dataset.sceneMode = "camera", e.setAttribute("role", "dialog"), e.setAttribute("aria-modal", "true"), e.setAttribute("aria-label", Fe("함께 기억할 순간")), e.innerHTML = Jo(true), document.body.append(e), document.body.classList.add("camera-open"), ji(), Xt(document, xe.snapshot(), S()), Aa(), Se(), i && (ye = true, qt()), ve.start();
@@ -5102,17 +5188,49 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
   document.addEventListener("change", (i) => {
     i.target.id === "rideNote" && Ot();
   });
-  function requestRideFinish() {
-    const dialog = p("finishRideDialog");
-    if (!y || !dialog || dialog.open) return;
-    if (p("rideSettings")?.open) p("rideSettings").close();
-    dialog.showModal();
-  }
-  function ul() {
-    if (!y) return;
-    ui(), j = { ...y, seconds: Math.max(0, Math.floor((Date.now() - y.started) / 1e3)), diaryVersion: 2, diaryGeneration: "writing" }, y = null;
-    let i = Re[S()];
-    pt("finish", '<section class="finish-layout diary-finish">' + $n(j) + '<div class="finish-copy" data-no-translate>' + ut.markup("farewell") + Ge.markup("farewell") + '<span class="eyebrow">A MEMORY TO KEEP</span><h1>' + i.intro + '</h1><p class="small">' + i.local + '</p><label for="rideNote">' + i.note + '</label><textarea id="rideNote" maxlength="2000" rows="4" placeholder="' + i.placeholder + '"></textarea><p class="small" id="saveStatus" role="status">' + i.saving + '</p><button class="primary accent" id="saveButton" data-action="save">' + i.view + '</button><button class="secondary" data-diary-copy="' + ie(j.id) + '">' + i.copy + '</button><button class="secondary" data-action="export-draft">' + i.image + '</button><button class="text-button" data-nav="home">' + i.back + '</button><div class="voice-status"></div></div></section>'), mt("bike=" + P + "&view=memory"), Uo(j, S()), Ca(ti[W].farewell, "end");
+  let finishingRide = false;
+  async function ul() {
+    if (finishingRide || !y && !j) return;
+    finishingRide = true;
+    const controls = [...document.querySelectorAll(".camera-fullscreen button")];
+    const enabledControls = controls.filter((button) => !button.disabled);
+    for (const button of enabledControls) button.disabled = true;
+    const closeButton = document.querySelector('[data-action="camera-exit"]');
+    closeButton?.setAttribute("aria-busy", "true");
+    try {
+      if (y) {
+        j = {
+          ...y,
+          seconds: Math.max(0, Math.floor((Date.now() - y.started) / 1e3)),
+          diaryVersion: 2,
+          diaryGeneration: "ready",
+          coverType: "companion"
+        };
+        y = null;
+      }
+      ct = false;
+      M?.stop();
+      Nn();
+      We();
+      Ce();
+      En();
+      Rt();
+      const record = j;
+      record.diary = kt(record, S());
+      if (!await Sn.save(record)) {
+        he({ en: "Could not save your ride. Tap × to try again.", ko: "여정을 저장하지 못했어요. ×를 눌러 다시 시도해주세요.", zh: "未能保存本次骑行，请点击叉号重试。" }[S()]);
+        return;
+      }
+      j = null;
+      journalMode = "records";
+      diaryListPosition = { scroll: 0, count: 0 };
+      showDiary(record);
+      void Go();
+    } finally {
+      finishingRide = false;
+      for (const button of enabledControls) if (button.isConnected) button.disabled = false;
+      closeButton?.removeAttribute("aria-busy");
+    }
   }
   async function pl(i) {
     let e = Re[S()], t = kt(i, S());
@@ -5162,7 +5280,7 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
     return ce.records.find((record) => record.id === id) ?? diaryExamples.find((record) => record.id === id);
   }
   function diaryCover(record, decorative = false) {
-    const picture = record.photos?.[0];
+    const picture = record.coverType === "companion" ? null : record.photos?.[0];
     const description = { en: "A moment from our ride", ko: "우리 여정의 한순간", zh: "旅途中的一个瞬间" }[S()];
     return picture ? '<img src="' + ie(picture) + '" alt="' + ie(decorative ? "" : description) + '" loading="lazy">' : _a(record.soul);
   }
@@ -5513,11 +5631,20 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
         return;
       }
       switch (e.dataset.action) {
+        case "companion-pause":
+          toggleCameraPause();
+          break;
+        case "companion-mic":
+          toggleCameraMicrophone();
+          break;
         case "ride-settings-open":
           p("rideSettings")?.showModal();
           break;
         case "ride-settings-close":
           p("rideSettings")?.close();
+          break;
+        case "camera-exit":
+          await ul();
           break;
         case "voice-start":
           qt();
@@ -5583,16 +5710,7 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
           cl();
           break;
         case "finish":
-          requestRideFinish();
-          break;
-        case "ride-finish-cancel":
-          p("finishRideDialog")?.close();
-          break;
-        case "ride-finish-confirm":
-          if (p("finishRideDialog")?.open) {
-            p("finishRideDialog").close();
-            ul();
-          }
+          await ul();
           break;
         case "save":
           ml();
@@ -5605,7 +5723,6 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
   });
   p("infoDialog").querySelector(".dialog-close").onclick = () => p("infoDialog").close();
   document.addEventListener("keydown", (i) => {
-    if (p("finishRideDialog")?.open) return;
     let e = document.querySelector(".camera-settings[open]");
     if (i.key === "Escape" && e) {
       e.open = false, e.querySelector("summary").focus(), i.preventDefault();
@@ -5681,10 +5798,6 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
     let i = document.querySelector("dialog[open]");
     if (i) {
       i.close();
-      return;
-    }
-    if (y && p("finishRideDialog")) {
-      requestRideFinish();
       return;
     }
     if (p("rideCameraModal")) {
@@ -5770,14 +5883,12 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
   function vl(i) {
     return `<section class="camera-fullscreen" data-scene-mode="camera">${Jo(i)}</section>`;
   }
-  const rideLanguages = [["auto", "Auto"], ["en", "English"], ["ko", "한국어"], ["zh", "中文"]];
   function bl() {
     const copy = Ao[S()];
     const selected = M?.language || yi();
     const closeIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>';
     return `<dialog class="ride-settings-panel" id="rideSettings" aria-labelledby="rideSettingsTitle">
       <header data-no-translate><h2 id="rideSettingsTitle">${copy.more}</h2><button type="button" class="camera-round" data-action="ride-settings-close" aria-label="${copy.close}">${closeIcon}</button></header>
-      <button type="button" data-action="finish" aria-haspopup="dialog" data-no-translate>${copy.finish}</button>
       <button id="cameraStart" data-action="camera-start">카메라 켜기</button>
       <span class="sr-only" id="cameraStatus" role="status"></span>
       <button data-action="gps" data-gps-toggle data-no-translate>GPS</button>
@@ -5788,45 +5899,31 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
           ${rideLanguages.map(([value, label]) => `<label><input type="radio" name="ride-language" value="${value}" ${value === selected ? "checked" : ""}><span>${label}</span></label>`).join("")}
         </div>
       </fieldset>
-      <details class="ride-map-credits" data-no-translate>
-        <summary>${{ en: "Map sources", ko: "지도 출처", zh: "地图来源" }[S()]}</summary>
-        <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> ·
-        <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">© OpenMapTiles</a> ·
-        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>
-      </details>
     </dialog>`;
   }
   function Jo(riding) {
     const language = S();
     const copy = Ao[language];
-    const scene = Zi[language];
     const photos = riding ? y.photos : ht;
     const holdHint = { en: "Tap to take a photo. Hold to finish the ride.", ko: "누르면 촬영, 길게 누르면 여정을 마쳐요.", zh: "轻按拍照，长按结束骑行。" }[language];
     const photoLabel = { en: "Download latest photo", ko: "최근 사진 저장", zh: "下载最近的照片" }[language];
-    const finish = {
-      en: { title: "Finish this ride?", body: "Your ride will end and your companion will write its diary.", cancel: "Keep riding" },
-      ko: { title: "라이딩을 마칠까요?", body: "라이딩을 마치면 친구가 이번 여정의 일기를 써요.", cancel: "계속 달리기" },
-      zh: { title: "结束这次骑行？", body: "结束后，你的伙伴会写下这次骑行的日记。", cancel: "继续骑行" }
-    }[language];
-    return ol(riding ? "ride" : "encounter") + Xs(language) + `
+    return ol(riding ? "ride" : "encounter") + `
     <div class="camera-top">
+      <button class="camera-round" data-action="camera-exit" aria-label="${copy.close}" data-no-translate><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button>
       <div class="camera-name" data-no-translate><b>${B[P].en}</b></div>
       <button type="button" class="camera-round" data-action="ride-settings-open" aria-haspopup="dialog" aria-label="${copy.more}" data-no-translate><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button>
     </div>
-    <dialog id="finishRideDialog" class="ride-end-dialog diary-delete-dialog" aria-labelledby="finishRideTitle" aria-describedby="finishRideBody" data-no-translate>
-      <h2 id="finishRideTitle">${finish.title}</h2><p id="finishRideBody">${finish.body}</p>
-      <div class="settings-actions"><button type="button" data-action="ride-finish-cancel" autofocus>${finish.cancel}</button><button type="button" data-action="ride-finish-confirm">${copy.finish}</button></div>
-    </dialog>
     ${bl()}
     <div class="camera-live-caption" data-no-translate><p id="heardText" class="heard-text" aria-live="off"></p><p id="cameraCaption" role="status" aria-live="polite" aria-atomic="true"></p></div>
     <div class="camera-bottom">
-      <button type="button" class="camera-scene-tab" data-scene-mode="camera" aria-pressed="true" data-no-translate>${scene.camera}</button>
+      ${cameraControlMarkup("pause")}
       <div class="camera-capture-controls">
         <button class="camera-photo-preview" id="downloadPhoto" data-action="download-photo" aria-label="${photoLabel}" data-no-translate ${photos.length ? "" : "disabled"}><img id="cameraThumb" alt="" ${photos.length ? 'src="' + ie(photos.at(-1)) + '"' : "hidden"}><span id="cameraPhotoCount">${photos.length}</span></button>
         <button class="camera-shutter" id="capturePhoto" data-action="capture" data-camera-live="false" aria-label="${copy.capture} · ${holdHint}" title="${holdHint}" data-no-translate><span></span></button>
+        ${riding ? `<button class="ride-finish" data-action="finish" data-no-translate>${copy.finish}</button>` : ""}
       </div>
-      <button type="button" class="camera-scene-tab" data-scene-mode="map" aria-pressed="false" data-no-translate>${scene.map}</button>
-    </div>`;
+      ${cameraControlMarkup("mic")}
+    </div><p class="camera-control-status" id="cameraControlStatus" role="status" aria-live="polite" data-no-translate></p>`;
   }
   function ze(i, e, t = P, a = () => {
   }) {
@@ -5852,6 +5949,7 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
     }), Pt = null;
   }
   function kl(i) {
+    syncCameraControls();
     _e(document, ["thinking", "transcribing", "synthesizing"].includes(i) ? "thinking" : i === "speaking" ? "talking" : ["listening", "hearing", "quiet"].includes(i) ? "listening" : "rest"), i === "listening" && setTimeout(() => An(), 350), fs(document, S(), !!M?.active, i), document.querySelectorAll(".camera-conversation").forEach((e) => e.dataset.voiceState = i), document.querySelectorAll('[data-action="audio-unlock"]').forEach((e) => e.hidden = !M?.audioIssue), M?.active || Nn();
   }
   function yi() {

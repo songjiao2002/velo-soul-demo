@@ -82,7 +82,9 @@ public class ExampleInstrumentedTest {
         assertEquals("0",js("document.querySelectorAll('.soul-card,.topbar').length"));
         js("document.querySelector('[data-companion-profile=mori]').click()");
         assertEquals("true",js("!document.querySelector('[data-companion-card=mori]').hidden && document.querySelector('[data-companion-card=lumi]').hidden"));
-        js("document.querySelector('[data-action=settings]').click();document.querySelector('input[name=voiceSelectChoice][value=zh]').click();document.querySelector('[data-save-settings]').click();document.querySelector('[data-action=settings]').click()");
+        js("document.querySelector('[data-action=settings]').click();document.querySelector('#voiceSelectLabel').click()");
+        awaitTrue("document.querySelector('#voiceSelectLabel').getAttribute('aria-expanded') === 'true' && document.querySelector('input[name=voiceSelectChoice][value=zh]').closest('label').getBoundingClientRect().height > 0");
+        js("document.querySelector('input[name=voiceSelectChoice][value=zh]').click();document.querySelector('[data-save-settings]').click();document.querySelector('[data-action=settings]').click()");
         assertEquals("true",js("document.querySelector('input[name=voiceSelectChoice][value=zh]').checked && document.querySelector('#voiceSelect').value === 'zh'"));
         js("document.querySelector('[data-action=settings-close]').click()");
         js("document.querySelector('.app-tabbar [data-action=scan]').click()");
@@ -119,14 +121,14 @@ public class ExampleInstrumentedTest {
         js("location.search='?bike=mori&qr=l2-942fb6e8'");
         awaitTrue("document.body.dataset.screen === 'welcome'");
         js("document.querySelector('[data-action=encounter]').click()");
-        awaitTrue("document.querySelector('[data-action=ride-voice-toggle]')?.getBoundingClientRect().height > 0 && !document.querySelector('.camera-top [data-action=finish]')");
+        awaitTrue("['companion-pause','capture','companion-mic','camera-exit'].every(action => document.querySelector('[data-action='+action+']')?.getBoundingClientRect().height > 0)");
+        js("document.querySelector('[data-action=companion-pause]').click()");
+        awaitTrue("document.querySelector('[data-action=companion-pause]').getAttribute('aria-pressed') === 'false'");
+        js("document.querySelector('[data-action=companion-pause]').click()");
+        awaitTrue("document.querySelector('[data-action=companion-pause]').getAttribute('aria-pressed') === 'true'");
         js("document.querySelector('[data-action=ride-settings-open]').click()");
-        awaitTrue("document.querySelector('#rideSettings[open] [data-action=finish]')?.getBoundingClientRect().height >= 44");
-        js("document.querySelector('[data-action=finish]').click()");
-        awaitTrue("document.querySelector('#finishRideDialog')?.open");
-        js("document.querySelector('[data-action=ride-finish-cancel]').click();document.querySelector('button[data-scene-mode=map]').click()");
-        awaitTrue("!!document.querySelector('.camera-fullscreen[data-scene-mode=map]') && document.querySelector('button[data-scene-mode=map]')?.getAttribute('aria-pressed') === 'true' && !document.querySelector('#finishRideDialog')?.open");
-        js("document.querySelector('[data-action=ride-settings-open]').click();document.querySelector('[data-action=finish]').click();document.querySelector('[data-action=ride-finish-confirm]').click()");
-        awaitTrue("document.body.dataset.screen === 'finish' && !!document.querySelector('#rideNote')");
+        awaitTrue("document.querySelector('#rideSettings')?.open && ['en','ko','zh','auto'].every(lang => document.querySelector('#rideSettings input[name=ride-language][value='+lang+']')?.closest('label').getBoundingClientRect().height > 0)");
+        js("document.querySelector('[data-action=ride-settings-close]').click();document.querySelector('[data-action=camera-exit]').click()");
+        awaitTrue("document.body.dataset.screen === 'diary' && !!document.querySelector('#diaryText')");
     }
 }

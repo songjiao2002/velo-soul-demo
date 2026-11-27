@@ -2,7 +2,6 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createSpeechLanguagePreferences} from './public/input-language.mjs';
-import {rideTextChatLabel} from './public/ride-voice-controls.mjs';
 import {translate} from './public/i18n.mjs';
 import {chooseEnglishVoice,phrasePlan,EnglishVoicePlayer} from './public/voice-engine.mjs';
 test('speech input follows the interface until a rider chooses a language, then survives interface and companion changes',()=>{
@@ -43,11 +42,11 @@ test('packaged home and ride selectors use the saved input after a stopped conve
  const voiceSelect=html.match(/<select id="voiceSelect"[^>]*>([\s\S]*?)<\/select>/)[1];
  assert.deepEqual([...voiceSelect.matchAll(/value="([^"]+)"/g)].map(match=>match[1]),['auto','en','ko','zh']);
  const rideSettings=source.slice(source.indexOf('function bl()'),source.indexOf('function Jo(riding)'));
- const render=Function('M','yi','S','Ao','rideLanguages','liveVoicePrivacy','rideTextChatLabel',rideSettings+'\nreturn bl();');
+ const render=Function('M','yi','S','Ao','rideLanguages',rideSettings+'\nreturn bl();');
  const options=[['auto','Auto'],['en','English'],['ko','한국어'],['zh','中文']];
- for(const saved of ['en','ko','auto']){
-  const page=render({active:false,language:'zh'},()=>saved,()=>'en',{en:{}},options,{en:''},rideTextChatLabel);
-  assert.ok(page.includes(rideTextChatLabel.en));
+ for(const [saved] of options){
+  const page=render({active:false,language:'zh'},()=>saved,()=>'en',{en:{}},options);
+  assert.deepEqual([...page.matchAll(/name="ride-language" value="([^"]+)"/g)].map(match=>match[1]),options.map(([value])=>value));
   const selected=page.match(/name="ride-language" value="([^"]+)" checked/);
   assert.equal(selected?.[1],saved);
  }

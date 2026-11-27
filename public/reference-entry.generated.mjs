@@ -4,7 +4,7 @@ import {rideDiary as liveRideDiary,DIARY_COPY as liveDiaryLabels} from './journe
 import {CloudSpeechPlayer as LiveSpeech} from './cloud-speech.mjs';
 import {setMediaTempo as liveSetMediaTempo} from './speech-tempo.mjs';
 import {HandsFreeConversation as LiveConversation} from './hands-free.mjs';
-import {rideTalkPanel,paintRideTalk,rideTextChatLabel,rideVoiceControlsMarkup,paintRideVoiceControls} from './ride-voice-controls.mjs';
+import {rideVoiceStatus,rideTextChatLabel,rideVoiceControlsMarkup,paintRideVoiceControls} from './ride-voice-controls.mjs';
 import {MicrophoneInput as LiveMicrophone,createMicrophoneRecognition as liveRecognition} from './microphone-asr.mjs';
 import {ConversationAudioSession as LiveAudioSession} from './audio-session.mjs';
 import {DeviceCompanionMemory as LiveMemory} from './device-memory.mjs';
@@ -15,13 +15,11 @@ import {parseSoulQR as liveParseQR} from './soul-core.mjs';
 import {companionQuery,currentSoulQR} from './qr-links.mjs';
 import {companionBrowserLinks as liveBrowserLinks} from './audio-browser.mjs';
 import {createSoulChat as liveSoulChat} from './soul-chat.mjs';
-import {VOICE_PRIVACY as liveVoicePrivacy} from './voice-privacy.mjs';
 import {outputLanguage as liveOutputLanguage} from './input-language.mjs';
 import {placeFallback as livePlaceFallback} from './seoul-places.mjs';
 import {weatherLine as liveWeatherLine,weatherGreeting as liveWeatherGreeting} from './weather-core.mjs';
 import {memoryLine as liveBikeMemoryLine} from './bike-memory-core.mjs';
 import {COMMUNICATION_LIMIT_COPY as liveLimitCopy,retryAfterLabel as liveRetryAfter} from './conversation-limits.mjs';
-import {conversationLanguageLabel,conversationLanguagePicker} from './encounter-screen.mjs';
 (() => {
   var ir = Object.defineProperty;
   var yt = (i, e) => () => (i && (e = i(i = 0)), e);
@@ -850,7 +848,6 @@ import {conversationLanguageLabel,conversationLanguagePicker} from './encounter-
       </div>
       <p class="encounter-greeting">${dr(returning || companion.greeting[locale])}</p>
       <p class="meeting-description">${companion.story[locale]}</p>
-      ${conversationLanguagePicker(locale,yi())}
       <button class="encounter-start" type="button" data-action="encounter">${copy.start}</button>
     </div>
   </section>`;
@@ -1592,20 +1589,20 @@ import {conversationLanguageLabel,conversationLanguagePicker} from './encounter-
       URL.revokeObjectURL(s);
     }
   }
-  var se = "20261126-mobile83";
+  var se = "20261127-mobile84";
   var Ns = null, Ni = null, Za = false;
   function ji() {
     Za = true;
     Os();
     if (!document.querySelector("[data-character-toon]")) return;
-    const pending = document.querySelectorAll(":is(.diary-summary-cover, .diary-entry-cover, .companion-profile-art, .encounter-portrait, .ride-rating-cover) [data-character-toon]:not([data-toon-state])");
+    const pending = document.querySelectorAll(":is(.diary-summary-cover, .diary-entry-cover, .companion-profile-art, .encounter-portrait, .ride-rating-cover, .camera-fullscreen .soul-overlay) [data-character-toon]:not([data-toon-state])");
     for (const model of pending) model.dataset.toonState = globalThis.WebGL2RenderingContext ? "loading" : "fallback";
     if (!globalThis.WebGL2RenderingContext) return;
     if (Ni) {
       Ni.mountCharacters();
       return;
     }
-    Ns ??= import("/character-toon.bundle.mjs?v=20261126-mobile83").catch(() => null);
+    Ns ??= import("/character-toon.bundle.mjs?v=20261127-mobile84").catch(() => null);
     Ns.then((module) => {
       if (!Za) return;
       if (module) {
@@ -4697,15 +4694,13 @@ GPS를 켜면 주변 날씨와 속도를 자동으로 확인해요.|GPS automati
 Ft=liveDeviceMedia;
 Qt=liveOutputLanguage;ds=livePlaceFallback;on=liveBikeMemoryLine;
 la=liveWeatherLine;mn=liveWeatherGreeting;
-Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S,prefetchSpeech:(text,language,soul,playback)=>ue.preload(text,{language,soul,...playback}),primeReplies:(id,lang)=>ue.primeRideReplies(id,lang),canPrepareFirstSpeech:()=>!M?.active&&Z&&ue.canPrepareFirstSpeech()});
+const referenceRideDiary=kt;
+kt=(record,language)=>record.sample?referenceRideDiary(record,language):liveRideDiary(record,language);
+Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S,prefetchSpeech:(text,language,soul,playback)=>ue.preload(text,{language,soul,...playback}),primeReplies:(id,lang)=>ue.primeRideReplies(id,lang),canPrepareFirstSpeech:()=>!M?.active&&Z&&ue.canPrepareFirstSpeech()});
 Tt=LiveSpeech;at=LiveMicrophone;ua=options=>liveRecognition({...options,standby:true});Et=LiveAudioSession;xi=LiveMemory;
 Ga=rideVoiceControlsMarkup;
 fs=paintRideVoiceControls;
 const referenceVoiceState=kl;
-function syncRideTalk(state=M?.state||'off'){
- paintRideTalk(document.querySelector('.ride-talk-panel'),S(),!!M?.active,state,!!M?.audioIssue);
-}
-document.addEventListener('velo:screen',()=>syncRideTalk());
 function openRideTextChat(){
  p('rideSettings')?.close();
  V.open(P);
@@ -4714,6 +4709,65 @@ function openRideTextChat(){
  if(composer)composer.open=true;
  input?.focus();
 }
+const referenceCameraControlMarkup=cameraControlMarkup;
+cameraControlMarkup=function(kind){
+ const markup=referenceCameraControlMarkup(kind);
+ if(kind!=='mic')return markup;
+ const description={en:'Hold to type a message, or press Shift+F10.',ko:'길게 누르거나 Shift+F10을 눌러 메시지를 입력하세요.',zh:'长按或按 Shift+F10 输入文字消息。'}[S()];
+ return markup.replace(' data-action=',` aria-description="${description}" aria-keyshortcuts="Shift+F10" data-action=`);
+};
+function bindRideMicTextChat(doc,win,open){
+ const mic=event=>event.target.closest?.('[data-action="companion-mic"]');
+ let press=null,suppressClick=null;
+ const cancel=()=>{
+   if(press)win.clearTimeout(press.timer);
+   press=null;
+ };
+ const show=button=>{
+   if(suppressClick===button)return;
+   suppressClick=button;
+   cancel();
+   open();
+ };
+ doc.addEventListener('pointerdown',event=>{
+   cancel();
+   suppressClick=null;
+   const button=mic(event);
+   if(!button||event.button!==0||!event.isPrimary)return;
+   press={id:event.pointerId,x:event.clientX,y:event.clientY,timer:win.setTimeout(()=>{
+     if(button.isConnected)show(button);
+     else cancel();
+   },550)};
+ },true);
+ doc.addEventListener('pointermove',event=>{
+   if(press?.id===event.pointerId&&Math.hypot(event.clientX-press.x,event.clientY-press.y)>10)cancel();
+ },true);
+ for(const type of ['pointerup','pointercancel']){
+   doc.addEventListener(type,event=>{if(press?.id===event.pointerId)cancel();},true);
+ }
+ win.addEventListener('blur',cancel);
+ doc.addEventListener('visibilitychange',()=>{if(doc.hidden)cancel();});
+ doc.addEventListener('velo:screen',cancel);
+ doc.addEventListener('contextmenu',event=>{
+   const button=mic(event);
+   if(!button)return;
+   event.preventDefault();
+   if(press||event.button===2)show(button);
+ },true);
+ doc.addEventListener('keydown',event=>{
+   const button=mic(event);
+   if(!button||!(event.key==='ContextMenu'||event.key==='F10'&&event.shiftKey))return;
+   event.preventDefault();
+   if(!event.repeat){cancel();open();}
+ },true);
+ doc.addEventListener('click',event=>{
+   if(!suppressClick||mic(event)!==suppressClick||event.detail===0)return;
+   event.preventDefault();
+   event.stopImmediatePropagation();
+   suppressClick=null;
+ },true);
+}
+bindRideMicTextChat(document,window,openRideTextChat);
 kl=function(state){
  const caption=p('heardText');
  if(caption?.dataset.transcriptState==='interim'&&(!M?.active||['starting','listening','reconnecting','audio_reconnecting','speaking_no_interrupt'].includes(state))){
@@ -4721,15 +4775,27 @@ kl=function(state){
    delete caption.dataset.transcriptState;
  }
  referenceVoiceState(state);
- syncRideTalk(state);
+ const status=p('cameraControlStatus');
+ if(status&&!cameraPaused&&rideTextFallbackStates.has(state)){
+   status.textContent=rideVoiceStatus(S(),state)+' ';
+   const button=document.createElement('button');
+   button.type='button';button.dataset.action='ride-text-chat';
+   button.textContent=rideTextChatLabel[S()];status.append(button);
+ }
 };
+const rideTextFallbackStates=new Set(['denied','unsupported','failed','network','audio_retry','start_timeout','audio_capture','not_configured','provider_auth','daily_limit','provider_quota','rate_limited','service_busy','provider_unavailable']);
 wt=class extends LiveConversation {
  constructor(options={}){super({...options,primeReplies:(id,lang)=>ue.primeRideReplies(id,lang),canPrepareFirstSpeech:()=>Z&&ue.canPrepareFirstSpeech(),prefetchSpeech:(text,language,soul,playback)=>ue.preload(text,{language,soul,...playback}),stopSpeech:()=>{ue.cancelPrefetches();options.stopSpeech?.();}});}
 };
 Ds=liveIntroduction;Kt=liveIntroClip;
 Mi=(text,language='auto')=>liveReplyLanguage(text,language,P);
 en=liveParseQR;$i=liveBrowserLinks;
-mt=query=>history.replaceState(null,'',query?'/?'+companionQuery(query):'/');
+mt=query=>{
+ const suffix=query?'?'+companionQuery(query):'';
+ const framed=window.frameElement?.id==='veloRideFrame';
+ history.replaceState(null,'',(framed?'/index.html':'/')+suffix);
+ if(framed)window.parent.history.replaceState(null,'','/'+suffix);
+};
 Vo=function(){
  const query=new URLSearchParams(location.search),soul=currentSoulQR(query);
  if(query.has('bike')&&!soul){showCompanions();he(({en:'This QR code has expired. Please scan a new code.',ko:'만료된 QR 코드예요. 새 코드를 스캔해 주세요.',zh:'这个二维码已作废，请扫描新码。'})[S()]);return;}
@@ -4787,6 +4853,7 @@ yi=()=>speechLanguages.input(S());
 function playLiveIntroduction(){
  const intro=Ln(P,yi());
  In(intro.text,intro.language);
+ if(G)G.key='hello';
 }
 function syncSpeechLanguage(){
  const language=yi(),voice=speechLanguages.voice(S(),P);
@@ -4794,9 +4861,6 @@ function syncSpeechLanguage(){
  W=voice;
  const select=p('voiceSelect');
  select.value=language;
- p('voiceSelectLabel').textContent=conversationLanguageLabel[S()];
- const encounter=p('encounterVoiceLanguage');
- if(encounter)encounter.value=language;
  const choices=[...(p('rideSettings')?.querySelectorAll('[name=ride-language]')||[])];
  const index=choices.findIndex(option=>option.value===select.value);
  if(index>=0){
@@ -4817,16 +4881,21 @@ jn=function(language){
  syncSpeechLanguage();
  La();
 };
-document.addEventListener('change',event=>{
- if(event.target.id!=='encounterVoiceLanguage')return;
- ue.prepare();jn(event.target.value);Z=true;playLiveIntroduction();
-});
 Eo=function(soul){W=speechLanguages.voice(S(),soul);referenceTheme(soul);};
 const referenceStop=Ce;
 Ce=function(){liveIdlePurr?.activity();referenceStop();};
 let liveIdlePurr;
 window.addEventListener('velo:ready',()=>{
  const settings=p('appSettingsDialog');
+ const voiceLabel=p('voiceSelectLabel');
+ const toggleLanguages=()=>{
+   const expanded=settings.toggleAttribute('data-all-voice-languages');
+   voiceLabel.setAttribute('aria-expanded',String(expanded));
+ };
+ voiceLabel.addEventListener('click',toggleLanguages);
+ voiceLabel.addEventListener('keydown',event=>{
+   if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLanguages();}
+ });
  let inputTapped=false;
  // The published form dispatches change only if its hidden select changes value.
  // A rider who taps the current default and saves has chosen it explicitly too.
@@ -4838,7 +4907,10 @@ window.addEventListener('velo:ready',()=>{
      inputTapped=false;
    }
  },true);
- settings.addEventListener('close',()=>{inputTapped=false;});
+ settings.addEventListener('close',()=>{
+   inputTapped=false;settings.removeAttribute('data-all-voice-languages');
+   voiceLabel.setAttribute('aria-expanded','false');
+ });
  liveIdlePurr=new LivePurr({session:He,canPlay:()=>P==='mori'&&Z&&!document.hidden&&!!M?.active&&['listening','quiet'].includes(M.state)&&!V.isOpen()&&!document.body.classList.contains('voice-playing')});
  const timer=setInterval(()=>liveIdlePurr.tick(),250);
  window.addEventListener('pagehide',()=>{clearInterval(timer);liveIdlePurr.stop();},{once:true});
@@ -4866,6 +4938,78 @@ window.addEventListener('velo:ready',()=>{
     });
   }
   var ie = (i) => String(i ?? "").replace(/[&<>"']/g, (e) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[e]), M = null, ct = false, Pt = null, oe = null, rt = null, je = "", pe = "off", Ma = "lumi", ht = [], ye = false, Qe = null, P = "lumi", D = "home", ve = null, ee = "off", ci = null, Mo, el, tl = 0, y = null, j = null, de = null, li = 0, Z = true, G = null, xe = new Ui({ onChange: (i) => Xt(document, i, S()) }), il = setInterval(() => xe.tick(), 250), Cn = new sa(), ce = new oa(Cn), pi = new xt({ getLanguage: S }), Ue = new Xi({ getLanguage: S, getPoints: () => y?.route?.length ? y.route : oe && oe.accuracy <= 60 ? [oe] : [], isCameraLive: () => ee === "live" });
+  const rideLanguages = [["auto", "Auto"], ["en", "English"], ["ko", "한국어"], ["zh", "中文"]];
+  let cameraPaused = false;
+  let resumeCameraListening = false;
+  const cameraControlIcons = {
+    pause: '<path d="M9 6v12M15 6v12"/>',
+    play: '<path d="m9 5 10 7-10 7Z"/>',
+    mic: '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/>',
+    micOff: '<path d="m3 3 18 18M9 9v3a3 3 0 0 0 5 2M9 5a3 3 0 0 1 6 1v4M5 10v2a7 7 0 0 0 12 5M19 10v2M12 19v3M8 22h8"/>'
+  };
+  const cameraControlCopy = {
+    en: { pause: "Pause companion", play: "Resume companion", mic: "Turn microphone on", micOff: "Turn microphone off", paused: "Companion paused", listening: "Microphone on", off: "Microphone off", unavailable: "Voice conversation is unavailable. An online voice service must be connected.", denied: "Microphone access was denied. Allow it in your browser settings to try again." },
+    ko: { pause: "친구 잠시 멈추기", play: "친구 다시 시작", mic: "마이크 켜기", micOff: "마이크 끄기", paused: "잠시 쉬고 있어요", listening: "마이크 켜짐", off: "마이크 꺼짐", unavailable: "음성 대화를 사용하려면 온라인 음성 서비스를 연결해주세요.", denied: "마이크 권한이 없어요. 브라우저 설정에서 허용한 후 다시 시도해주세요." },
+    zh: { pause: "暂停伙伴", play: "继续伙伴", mic: "开启麦克风", micOff: "关闭麦克风", paused: "伙伴已暂停", listening: "麦克风已开启", off: "麦克风已关闭", unavailable: "语音对话暂不可用，需要连接在线语音服务。", denied: "麦克风权限被拒绝，请在浏览器设置中允许后重试。" }
+  };
+  function cameraControlMarkup(kind) {
+    const copy = cameraControlCopy[S()];
+    const active = kind === "pause" ? !cameraPaused : !!M?.active;
+    const icon = kind === "pause" ? active ? "pause" : "play" : active ? "mic" : "micOff";
+    const label = kind === "pause" ? active ? copy.pause : copy.play : active ? copy.micOff : copy.mic;
+    return `<button type="button" class="camera-control camera-control-${kind}" data-action="companion-${kind}" aria-label="${label}" title="${label}" aria-pressed="${active}" data-no-translate><svg viewBox="0 0 24 24" aria-hidden="true">${cameraControlIcons[icon]}</svg></button>`;
+  }
+  function syncCameraControls() {
+    for (const kind of ["pause", "mic"]) {
+      const button = document.querySelector(`[data-action="companion-${kind}"]`);
+      if (!button) continue;
+      const template = document.createElement("template");
+      template.innerHTML = cameraControlMarkup(kind);
+      const updated = template.content.firstElementChild;
+      for (const attribute of ["aria-label", "title", "aria-pressed"]) button.setAttribute(attribute, updated.getAttribute(attribute));
+      button.innerHTML = updated.innerHTML;
+    }
+    const scene = document.querySelector(".camera-fullscreen");
+    if (scene) scene.dataset.companionPaused = String(cameraPaused);
+    const status = p("cameraControlStatus");
+    if (!status) return;
+    const copy = cameraControlCopy[S()];
+    if (cameraPaused) status.textContent = copy.paused;
+    else if (["denied", "audio_capture"].includes(M?.state)) status.textContent = copy.denied;
+    else if (M?.state && !["off", "starting", "listening", "hearing", "quiet", "thinking", "transcribing", "synthesizing", "speaking"].includes(M.state)) status.textContent = "";
+    else status.textContent = M?.active ? M.state === "starting" ? { en: "Connecting microphone…", ko: "마이크 연결 중…", zh: "正在连接麦克风…" }[S()] : copy.listening : "";
+  }
+  function toggleCameraPause() {
+    cameraPaused = !cameraPaused;
+    Z = !cameraPaused;
+    if (cameraPaused) {
+      resumeCameraListening = !!M?.active;
+      ct = false;
+      M?.stop();
+      ae?.stop();
+      We();
+      Ce();
+    } else if (resumeCameraListening) {
+      resumeCameraListening = false;
+      qt();
+    } else if (G) {
+      if (G.dynamicLanguage) ze(G.line, G.dynamicLanguage);
+      else Ca(G.line, G.key, G.id || P);
+    }
+    syncCameraControls();
+  }
+  async function toggleCameraMicrophone() {
+    if (M?.active) {
+      M.stop();
+      syncCameraControls();
+      return;
+    }
+    cameraPaused = false;
+    resumeCameraListening = false;
+    Z = true;
+    qt();
+    syncCameraControls();
+  }
   var al = (i) => `${Math.floor(i / 60).toString().padStart(2, "0")}:${Math.floor(i % 60).toString().padStart(2, "0")}`, nl = '<span class="wave" aria-hidden="true"><span></span><span></span><span></span><span></span></span>';
   function he(i) {
     p("toast").textContent = i, p("toast").classList.add("show"), clearTimeout(Mo), Mo = setTimeout(() => p("toast").classList.remove("show"), 4200);
@@ -4891,7 +5035,7 @@ window.addEventListener('velo:ready',()=>{
     He.setPlayback(xa, false), _e(document, "rest"), ue.stop(), xa.stop(), tl++, clearTimeout(el), document.body.classList.remove("voice-playing");
   }
   function Ca(i, e, t = P) {
-    if (M?.stop(), Ce(), Ma = t, G = { line: i, key: e, id: t }, !Z) {
+    if (M?.stop(), Ce(), Ma = t, G = { line: i, key: e, id: t }, p("cameraCaption") && (p("cameraCaption").textContent = Fe(i, W)), !Z) {
       hi("목소리를 쉬고 있어요.");
       return;
     }
@@ -5035,6 +5179,9 @@ window.addEventListener('velo:ready',()=>{
     return `<div class="camera-view ${e ? "scanning" : ""}" id="cameraView"><video id="cameraVideo" autoplay playsinline muted aria-label="실시간 후면 카메라"></video><div class="camera-placeholder"><div class="camera-empty"><span class="camera-icon">${e ? "⌗" : "◎"}</span><b>${e ? "자전거의 QR을 비춰주세요" : "당신의 세상으로 초대해요"}</b><p>${e ? "카메라를 켜고 세 소울의 QR 코드 중 하나를 화면 안에 담아주세요." : "카메라를 켜면 화면 위로 소울이 나타나요."}</p></div></div><span class="camera-label" id="cameraLabel">CAMERA OFF</span>${e ? '<div class="scan-target" aria-hidden="true"></div>' : `<div class="soul-portal" aria-hidden="true"><i></i><i></i><i></i><span>✦</span><span>✧</span><span>·</span></div><div class="soul-overlay ${P}" id="soulOverlay" data-ride-direction="${i === "ride" ? "forward" : "portrait"}">${Mt(P)}</div>`}<span class="ar-hint">${e ? "VELO SOUL 전용 QR 인식" : "화면 위의 작은 동반자 · 드래그로 돌려보기"}</span></div>${e ? '<aside id="cameraRecovery" class="camera-recovery" data-no-translate hidden></aside>' : ""}`;
   }
   function qo() {
+    cameraPaused = false;
+    resumeCameraListening = false;
+    Z = true;
     ht = [];
     Qe = null;
     const started = Date.now();
@@ -5058,6 +5205,7 @@ window.addEventListener('velo:ready',()=>{
     wireCameraShutter(p("capturePhoto"));
     Aa();
     Se();
+    playLiveIntroduction();
     ve.start();
   }
   function wireCameraShutter(shutter) {
@@ -5068,7 +5216,7 @@ window.addEventListener('velo:ready',()=>{
     };
     const finishPress = (startedAt) => {
       if (performance.now() - startedAt < holdMs || !y || D !== "camera") return;
-      requestRideFinish();
+      ul();
     };
     shutter.addEventListener("pointerdown", (event) => {
       if (!event.isPrimary || event.button !== 0) return;
@@ -5124,7 +5272,7 @@ window.addEventListener('velo:ready',()=>{
   function Tn() {
     xe.enter(P), ee === "requesting" && (ve?.stop(), ee = "off", p("cameraStart").disabled = false, p("cameraStart").textContent = "카메라 켜기");
     let i = p("cameraView");
-    i.classList.remove("awakened"), i.offsetWidth, i.classList.add("awakened"), p("cameraLabel").textContent = ee === "live" ? "● LIVE CAMERA" : "CAMERA-FREE PREVIEW", Z = true, M?.active || playLiveIntroduction(), p("cameraStatus").textContent = ee === "live" ? "카메라 화면 위에 소울이 나타났어요." : "카메라 없는 애니메이션 미리보기예요.";
+    i.classList.remove("awakened"), i.offsetWidth, i.classList.add("awakened"), p("cameraLabel").textContent = ee === "live" ? "● LIVE CAMERA" : "CAMERA-FREE PREVIEW", !cameraPaused && !M?.active && G?.key !== "hello" && playLiveIntroduction(), p("cameraStatus").textContent = ee === "live" ? "카메라 화면 위에 소울이 나타났어요." : "카메라 없는 애니메이션 미리보기예요.";
   }
   var wa = false;
   function Pn() {
@@ -5207,6 +5355,9 @@ window.addEventListener('velo:ready',()=>{
   }
   function Fo(i = false) {
     if (p("rideCameraModal")) return;
+    cameraPaused = false;
+    resumeCameraListening = false;
+    Z = true;
     M?.active || Ce(), We();
     let e = document.createElement("div");
     e.id = "rideCameraModal", e.className = "ride-camera-modal camera-fullscreen", e.dataset.sceneMode = "camera", e.setAttribute("role", "dialog"), e.setAttribute("aria-modal", "true"), e.setAttribute("aria-label", Fe("함께 기억할 순간")), e.innerHTML = Jo(true), document.body.append(e), document.body.classList.add("camera-open"), ji(), Xt(document, xe.snapshot(), S()), Aa(), Se(), i && (ye = true, qt()), ve.start();
@@ -5280,17 +5431,50 @@ window.addEventListener('velo:ready',()=>{
   document.addEventListener("change", (i) => {
     i.target.id === "rideNote" && Ot();
   });
-  function requestRideFinish() {
-    const dialog = p("finishRideDialog");
-    if (!y || !dialog || dialog.open) return;
-    if (p("rideSettings")?.open) p("rideSettings").close();
-    dialog.showModal();
-  }
-  function ul() {
-    if (!y) return;
-    ui(), j = { ...y, seconds: Math.max(0, Math.floor((Date.now() - y.started) / 1e3)), diaryVersion: 2, diaryGeneration: "writing" }, y = null;
-    let i = Re[S()];
-    pt("finish", '<section class="finish-layout diary-finish">' + $n(j) + '<div class="finish-copy" data-no-translate>' + ut.markup("farewell") + Ge.markup("farewell") + '<span class="eyebrow">A MEMORY TO KEEP</span><h1>' + i.intro + '</h1><p class="small">' + i.local + '</p><label for="rideNote">' + i.note + '</label><textarea id="rideNote" maxlength="2000" rows="4" placeholder="' + i.placeholder + '"></textarea><p class="small" id="saveStatus" role="status">' + i.saving + '</p><button class="primary accent" id="saveButton" data-action="save">' + i.view + '</button><button class="secondary" data-diary-copy="' + ie(j.id) + '">' + i.copy + '</button><button class="secondary" data-action="export-draft">' + i.image + '</button><button class="text-button" data-nav="home">' + i.back + '</button><div class="voice-status"></div></div></section>'), mt("bike=" + P + "&view=memory"), Uo(j, S()), In(W === "zh" ? "今天的回忆我收好啦，下次见。" : ti[W].farewell, W);
+  let finishingRide = false;
+  async function ul() {
+    if (finishingRide || !y && !j) return;
+    finishingRide = true;
+    const controls = [...document.querySelectorAll(".camera-fullscreen button")];
+    const enabledControls = controls.filter((button) => !button.disabled);
+    for (const button of enabledControls) button.disabled = true;
+    const closeButton = document.querySelector('[data-action="camera-exit"]');
+    closeButton?.setAttribute("aria-busy", "true");
+    try {
+      if (y) {
+        j = {
+          ...y,
+          seconds: Math.max(0, Math.floor((Date.now() - y.started) / 1e3)),
+          diaryVersion: 2,
+          diaryGeneration: "ready",
+          coverType: "companion"
+        };
+        y = null;
+      }
+      ct = false;
+      M?.stop();
+      Nn();
+      We();
+      Ce();
+      En();
+      Rt();
+      const record = j;
+      record.diary = kt(record, S());
+      if (!await Sn.save(record)) {
+        he({ en: "Could not save your ride. Tap × to try again.", ko: "여정을 저장하지 못했어요. ×를 눌러 다시 시도해주세요.", zh: "未能保存本次骑行，请点击叉号重试。" }[S()]);
+        return;
+      }
+      j = null;
+      journalMode = "records";
+      diaryListPosition = { scroll: 0, count: 0 };
+      showDiary(record);
+      void Uo(record, S());
+      void Go();
+    } finally {
+      finishingRide = false;
+      for (const button of enabledControls) if (button.isConnected) button.disabled = false;
+      closeButton?.removeAttribute("aria-busy");
+    }
   }
   async function pl(i) {
     let e = Re[S()], t = kt(i, S());
@@ -5340,7 +5524,7 @@ window.addEventListener('velo:ready',()=>{
     return ce.records.find((record) => record.id === id) ?? diaryExamples.find((record) => record.id === id);
   }
   function diaryCover(record, decorative = false) {
-    const picture = record.photos?.[0];
+    const picture = record.coverType === "companion" ? null : record.photos?.[0];
     const description = { en: "A moment from our ride", ko: "우리 여정의 한순간", zh: "旅途中的一个瞬间" }[S()];
     return picture ? '<img src="' + ie(picture) + '" alt="' + ie(decorative ? "" : description) + '" loading="lazy">' : _a(record.soul);
   }
@@ -5691,14 +5875,21 @@ window.addEventListener('velo:ready',()=>{
         return;
       }
       switch (e.dataset.action) {
+        case "companion-pause":
+          toggleCameraPause();
+          break;
+        case "companion-mic":
+          toggleCameraMicrophone();
+          break;
         case "ride-settings-open":
           p("rideSettings")?.showModal();
           break;
         case "ride-settings-close":
           p("rideSettings")?.close();
           break;
-        case "ride-voice-toggle":
-          ct = false; Sl(); break;
+        case "camera-exit":
+          await ul();
+          break;
         case "ride-text-chat":
           openRideTextChat(); break;
         case "voice-start":
@@ -5765,16 +5956,7 @@ window.addEventListener('velo:ready',()=>{
           cl();
           break;
         case "finish":
-          requestRideFinish();
-          break;
-        case "ride-finish-cancel":
-          p("finishRideDialog")?.close();
-          break;
-        case "ride-finish-confirm":
-          if (p("finishRideDialog")?.open) {
-            p("finishRideDialog").close();
-            ul();
-          }
+          await ul();
           break;
         case "save":
           ml();
@@ -5787,7 +5969,6 @@ window.addEventListener('velo:ready',()=>{
   });
   p("infoDialog").querySelector(".dialog-close").onclick = () => p("infoDialog").close();
   document.addEventListener("keydown", (i) => {
-    if (p("finishRideDialog")?.open) return;
     let e = document.querySelector(".camera-settings[open]");
     if (i.key === "Escape" && e) {
       e.open = false, e.querySelector("summary").focus(), i.preventDefault();
@@ -5861,10 +6042,6 @@ window.addEventListener('velo:ready',()=>{
     let i = document.querySelector("dialog[open]");
     if (i) {
       i.close();
-      return;
-    }
-    if (y && p("finishRideDialog")) {
-      requestRideFinish();
       return;
     }
     if (p("rideCameraModal")) {
@@ -5948,66 +6125,47 @@ window.addEventListener('velo:ready',()=>{
   function vl(i) {
     return `<section class="camera-fullscreen" data-scene-mode="camera">${Jo(i)}</section>`;
   }
-  const rideLanguages = [["auto", "Auto"], ["en", "English"], ["ko", "한국어"], ["zh", "中文"]];
   function bl() {
     const copy = Ao[S()];
     const selected = yi();
     const closeIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>';
     return `<dialog class="ride-settings-panel" id="rideSettings" aria-labelledby="rideSettingsTitle">
       <header data-no-translate><h2 id="rideSettingsTitle">${copy.more}</h2><button type="button" class="camera-round" data-action="ride-settings-close" aria-label="${copy.close}">${closeIcon}</button></header>
-      <button type="button" data-action="finish" aria-haspopup="dialog" data-no-translate>${copy.finish}</button>
       <button id="cameraStart" data-action="camera-start">카메라 켜기</button>
       <span class="sr-only" id="cameraStatus" role="status"></span>
       <button data-action="gps" data-gps-toggle data-no-translate>GPS</button>
       <span class="sr-only" data-gps-status data-no-translate role="status"></span>
-      <button type="button" data-action="ride-text-chat" data-no-translate>${rideTextChatLabel[S()]}</button>
       <fieldset class="ride-language" data-no-translate>
         <legend>${copy.language}</legend>
         <div class="language-options" style="--choice-count:4;--choice-index:${Math.max(0, rideLanguages.findIndex(([value]) => value === selected))}">
           ${rideLanguages.map(([value, label]) => `<label><input type="radio" name="ride-language" value="${value}" ${value === selected ? "checked" : ""}><span>${label}</span></label>`).join("")}
         </div>
       </fieldset>
-      <p class="small" data-no-translate>${liveVoicePrivacy[S()]}</p>
-      <details class="ride-map-credits" data-no-translate>
-        <summary>${{ en: "Map sources", ko: "지도 출처", zh: "地图来源" }[S()]}</summary>
-        <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> ·
-        <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">© OpenMapTiles</a> ·
-        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>
-      </details>
     </dialog>`;
   }
   function Jo(riding) {
     const language = S();
     const copy = Ao[language];
-    const scene = Zi[language];
     const photos = riding ? y.photos : ht;
     const holdHint = { en: "Tap to take a photo. Hold to finish the ride.", ko: "누르면 촬영, 길게 누르면 여정을 마쳐요.", zh: "轻按拍照，长按结束骑行。" }[language];
     const photoLabel = { en: "Download latest photo", ko: "최근 사진 저장", zh: "下载最近的照片" }[language];
-    const finish = {
-      en: { title: "Finish this ride?", body: "Your ride will end and your companion will write its diary.", cancel: "Keep riding" },
-      ko: { title: "라이딩을 마칠까요?", body: "라이딩을 마치면 친구가 이번 여정의 일기를 써요.", cancel: "계속 달리기" },
-      zh: { title: "结束这次骑行？", body: "结束后，你的伙伴会写下这次骑行的日记。", cancel: "继续骑行" }
-    }[language];
-    return ol(riding ? "ride" : "encounter") + Xs(language) + `
+    return ol(riding ? "ride" : "encounter") + `
     <div class="camera-top">
+      <button class="camera-round" data-action="camera-exit" aria-label="${copy.close}" data-no-translate><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button>
       <div class="camera-name" data-no-translate><b>${B[P].en}</b></div>
       <button type="button" class="camera-round" data-action="ride-settings-open" aria-haspopup="dialog" aria-label="${copy.more}" data-no-translate><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button>
     </div>
-    <dialog id="finishRideDialog" class="ride-end-dialog diary-delete-dialog" aria-labelledby="finishRideTitle" aria-describedby="finishRideBody" data-no-translate>
-      <h2 id="finishRideTitle">${finish.title}</h2><p id="finishRideBody">${finish.body}</p>
-      <div class="settings-actions"><button type="button" data-action="ride-finish-cancel" autofocus>${finish.cancel}</button><button type="button" data-action="ride-finish-confirm">${copy.finish}</button></div>
-    </dialog>
     ${bl()}
-    ${rideTalkPanel(language, !!M?.active, M?.state || "off", !!M?.audioIssue, Xr[language].sound)}
     <div class="camera-live-caption" data-no-translate><p id="heardText" class="heard-text" aria-live="off"></p><p id="cameraCaption" role="status" aria-live="polite" aria-atomic="true"></p></div>
     <div class="camera-bottom">
-      <button type="button" class="camera-scene-tab" data-scene-mode="camera" aria-pressed="true" data-no-translate>${scene.camera}</button>
+      ${cameraControlMarkup("pause")}
       <div class="camera-capture-controls">
         <button class="camera-photo-preview" id="downloadPhoto" data-action="download-photo" aria-label="${photoLabel}" data-no-translate ${photos.length ? "" : "disabled"}><img id="cameraThumb" alt="" ${photos.length ? 'src="' + ie(photos.at(-1)) + '"' : "hidden"}><span id="cameraPhotoCount">${photos.length}</span></button>
         <button class="camera-shutter" id="capturePhoto" data-action="capture" data-camera-live="false" aria-label="${copy.capture} · ${holdHint}" title="${holdHint}" data-no-translate><span></span></button>
+        ${riding ? `<button class="ride-finish" data-action="finish" data-no-translate>${copy.finish}</button>` : ""}
       </div>
-      <button type="button" class="camera-scene-tab" data-scene-mode="map" aria-pressed="false" data-no-translate>${scene.map}</button>
-    </div>`;
+      ${cameraControlMarkup("mic")}
+    </div><p class="camera-control-status" id="cameraControlStatus" role="status" aria-live="polite" data-no-translate></p>`;
   }
   function ze(i, e, t = P, a = () => {}, speechOptions) {
     return M?.active ? M.announce(i, e, a) : In(i, e, t, a, speechOptions);
@@ -6032,6 +6190,7 @@ window.addEventListener('velo:ready',()=>{
     }), Pt = null;
   }
   function kl(i) {
+    syncCameraControls();
     _e(document, ["thinking", "transcribing", "synthesizing"].includes(i) ? "thinking" : i === "speaking" ? "talking" : ["listening", "hearing", "quiet"].includes(i) ? "listening" : "rest"), i === "listening" && setTimeout(() => An(), 350), fs(document, S(), !!M?.active, i), document.querySelectorAll(".camera-conversation").forEach((e) => e.dataset.voiceState = i), document.querySelectorAll('[data-action="audio-unlock"]').forEach((e) => e.hidden = !M?.audioIssue), M?.active || Nn();
   }
   function yi() {

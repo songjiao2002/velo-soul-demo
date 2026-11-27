@@ -1,6 +1,6 @@
 # Published mobile UI
 
-`ride/` is the group's published site downloaded on 2026-11-16. `SOURCE.json` records the source URL and hashes. Preserve these files as the reference; `app.pretty.js` is the same script formatted with esbuild.
+`ride/` contains the group's mobile UI published on 2026-11-26 and downloaded on 2026-11-27. `SOURCE.json` records its URL and file hashes. HTML omits the host's per-request Cloudflare script. `app.pretty.js` is the published JavaScript formatted with esbuild in UTF-8.
 
 `npm run build` runs `build-reference.mjs`, copies the original styles, character renderer and interactions, and inserts `live-adapter.js` with imports from `live-imports.txt`. The resulting `public/reference-entry.generated.mjs` is bundled into the app. Do not edit the generated entry directly.
 

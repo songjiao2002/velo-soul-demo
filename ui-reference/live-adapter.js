@@ -4,15 +4,13 @@
 Ft=liveDeviceMedia;
 Qt=liveOutputLanguage;ds=livePlaceFallback;on=liveBikeMemoryLine;
 la=liveWeatherLine;mn=liveWeatherGreeting;
-Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;kt=liveRideDiary;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S,prefetchSpeech:(text,language,soul,playback)=>ue.preload(text,{language,soul,...playback}),primeReplies:(id,lang)=>ue.primeRideReplies(id,lang),canPrepareFirstSpeech:()=>!M?.active&&Z&&ue.canPrepareFirstSpeech()});
+const referenceRideDiary=kt;
+kt=(record,language)=>record.sample?referenceRideDiary(record,language):liveRideDiary(record,language);
+Q=liveFetch;hs=liveDiary;cs=liveDiaryCopy;Re=liveDiaryLabels;So=options=>liveSoulChat({...options,getUILanguage:S,prefetchSpeech:(text,language,soul,playback)=>ue.preload(text,{language,soul,...playback}),primeReplies:(id,lang)=>ue.primeRideReplies(id,lang),canPrepareFirstSpeech:()=>!M?.active&&Z&&ue.canPrepareFirstSpeech()});
 Tt=LiveSpeech;at=LiveMicrophone;ua=options=>liveRecognition({...options,standby:true});Et=LiveAudioSession;xi=LiveMemory;
 Ga=rideVoiceControlsMarkup;
 fs=paintRideVoiceControls;
 const referenceVoiceState=kl;
-function syncRideTalk(state=M?.state||'off'){
- paintRideTalk(document.querySelector('.ride-talk-panel'),S(),!!M?.active,state,!!M?.audioIssue);
-}
-document.addEventListener('velo:screen',()=>syncRideTalk());
 function openRideTextChat(){
  p('rideSettings')?.close();
  V.open(P);
@@ -21,6 +19,69 @@ function openRideTextChat(){
  if(composer)composer.open=true;
  input?.focus();
 }
+const referenceCameraControlMarkup=cameraControlMarkup;
+cameraControlMarkup=function(kind){
+ const markup=referenceCameraControlMarkup(kind);
+ if(kind!=='mic')return markup;
+ const description={en:'Hold to type a message, or press Shift+F10.',ko:'길게 누르거나 Shift+F10을 눌러 메시지를 입력하세요.',zh:'长按或按 Shift+F10 输入文字消息。'}[S()];
+ return markup.replace(' data-action=',` aria-description="${description}" aria-keyshortcuts="Shift+F10" data-action=`);
+};
+function bindRideMicTextChat(doc,win,open){
+ const mic=event=>event.target.closest?.('[data-action="companion-mic"]');
+ let press=null,suppressClick=null;
+ const cancel=()=>{
+   if(press)win.clearTimeout(press.timer);
+   press=null;
+ };
+ const show=button=>{
+   if(suppressClick===button)return;
+   suppressClick=button;
+   cancel();
+   open();
+ };
+ doc.addEventListener('pointerdown',event=>{
+   cancel();
+   suppressClick=null;
+   const button=mic(event);
+   if(!button||event.button!==0||!event.isPrimary)return;
+   press={id:event.pointerId,x:event.clientX,y:event.clientY,timer:win.setTimeout(()=>{
+     if(button.isConnected)show(button);
+     else cancel();
+   },550)};
+ },true);
+ doc.addEventListener('pointermove',event=>{
+   if(press?.id===event.pointerId&&Math.hypot(event.clientX-press.x,event.clientY-press.y)>10)cancel();
+ },true);
+ for(const type of ['pointerup','pointercancel']){
+   doc.addEventListener(type,event=>{if(press?.id===event.pointerId)cancel();},true);
+ }
+ win.addEventListener('blur',cancel);
+ doc.addEventListener('visibilitychange',()=>{if(doc.hidden)cancel();});
+ doc.addEventListener('velo:screen',cancel);
+ doc.addEventListener('contextmenu',event=>{
+   const button=mic(event);
+   if(!button)return;
+   event.preventDefault();
+   if(press||event.button===2)show(button);
+ },true);
+ doc.addEventListener('keydown',event=>{
+   const button=mic(event);
+   if(!button||!(event.key==='ContextMenu'||event.key==='F10'&&event.shiftKey))return;
+   event.preventDefault();
+   if(!event.repeat){cancel();open();}
+ },true);
+ // Touch browsers can retarget the release to the newly opened dialog. Consume
+ // its compatibility events so it cannot blur the composer or press a dialog button.
+ for(const type of ['mousedown','click']){
+   doc.addEventListener(type,event=>{
+     if(!suppressClick||event.detail===0)return;
+     event.preventDefault();
+     event.stopImmediatePropagation();
+     if(type==='click')suppressClick=null;
+   },true);
+ }
+}
+bindRideMicTextChat(document,window,openRideTextChat);
 kl=function(state){
  const caption=p('heardText');
  if(caption?.dataset.transcriptState==='interim'&&(!M?.active||['starting','listening','reconnecting','audio_reconnecting','speaking_no_interrupt'].includes(state))){
@@ -28,15 +89,27 @@ kl=function(state){
    delete caption.dataset.transcriptState;
  }
  referenceVoiceState(state);
- syncRideTalk(state);
+ const status=p('cameraControlStatus');
+ if(status&&!cameraPaused&&rideTextFallbackStates.has(state)){
+   status.textContent=rideVoiceStatus(S(),state)+' ';
+   const button=document.createElement('button');
+   button.type='button';button.dataset.action='ride-text-chat';
+   button.textContent=rideTextChatLabel[S()];status.append(button);
+ }
 };
+const rideTextFallbackStates=new Set(['denied','unsupported','failed','network','audio_retry','start_timeout','audio_capture','not_configured','provider_auth','daily_limit','provider_quota','rate_limited','service_busy','provider_unavailable']);
 wt=class extends LiveConversation {
  constructor(options={}){super({...options,primeReplies:(id,lang)=>ue.primeRideReplies(id,lang),canPrepareFirstSpeech:()=>Z&&ue.canPrepareFirstSpeech(),prefetchSpeech:(text,language,soul,playback)=>ue.preload(text,{language,soul,...playback}),stopSpeech:()=>{ue.cancelPrefetches();options.stopSpeech?.();}});}
 };
 Ds=liveIntroduction;Kt=liveIntroClip;
 Mi=(text,language='auto')=>liveReplyLanguage(text,language,P);
 en=liveParseQR;$i=liveBrowserLinks;
-mt=query=>history.replaceState(null,'',query?'/?'+companionQuery(query):'/');
+mt=query=>{
+ const suffix=query?'?'+companionQuery(query):'';
+ const framed=window.frameElement?.id==='veloRideFrame';
+ history.replaceState(null,'',(framed?'/index.html':'/')+suffix);
+ if(framed)window.parent.history.replaceState(null,'','/'+suffix);
+};
 Vo=function(){
  const query=new URLSearchParams(location.search),soul=currentSoulQR(query);
  if(query.has('bike')&&!soul){showCompanions();he(({en:'This QR code has expired. Please scan a new code.',ko:'만료된 QR 코드예요. 새 코드를 스캔해 주세요.',zh:'这个二维码已作废，请扫描新码。'})[S()]);return;}
@@ -94,6 +167,7 @@ yi=()=>speechLanguages.input(S());
 function playLiveIntroduction(){
  const intro=Ln(P,yi());
  In(intro.text,intro.language);
+ if(G)G.key='hello';
 }
 function syncSpeechLanguage(){
  const language=yi(),voice=speechLanguages.voice(S(),P);
@@ -101,9 +175,6 @@ function syncSpeechLanguage(){
  W=voice;
  const select=p('voiceSelect');
  select.value=language;
- p('voiceSelectLabel').textContent=conversationLanguageLabel[S()];
- const encounter=p('encounterVoiceLanguage');
- if(encounter)encounter.value=language;
  const choices=[...(p('rideSettings')?.querySelectorAll('[name=ride-language]')||[])];
  const index=choices.findIndex(option=>option.value===select.value);
  if(index>=0){
@@ -124,16 +195,21 @@ jn=function(language){
  syncSpeechLanguage();
  La();
 };
-document.addEventListener('change',event=>{
- if(event.target.id!=='encounterVoiceLanguage')return;
- ue.prepare();jn(event.target.value);Z=true;playLiveIntroduction();
-});
 Eo=function(soul){W=speechLanguages.voice(S(),soul);referenceTheme(soul);};
 const referenceStop=Ce;
 Ce=function(){liveIdlePurr?.activity();referenceStop();};
 let liveIdlePurr;
 window.addEventListener('velo:ready',()=>{
  const settings=p('appSettingsDialog');
+ const voiceLabel=p('voiceSelectLabel');
+ const toggleLanguages=()=>{
+   const expanded=settings.toggleAttribute('data-all-voice-languages');
+   voiceLabel.setAttribute('aria-expanded',String(expanded));
+ };
+ voiceLabel.addEventListener('click',toggleLanguages);
+ voiceLabel.addEventListener('keydown',event=>{
+   if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLanguages();}
+ });
  let inputTapped=false;
  // The published form dispatches change only if its hidden select changes value.
  // A rider who taps the current default and saves has chosen it explicitly too.
@@ -145,8 +221,8 @@ window.addEventListener('velo:ready',()=>{
      inputTapped=false;
    }
  },true);
- settings.addEventListener('close',()=>{inputTapped=false;});
- liveIdlePurr=new LivePurr({session:He,canPlay:()=>P==='mori'&&Z&&!document.hidden&&!!M?.active&&['listening','quiet'].includes(M.state)&&!V.isOpen()&&!document.body.classList.contains('voice-playing')});
- const timer=setInterval(()=>liveIdlePurr.tick(),250);
- window.addEventListener('pagehide',()=>{clearInterval(timer);liveIdlePurr.stop();},{once:true});
-},{once:true});
+ settings.addEventListener('close',()=>{
+   inputTapped=false;settings.removeAttribute('data-all-voice-languages');
+   voiceLabel.setAttribute('aria-expanded','false');
+ });
+ liveIdlePurr=new LivePurr({session:He,canPlay:()=>P==='mori'&&Z&&!document.hidden&&!!M?.active&&['listening','quiet'].includes(M.state)&&!V.isOpen()&&!document.bo
